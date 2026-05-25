@@ -9,34 +9,28 @@
 
 ## Currently Working On
 
-- Ready for **Blueprint Day 7** — session persistence + `AppState` auth guard
+- Ready for **Blueprint Day 8** — permissions and device detection
 
 ## Completed
 
-- Xcode macOS SwiftUI project (macOS 14.0+ target on app)
 - Single Git repo at project root
-- MVVM folder layout under `FrameFlow/FrameFlow/App/`
-- `NavigationSplitView` shell: sidebar **Home, Settings, Account** (Option B)
-- `AppRouter` + `AppRoute` (18 routes; auth screens now functional)
-- **Blueprint Day 2:** SPM dependencies + `Config.example.swift` + `.gitignore`
-- **Blueprint Day 5:** `SupabaseClientProvider` + `AuthService`
-- **Blueprint Day 6:** Login, Sign Up, Forgot Password views + `@Observable` ViewModels
+- MVVM layout + `NavigationSplitView` shell (Option B)
+- **Blueprint Day 2–6:** SPM, auth service, auth UI
+- **Blueprint Day 7:** `AppState`, session restore on launch, root auth routing (onboarding → login → main shell)
 
 ## Next Task
 
-1. **Blueprint Day 7** — `AppState` session check on launch, onboarding guard, root auth routing
-2. Do not start ScreenCaptureKit or recording engine until auth flow is stable
+1. **Blueprint Day 8** — screen recording / camera / mic permission status and guides
+2. Do not start ScreenCaptureKit recording engine until permissions foundation is in place
 
 ## Important Decisions
 
 | Topic | Decision |
 |-------|----------|
-| Platform | Native macOS, SwiftUI |
-| Architecture | MVVM; `@Observable` for routers and auth ViewModels |
-| Navigation | **Option B** — sidebar + `AppRouter`; auth screens navigate via `router.navigate(to:)` |
-| Auth UI | Day 6 complete; no root auth guard until Day 7 |
-| Secrets | `Config.swift` gitignored; never committed |
-| Capture / captions | Later phases only |
+| Auth guard | `AppState.authStatus` drives `RootView`; sidebar only when `.authenticated` |
+| Onboarding flag | UserDefaults key `hasCompletedOnboarding` |
+| Session restore | `AuthService.restoreSession()` on bootstrap (refresh if needed) |
+| Sign out (Day 7) | Temporary **Sign Out** on Profile placeholder for testing |
 
 ## Reference Docs
 

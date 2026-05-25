@@ -98,6 +98,22 @@ final class AuthService {
         client.auth.currentSession
     }
 
+    func restoreSession() async -> Session? {
+        guard SupabaseClientProvider.isConfigured else { return nil }
+
+        if let session = client.auth.currentSession, !session.isExpired {
+            return session
+        }
+
+        do {
+            let session = try await client.auth.session
+            guard !session.isExpired else { return nil }
+            return session
+        } catch {
+            return nil
+        }
+    }
+
     private func ensureConfigured() throws {
         guard SupabaseClientProvider.isConfigured else {
             throw AuthServiceError.missingConfiguration

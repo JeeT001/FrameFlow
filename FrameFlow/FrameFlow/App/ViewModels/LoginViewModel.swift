@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import Supabase
 
 @Observable
 final class LoginViewModel {
@@ -28,26 +29,25 @@ final class LoginViewModel {
     }
 
     @discardableResult
-    func logIn() async -> Bool {
+    func logIn() async -> User? {
         errorMessage = nil
 
         if let validationError = validate() {
             errorMessage = validationError
-            return false
+            return nil
         }
 
         isLoading = true
         defer { isLoading = false }
 
         do {
-            _ = try await AuthService.shared.signIn(
+            return try await AuthService.shared.signIn(
                 email: email.trimmingCharacters(in: .whitespacesAndNewlines),
                 password: password
             )
-            return true
         } catch {
             errorMessage = userFacingMessage(for: error)
-            return false
+            return nil
         }
     }
 

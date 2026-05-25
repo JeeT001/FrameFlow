@@ -6,6 +6,7 @@
 import SwiftUI
 
 struct SignUpView: View {
+    @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
     @State private var viewModel = SignUpViewModel()
 
@@ -46,8 +47,9 @@ struct SignUpView: View {
                 Task {
                     let outcome = await viewModel.signUp()
                     switch outcome {
-                    case .signedIn:
-                        router.navigate(to: .dashboard)
+                    case .signedIn(let user):
+                        appState.markAuthenticated(user: user)
+                        router.selectSidebar(.home)
                     case .emailConfirmationRequired, .failed:
                         break
                     }
@@ -78,5 +80,6 @@ struct SignUpView: View {
 
 #Preview {
     SignUpView()
+        .environment(AppState())
         .environment(AppRouter())
 }

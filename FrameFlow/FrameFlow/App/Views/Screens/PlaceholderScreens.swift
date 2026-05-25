@@ -38,7 +38,22 @@ struct RecordingDetailView: View {
 }
 
 struct ProfileView: View {
-    var body: some View { ScreenPlaceholder(route: .profile) }
+    @Environment(AppState.self) private var appState
+    @Environment(AppRouter.self) private var router
+
+    var body: some View {
+        ScreenPlaceholder(route: .profile)
+            .toolbar {
+                ToolbarItem(placement: .automatic) {
+                    Button("Sign Out") {
+                        Task {
+                            await appState.signOut()
+                            router.navigate(to: .login)
+                        }
+                    }
+                }
+            }
+    }
 }
 
 struct SettingsView: View {
@@ -55,10 +70,6 @@ struct PaymentView: View {
 
 struct HelpView: View {
     var body: some View { ScreenPlaceholder(route: .help) }
-}
-
-struct OnboardingView: View {
-    var body: some View { ScreenPlaceholder(route: .onboarding) }
 }
 
 struct ResetPasswordView: View {

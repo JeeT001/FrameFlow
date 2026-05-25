@@ -4,9 +4,10 @@
 //
 
 import Foundation
+import Supabase
 
 enum SignUpOutcome {
-    case signedIn
+    case signedIn(User)
     case emailConfirmationRequired
     case failed
 }
@@ -56,12 +57,12 @@ final class SignUpViewModel {
         defer { isLoading = false }
 
         do {
-            _ = try await AuthService.shared.signUp(
+            let user = try await AuthService.shared.signUp(
                 email: email.trimmingCharacters(in: .whitespacesAndNewlines),
                 password: password,
                 name: name.trimmingCharacters(in: .whitespacesAndNewlines)
             )
-            return .signedIn
+            return .signedIn(user)
         } catch AuthServiceError.emailConfirmationRequired {
             successMessage = AuthServiceError.emailConfirmationRequired.errorDescription
             return .emailConfirmationRequired

@@ -13,8 +13,12 @@ All notable changes to FrameFlow are documented in this file.
 - `AuthServiceError` for user-facing auth error messages
 - Login, Sign Up, and Forgot Password screens with `@Observable` ViewModels
 - `AuthFormLayout` shared auth form styling
+- `AppState` with root auth routing and session restore on launch
+- Minimal first-run `OnboardingView`
+- `AuthService.restoreSession()` for bootstrap
 
 ### Changed
 - Moved `Services`, `Resources`, and `Utils` stubs into dedicated subfolders under `App/`
 - Excluded `Config.example.swift` from compile when local `Config.swift` is present
 - Replaced auth screen placeholders with functional Supabase-backed forms
+- `FrameFlowApp` launches `RootView` instead of always showing `MainAppView`

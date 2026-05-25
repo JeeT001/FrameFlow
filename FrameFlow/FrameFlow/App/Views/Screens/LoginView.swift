@@ -6,6 +6,7 @@
 import SwiftUI
 
 struct LoginView: View {
+    @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
     @State private var viewModel = LoginViewModel()
 
@@ -30,9 +31,9 @@ struct LoginView: View {
 
             Button {
                 Task {
-                    let success = await viewModel.logIn()
-                    if success {
-                        router.navigate(to: .dashboard)
+                    if let user = await viewModel.logIn() {
+                        appState.markAuthenticated(user: user)
+                        router.selectSidebar(.home)
                     }
                 }
             } label: {
@@ -68,5 +69,6 @@ struct LoginView: View {
 
 #Preview {
     LoginView()
+        .environment(AppState())
         .environment(AppRouter())
 }

@@ -162,3 +162,30 @@ chore: merge nested FrameFlow repo into single root repository
 ```
 feat: login and sign up screens with form validation
 ```
+
+---
+
+## Blueprint Day 7 — Session persistence + AppState (2026-05-26)
+
+### Completed
+- `AppState` (`@Observable`) with `AuthStatus`: `.firstLaunch`, `.unauthenticated`, `.authenticated`
+- UserDefaults key: **`hasCompletedOnboarding`** (false until onboarding completed)
+- `bootstrap(router:)` restores session via `AuthService.restoreSession()` or routes to login
+- `RootView` switches: onboarding → `AuthContainerView` → `MainAppView`
+- `AuthContainerView` shows Login / Sign Up / Forgot Password without sidebar
+- Login & Sign Up call `appState.markAuthenticated(user:)` on success
+- Minimal `OnboardingView` with **Get Started** → `completeOnboarding()`
+- Temporary **Sign Out** on Profile placeholder
+- **Build:** SUCCESS
+
+### Test steps
+1. First launch → onboarding → Get Started → Login
+2. Log in → main shell / dashboard
+3. Quit (⌘Q), relaunch → main shell (session restored)
+4. Account → Sign Out → Login screen
+5. Relaunch → Login (no session)
+
+### Suggested commit
+```
+feat: session persistence and auth guard via AppState
+```
