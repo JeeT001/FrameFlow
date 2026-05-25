@@ -119,3 +119,20 @@ chore: add SPM dependencies, Config.swift, and .gitignore
 ```
 feat: Supabase client and AuthService
 ```
+
+---
+
+## Repo consolidation (2026-05-26)
+
+### Completed
+- Removed nested git repo at `FrameFlow/FrameFlow/.git` (inner commit `588f3e3` preserved in history until merge commit)
+- Converted outer gitlink (`160000`) to normal tracked files under `FrameFlow/`
+- Single repository root: `/Users/simranjit/Desktop/FrameFlow`
+- Merged to one root `.gitignore`; removed `FrameFlow/.gitignore`
+- Stopped tracking `.derivedData/` build artifacts in outer repo
+- `Config.swift` remains gitignored via root `.gitignore`
+
+### Suggested commit
+```
+chore: merge nested FrameFlow repo into single root repository
+```

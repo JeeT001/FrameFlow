@@ -35,7 +35,8 @@
 | Architecture | MVVM; `@Observable` for routers/state |
 | Navigation | **Option B** — blueprint sidebar + `AppRoute` (unchanged until Day 7) |
 | Auth | `AuthService` + `SupabaseClientProvider`; credentials from gitignored `Config.swift` |
-| Secrets | `Config.example.swift` committed; `Config.swift` gitignored |
+| Secrets | `Config.example.swift` committed; `Config.swift` gitignored at repo root |
+| Git | **Single repo** at project root (`/Users/simranjit/Desktop/FrameFlow`); no nested submodule |
 | Capture / captions | ScreenCaptureKit / WhisperKit — later phases only |
 
 ## Code Layout
