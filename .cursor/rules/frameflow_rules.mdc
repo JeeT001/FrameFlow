@@ -1,0 +1,44 @@
+---
+description: FrameFlow project rules
+alwaysApply: true
+---
+
+You are working on FrameFlow, a native macOS creator recording app.
+
+Always read:
+- Docs/CURRENT_STATUS.md
+- Docs/FrameFlow_Master_Blueprint.md
+- Docs/DEV_LOG.md
+
+Tech Stack:
+- SwiftUI
+- macOS 14.0+
+- ScreenCaptureKit
+- AVFoundation
+- WhisperKit
+- Supabase
+- RevenueCat
+- Sparkle 2
+
+Navigation (blueprint — Option B):
+- Sidebar: Home, Settings, Account (not Home/Record/Projects)
+- Home maps to Dashboard; Account maps to Profile
+- Full app flow uses `AppRoute` and `AppRouter` per the blueprint
+
+Architecture Rules:
+- Use MVVM
+- Views go inside App/Views
+- ViewModels go inside App/ViewModels
+- Models go inside App/Models
+- Services go inside App/Services
+- Utils go inside App/Utils
+- Components go inside App/Components
+- Keep views small and reusable
+- Use async/await where suitable
+- Do not use private Apple APIs
+
+Workflow Rules:
+- Explain changes step by step
+- Do not jump ahead to recording engine yet
+- Suggest a Git commit message after each completed feature
+- Update CURRENT_STATUS.md and DEV_LOG.md when major progress is made

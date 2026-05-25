@@ -1,0 +1,139 @@
+{
+  "" : {
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlow-primary.dia",
+    "emit-module-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlow-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlow-primary-emit-module.dia",
+    "pch" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlow-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlow-primary.swiftdeps"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/FrameFlow/FrameFlow/App/Components/Components.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Components.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Components.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Components.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Components.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Components.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Components.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Components.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Components~partial.swiftmodule"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/FrameFlow/FrameFlow/App/Models/Models.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Models.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Models.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Models.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Models.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Models.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Models.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Models.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Models~partial.swiftmodule"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/FrameFlow/FrameFlow/App/Resources.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Resources.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Resources.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Resources.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Resources.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Resources.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Resources.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Resources.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Resources~partial.swiftmodule"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/FrameFlow/FrameFlow/App/Services.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Services.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Services.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Services.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Services.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Services.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Services.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Services.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Services~partial.swiftmodule"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/FrameFlow/FrameFlow/App/Utils.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Utils.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Utils.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Utils.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Utils.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Utils.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Utils.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Utils.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/Utils~partial.swiftmodule"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/FrameFlow/FrameFlow/App/ViewModels/ViewModels.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ViewModels.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ViewModels.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ViewModels.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ViewModels.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ViewModels.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ViewModels.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ViewModels.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ViewModels~partial.swiftmodule"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/FrameFlow/FrameFlow/App/Views/ContentView.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ContentView.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/ContentView~partial.swiftmodule"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/FrameFlow/FrameFlow/App/Views/MainAppView.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/MainAppView.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/MainAppView.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/MainAppView.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/MainAppView.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/MainAppView.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/MainAppView.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/MainAppView.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/MainAppView~partial.swiftmodule"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/FrameFlow/FrameFlow/App/Views/RouteDetailView.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/RouteDetailView.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/RouteDetailView.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/RouteDetailView.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/RouteDetailView.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/RouteDetailView.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/RouteDetailView.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/RouteDetailView.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/RouteDetailView~partial.swiftmodule"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/FrameFlow/FrameFlow/App/Views/Screens/PlaceholderScreens.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/PlaceholderScreens.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/PlaceholderScreens.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/PlaceholderScreens.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/PlaceholderScreens.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/PlaceholderScreens.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/PlaceholderScreens.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/PlaceholderScreens.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/PlaceholderScreens~partial.swiftmodule"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/FrameFlow/FrameFlow/App/Views/SidebarView.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/SidebarView.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/SidebarView.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/SidebarView.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/SidebarView.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/SidebarView.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/SidebarView.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/SidebarView.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/SidebarView~partial.swiftmodule"
+  },
+  "/Users/simranjit/Desktop/FrameFlow/FrameFlow/FrameFlow/FrameFlowApp.swift" : {
+    "const-values" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlowApp.swiftconstvalues",
+    "dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlowApp.d",
+    "diagnostics" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlowApp.dia",
+    "index-unit-output-path" : "/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlowApp.o",
+    "llvm-bc" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlowApp.bc",
+    "object" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlowApp.o",
+    "swift-dependencies" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlowApp.swiftdeps",
+    "swiftmodule" : "/Users/simranjit/Desktop/FrameFlow/.derivedData/Build/Intermediates.noindex/FrameFlow.build/Debug/FrameFlow.build/Objects-normal/arm64/FrameFlowApp~partial.swiftmodule"
+  }
+}
