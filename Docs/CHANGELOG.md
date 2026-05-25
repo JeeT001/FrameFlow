@@ -16,6 +16,9 @@ All notable changes to FrameFlow are documented in this file.
 - `AppState` with root auth routing and session restore on launch
 - Minimal first-run `OnboardingView`
 - `AuthService.restoreSession()` for bootstrap
+- `PermissionManager` and `DeviceCapabilityManager`
+- Settings permissions UI (Day 8 testing section)
+- `FrameFlow.entitlements` with sandbox, network client, camera, and mic
 
 ### Changed
 - Moved `Services`, `Resources`, and `Utils` stubs into dedicated subfolders under `App/`

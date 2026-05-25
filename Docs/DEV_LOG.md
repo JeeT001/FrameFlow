@@ -189,3 +189,31 @@ feat: login and sign up screens with form validation
 ```
 feat: session persistence and auth guard via AppState
 ```
+
+---
+
+## Blueprint Day 8 — Permission Manager + Device Capability (2026-05-26)
+
+### Completed
+- `PermissionManager` — screen recording (SCShareableContent), camera/mic (AVFoundation), System Settings URLs
+- `DeviceCapabilityManager` — Apple Silicon detection via `sysctlbyname("hw.optional.arm64")`
+- `FrameFlow.entitlements` — sandbox, network client, camera, audio-input
+- Info.plist usage strings for camera and microphone (`INFOPLIST_KEY_*`)
+- `SettingsView` + `SettingsViewModel` — permission status rows, Check Status, Open System Settings
+- Debug device capability section in Settings
+- **Build:** SUCCESS
+
+### Sandbox note
+App Sandbox must keep **Outgoing Connections (Client)** enabled (`com.apple.security.network.client` + `ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES`) or Supabase auth fails silently.
+
+### Manual test steps
+1. Log in → Sidebar **Settings**
+2. Permissions section shows Screen Recording / Camera / Microphone status
+3. Tap **Open System Settings** → correct Privacy pane opens
+4. Grant permission in macOS → return → **Check Status** → status updates
+5. Device Capabilities section shows Apple Silicon / max windows / 4K / FPS
+
+### Suggested commit
+```
+feat: permission manager and device capability detection
+```

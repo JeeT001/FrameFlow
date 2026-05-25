@@ -56,10 +56,6 @@ struct ProfileView: View {
     }
 }
 
-struct SettingsView: View {
-    var body: some View { ScreenPlaceholder(route: .settings) }
-}
-
 struct SubscriptionView: View {
     var body: some View { ScreenPlaceholder(route: .subscription) }
 }

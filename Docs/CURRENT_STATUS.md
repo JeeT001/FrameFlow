@@ -5,35 +5,32 @@
 
 ## Current Phase
 
-**Phase 3 — Authentication** (blueprint-aligned, Option B)
+**Phase 4 — Permissions & core screens** (blueprint-aligned, Option B)
 
 ## Currently Working On
 
-- Ready for **Blueprint Day 8** — permissions and device detection
+- Ready for **Blueprint Day 9** — Dashboard with recordings list and empty state
 
 ## Completed
 
-- Single Git repo at project root
-- MVVM layout + `NavigationSplitView` shell (Option B)
-- **Blueprint Day 2–6:** SPM, auth service, auth UI
-- **Blueprint Day 7:** `AppState`, session restore on launch, root auth routing (onboarding → login → main shell)
+- Single Git repo; MVVM layout; auth (Days 5–7)
+- **Blueprint Day 8:** `PermissionManager`, `DeviceCapabilityManager`, entitlements, minimal Settings permissions UI
 
 ## Next Task
 
-1. **Blueprint Day 8** — screen recording / camera / mic permission status and guides
-2. Do not start ScreenCaptureKit recording engine until permissions foundation is in place
+1. **Blueprint Day 9** — `DashboardView`, `RecordingStore`, recording list UI
+2. No ScreenCaptureKit recording/streaming yet (Day 12+)
 
 ## Important Decisions
 
 | Topic | Decision |
 |-------|----------|
-| Auth guard | `AppState.authStatus` drives `RootView`; sidebar only when `.authenticated` |
-| Onboarding flag | UserDefaults key `hasCompletedOnboarding` |
-| Session restore | `AuthService.restoreSession()` on bootstrap (refresh if needed) |
-| Sign out (Day 7) | Temporary **Sign Out** on Profile placeholder for testing |
+| Permissions | Screen recording checked via `SCShareableContent`; camera/mic via AVFoundation |
+| Sandbox | **Outgoing Connections (Client)** required for Supabase — do not disable |
+| Device caps | MVP defaults: Apple Silicon 4 windows / 60fps / 4K; Intel 2 / 30fps / no 4K |
+| Settings | Day 8 permissions section only; full Settings on Day 10 |
 
 ## Reference Docs
 
 - [Master Blueprint](FrameFlow_Master_Blueprint.md)
 - [Dev Log](DEV_LOG.md)
-- [Cursor Start Here](CURSOR_START_HERE.md)
