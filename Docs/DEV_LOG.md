@@ -9,64 +9,113 @@ Canonical path: `Docs/DEV_LOG.md` (referenced by Cursor rules and `CURSOR_START_
 ### Completed
 - Created Xcode macOS SwiftUI project
 - Set deployment target to macOS 14.0
-- Created app folders/groups (`App/`, `Views/`, `Views/Screens/`)
-- Created Cursor docs structure
 - Built `NavigationSplitView` shell (sidebar: **Home, Settings, Account** — blueprint Option B)
 - Set window minimum size to 900×600 and default size to 1100×700
 
 ### Decisions
-- Use SwiftUI
-- Use MVVM architecture
-- Use `@Observable` for `AppRouter` (macOS 14+)
-- Use direct DMG distribution before Mac App Store
-- Keep project documentation updated daily
-- **Navigation: Option B** — follow blueprint sidebar/routes, not simplified Home/Record/Projects
-
-### Next (Day 2)
-- Add SPM dependencies (Supabase, RevenueCat, WhisperKit, Sparkle, Sentry)
-- Add `Config.swift` and `.gitignore` for secrets
+- SwiftUI + MVVM; `@Observable` for `AppRouter`
+- **Option B** — blueprint navigation, not simplified Record/Projects sidebar
+- DMG distribution before Mac App Store
 
 ---
 
-## Day 2 — Navigation & Placeholders
+## Day 2 — Navigation & Placeholders (early)
 
 ### Completed
-- Added `AppRoute` enum (18 routes aligned with blueprint screens)
-- Added `AppRouter` with sidebar selection and `navigate(to:)`
-- Wired sidebar sections to routes (Home → Dashboard, Settings → Settings, Account → Profile)
-- Created 18 placeholder screen views with planned UI as disabled controls
-- Added toolbar route picker for end-to-end navigation testing during placeholder phase
+- `AppRoute` enum (18 routes), `AppRouter`, placeholder screens, toolbar route picker
 
-### Files
-- `App/Models.swift` — `SidebarSection`, `AppRoute`
-- `App/ViewModels.swift` — `AppRouter`
-- `App/Components.swift` — `ScreenPlaceholder`
-- `Views/MainAppView.swift`, `Views/RouteDetailView.swift`, `Views/Screens/PlaceholderScreens.swift`
-
-### Next (Day 3+)
-- Supabase `AuthService` and auth flow screens
-- Replace placeholders with real Dashboard and recording flow UI
-- Screen recording entitlements and permission guides
+### Files (later moved under `App/`)
+- `App/Views/`, `App/ViewModels/`, `App/Models/`, `App/Components/`
 
 ---
 
-## Day 2 (docs) — Cursor & documentation setup (Part 1)
+## Day 2 (docs) — Cursor & documentation setup
 
 ### Completed
-- Populated `.cursor/rules/frameflow_rules.mdc` (`alwaysApply: true`)
-- Populated `Docs/CURRENT_STATUS.md` with phase, Option B, and next tasks
-- Populated `Docs/CURSOR_START_HERE.md` with read order and scope boundaries
-- Canonical dev log at `Docs/DEV_LOG.md` (aligned with Cursor rules; replaces informal `Dev_Log.md` naming)
+- `.cursor/rules/frameflow_rules.mdc`, `CURRENT_STATUS.md`, `CURSOR_START_HERE.md`, canonical `DEV_LOG.md`
+
+---
+
+## Part 2 — Folder reorganization
+
+### Completed
+- Moved Swift sources into `App/Views`, `App/ViewModels`, `App/Models`, `App/Components`
+- `FrameFlowApp.swift` remains at target root
+- Build succeeded after move
+
+---
+
+## Blueprint Day 2 — Folder structure + dependencies (2026-05-25)
+
+### Completed
+- Verified MVVM folders; moved `Services.swift`, `Resources.swift`, `Utils.swift` into `App/Services/`, `App/Resources/`, `App/Utils/`
+- Added SPM packages to **FrameFlow** target (app only, not tests):
+  - Supabase → `Supabase` (2.46.0 resolved)
+  - RevenueCat → `RevenueCat` (5.74.0)
+  - WhisperKit → `WhisperKit` (0.18.0)
+  - Sparkle → `Sparkle` (2.9.2)
+  - Sentry → `Sentry` (8.58.2)
+- Created `App/Utils/Config.swift` with empty placeholder strings
+- Added `.gitignore` at repo root and `FrameFlow/FrameFlow/.gitignore`
+- `Package.resolved` generated under `FrameFlow.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/`
+- **Build:** `xcodebuild -scheme FrameFlow -destination 'platform=macOS' build` — **SUCCESS**
 
 ### Decisions
-- **Option B confirmed:** blueprint navigation (Home / Settings / Account + `AppRoute`)
-- Target code layout: `App/Views`, `App/ViewModels`, etc. (migration deferred to Part 2 — Swift)
+- No SDK imports or initialization in app code yet (dependency wiring only)
+- `Config.swift` gitignored; developers maintain keys locally
+- Blueprint Days 3–4 (navigation shell + placeholders) treated as **already complete**
+
+### Files
+- `FrameFlow/FrameFlow/App/Utils/Config.swift` (local, gitignored)
+- `FrameFlow/FrameFlow.xcodeproj/project.pbxproj`
+- `FrameFlow/FrameFlow.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`
+- `.gitignore`, `FrameFlow/FrameFlow/.gitignore`
 
 ### Next
-- **Part 2:** Reorganize Swift files under `App/` without changing behavior
-- **Day 2 (blueprint):** SPM packages + `Config.swift` + `.gitignore`
+- **Blueprint Day 5** — Supabase dashboard + `SupabaseClient` + `AuthService`
+- Do not start ScreenCaptureKit, recording, or SDK initialization until auth foundation is planned
 
 ### Suggested commit
 ```
-chore: add Cursor rules and align project documentation (Option B)
+chore: add SPM dependencies, Config.swift, and .gitignore
+```
+
+---
+
+## Blueprint Day 5 — Supabase Setup + AuthService (2026-05-25)
+
+### Completed
+- Created `Config.example.swift` (committed template; excluded from target when `Config.swift` exists)
+- Created `SupabaseClientProvider` — shared `SupabaseClient` using `Config.supabaseURL` / `Config.supabaseAnonKey`
+- DEBUG warning when credentials missing; safe placeholder client (no crash)
+- Created `AuthService` with async methods aligned to supabase-swift 2.x
+- Created `AuthServiceError` (`LocalizedError`) for user-facing messages
+- Moved `Utils.swift`, `Services.swift`, `Resources.swift` into subfolders
+- **Build:** `xcodebuild -scheme FrameFlow -destination 'platform=macOS' build` — **SUCCESS**
+
+### AuthService API
+- `signUp(email:password:name:) async throws -> User`
+- `signIn(email:password:) async throws -> User`
+- `signOut() async throws`
+- `resetPassword(email:) async throws`
+- `getCurrentSession() -> Session?`
+
+### Files
+- `App/Utils/Config.example.swift`
+- `App/Services/SupabaseClient.swift`
+- `App/Services/AuthService.swift`
+- `FrameFlow.xcodeproj/project.pbxproj` (Config.example compile exception)
+
+### Decisions
+- Wrapper type `SupabaseClientProvider` avoids naming clash with SDK `SupabaseClient`
+- Service layer only — no auth UI or AppState changes (Day 6–7)
+- Sign-up stores `full_name` and `display_name` in user metadata
+
+### Next
+- **Blueprint Day 6** — Login, Sign Up, Forgot Password views + ViewModels
+- **Blueprint Day 7** — Session persistence and auth guard
+
+### Suggested commit
+```
+feat: Supabase client and AuthService
 ```

@@ -5,46 +5,54 @@
 
 ## Current Phase
 
-**Phase 1 — App foundation** (blueprint-aligned, Option B)
+**Phase 3 — Authentication** (blueprint-aligned, Option B)
 
 ## Currently Working On
 
-- Project documentation and Cursor setup (Part 1 complete)
-- Next: align Xcode folder layout under `App/` (no recording engine yet)
+- Ready for **Blueprint Day 6** — Login, Sign Up, and Forgot Password UI wired to `AuthService`
 
 ## Completed
 
-- Xcode macOS SwiftUI project (macOS 14.0+)
-- Git repository
-- `NavigationSplitView` shell with sidebar: **Home, Settings, Account**
-- `AppRouter` + `AppRoute` (18 blueprint screens)
-- Placeholder screens with planned UI elements
-- Toolbar route picker for placeholder-phase navigation testing
-- Cursor rules, status docs, and dev log (canonical paths under `Docs/`)
+- Xcode macOS SwiftUI project (macOS 14.0+ target on app)
+- Git repository and Cursor docs/rules
+- MVVM folder layout under `FrameFlow/FrameFlow/App/`
+- `NavigationSplitView` shell: sidebar **Home, Settings, Account** (Option B)
+- `AppRouter` + `AppRoute` (18 blueprint placeholder screens)
+- **Blueprint Day 2:** SPM dependencies + `Config.swift` / `Config.example.swift` + `.gitignore`
+- **Blueprint Day 5:** `SupabaseClientProvider` + `AuthService` (service layer only; no auth UI yet)
+- Blueprint Days 3–4 (navigation shell + placeholders) — complete
 
 ## Next Task
 
-1. **Part 2 (code):** Move Swift sources into `App/Views`, `App/ViewModels`, etc. per architecture rules (refactor only, no new features)
-2. **Day 2 (blueprint):** SPM dependencies + `Config.swift` + `.gitignore` for secrets
-3. **Phase 3+:** Supabase auth — do not start ScreenCaptureKit or recording engine until foundation is stable
+1. **Blueprint Day 6** — Build Login, Sign Up, Forgot Password views + ViewModels calling `AuthService`
+2. **Blueprint Day 7** — Session persistence + `AppState` auth guard (after Day 6)
 
 ## Important Decisions
 
 | Topic | Decision |
 |-------|----------|
 | Platform | Native macOS, SwiftUI |
-| Architecture | MVVM; `@Observable` for routers/state (macOS 14+) |
-| Navigation | **Option B** — follow `FrameFlow_Master_Blueprint.md` (not simplified Record/Projects sidebar) |
-| Distribution | DMG first; signed and notarized |
-| Backend | Supabase |
-| Payments | RevenueCat + Stripe |
-| Capture | ScreenCaptureKit (later phases) |
-| Captions | WhisperKit (later phases) |
-| Docs | `CURRENT_STATUS.md`, `DEV_LOG.md`, `CURSOR_START_HERE.md` are source of truth for agent context |
+| Architecture | MVVM; `@Observable` for routers/state |
+| Navigation | **Option B** — blueprint sidebar + `AppRoute` (unchanged until Day 7) |
+| Auth | `AuthService` + `SupabaseClientProvider`; credentials from gitignored `Config.swift` |
+| Secrets | `Config.example.swift` committed; `Config.swift` gitignored |
+| Capture / captions | ScreenCaptureKit / WhisperKit — later phases only |
 
-## Code Layout Note
+## Code Layout
 
-Target layout is under `FrameFlow/FrameFlow/App/`. Some Phase 1 files still live at `FrameFlow/FrameFlow/Views/` until Part 2 folder migration.
+```
+FrameFlow/FrameFlow/
+├── FrameFlowApp.swift
+├── Assets.xcassets/
+└── App/
+    ├── Views/          (+ Screens/)
+    ├── ViewModels/
+    ├── Models/
+    ├── Components/
+    ├── Services/       SupabaseClient.swift, AuthService.swift
+    ├── Utils/          Config.swift (gitignored), Config.example.swift
+    └── Resources/
+```
 
 ## Reference Docs
 

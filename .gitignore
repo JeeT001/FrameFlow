@@ -1,0 +1,26 @@
+# Secrets — never commit API keys
+**/Config.swift
+Config.swift
+
+# macOS
+.DS_Store
+
+# Xcode
+**/xcuserdata/
+*.xcuserstate
+DerivedData/
+.derivedData/
+build/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
