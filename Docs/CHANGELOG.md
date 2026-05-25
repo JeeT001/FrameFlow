@@ -23,9 +23,14 @@ All notable changes to FrameFlow are documented in this file.
 - `DashboardView` with recording grid, empty state, and New Recording navigation
 - `RecordingListItemView` for dashboard recording cards
 - `AppState.SubscriptionStatus` scaffold and `isPro` for upgrade/banner UI (no RevenueCat yet)
+- `SettingsStore` with UserDefaults-backed recording, audio, cursor, caption, and appearance preferences
+- Full `ProfileView` with display name edit, password reset, and subscription management navigation
+- `UserService` for Supabase user metadata display name updates
 
 ### Changed
 - Moved `Services`, `Resources`, and `Utils` stubs into dedicated subfolders under `App/`
 - Excluded `Config.example.swift` from compile when local `Config.swift` is present
 - Replaced auth screen placeholders with functional Supabase-backed forms
 - `FrameFlowApp` launches `RootView` instead of always showing `MainAppView`
+- Expanded `SettingsView` with full preferences form; removed “Coming Soon” placeholders
+- `RootView` applies appearance override from `SettingsStore`

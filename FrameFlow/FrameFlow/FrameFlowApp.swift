@@ -17,6 +17,7 @@ struct FrameFlowApp: App {
             RootView()
                 .environment(appState)
                 .environment(router)
+                .environment(SettingsStore.shared)
         }
         .defaultSize(width: 1100, height: 700)
     }

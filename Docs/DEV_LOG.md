@@ -233,7 +233,8 @@ feat: permission manager and device capability detection
 - **Build:** SUCCESS
 
 ### recordings.json path
-`~/Library/Application Support/FrameFlow/recordings.json`  
+Non-sandbox (reference): `~/Library/Application Support/FrameFlow/recordings.json`  
+**Sandbox (Debug build):** `~/Library/Containers/com.Simranjit.FrameFlow/Data/Library/Application Support/FrameFlow/recordings.json`  
 Created as `[]` on first load if missing.
 
 ### Manual test steps
@@ -248,4 +249,34 @@ Created as `[]` on first load if missing.
 ### Suggested commit
 ```
 feat: dashboard with recording list and empty state
+```
+
+---
+
+## Blueprint Day 10 — Profile + SettingsStore (2026-05-26)
+
+### Completed
+- `SettingsStore` — `@Observable` singleton; all blueprint UserDefaults keys with defaults; `expandedSaveFolder` via tilde expansion
+- `UserService` — `updateDisplayName` via Supabase `auth.update(user:)`; updates `AppState.currentUser`
+- `ProfileView` + `ProfileViewModel` — avatar initials, editable display name, email, subscription badge, Manage Subscription, Change Password (reset email), Log Out
+- `SettingsView` expanded — Recording & Export, Audio, Cursor & Zoom, Captions & Notifications, Appearance, About (version + stub updates); kept Permissions + Device Capabilities (Debug)
+- `RootView` — `.preferredColorScheme` from `SettingsStore.darkModeOverride`
+- Removed `ProfileView` placeholder from `PlaceholderScreens.swift`
+- **Build:** SUCCESS
+
+### Manual test steps
+1. Log in → Sidebar **Account** → Profile shows initials, email, Free/Pro badge
+2. Edit display name → **Save** → success alert; relaunch → name persists (Supabase metadata)
+3. **Change Password** → reset email sent alert (check inbox if configured)
+4. **Manage Subscription** → subscription placeholder
+5. Sidebar **Settings** → change resolution, countdown, audio mode, sliders, toggles → relaunch → values persist (UserDefaults)
+6. **Choose…** save folder → pick directory → path updates in UI
+7. Permissions section still works: Check Status / Open System Settings
+8. Appearance → Light/Dark → app theme updates immediately
+9. About → **Check for Updates** → stub alert
+10. Profile **Log Out** → Login screen
+
+### Suggested commit
+```
+feat: profile screen and settings store with full preferences form
 ```

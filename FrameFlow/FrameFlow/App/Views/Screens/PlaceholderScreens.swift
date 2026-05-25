@@ -33,25 +33,6 @@ struct RecordingDetailView: View {
     var body: some View { ScreenPlaceholder(route: .recordingDetail) }
 }
 
-struct ProfileView: View {
-    @Environment(AppState.self) private var appState
-    @Environment(AppRouter.self) private var router
-
-    var body: some View {
-        ScreenPlaceholder(route: .profile)
-            .toolbar {
-                ToolbarItem(placement: .automatic) {
-                    Button("Sign Out") {
-                        Task {
-                            await appState.signOut()
-                            router.navigate(to: .login)
-                        }
-                    }
-                }
-            }
-    }
-}
-
 struct SubscriptionView: View {
     var body: some View { ScreenPlaceholder(route: .subscription) }
 }
