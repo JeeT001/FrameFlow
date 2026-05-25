@@ -5,10 +5,6 @@
 
 import SwiftUI
 
-struct DashboardView: View {
-    var body: some View { ScreenPlaceholder(route: .dashboard) }
-}
-
 struct WindowPickerView: View {
     var body: some View { ScreenPlaceholder(route: .windowPicker) }
 }

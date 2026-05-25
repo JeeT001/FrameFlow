@@ -12,6 +12,13 @@ enum AuthStatus {
     case authenticated
 }
 
+enum SubscriptionStatus {
+    case free
+    case active
+    case past_due
+    case expired
+}
+
 @Observable
 final class AppState {
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
@@ -19,6 +26,11 @@ final class AppState {
     var authStatus: AuthStatus = .unauthenticated
     var currentUser: User?
     var isBootstrapping = true
+    var subscriptionStatus: SubscriptionStatus = .free
+
+    var isPro: Bool {
+        subscriptionStatus == .active
+    }
 
     func bootstrap(router: AppRouter) async {
         isBootstrapping = true

@@ -19,6 +19,10 @@ All notable changes to FrameFlow are documented in this file.
 - `PermissionManager` and `DeviceCapabilityManager`
 - Settings permissions UI (Day 8 testing section)
 - `FrameFlow.entitlements` with sandbox, network client, camera, and mic
+- `RecordingMetadata` model and local `RecordingStore` (Application Support `recordings.json`)
+- `DashboardView` with recording grid, empty state, and New Recording navigation
+- `RecordingListItemView` for dashboard recording cards
+- `AppState.SubscriptionStatus` scaffold and `isPro` for upgrade/banner UI (no RevenueCat yet)
 
 ### Changed
 - Moved `Services`, `Resources`, and `Utils` stubs into dedicated subfolders under `App/`

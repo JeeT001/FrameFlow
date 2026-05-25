@@ -217,3 +217,35 @@ App Sandbox must keep **Outgoing Connections (Client)** enabled (`com.apple.secu
 ```
 feat: permission manager and device capability detection
 ```
+
+---
+
+## Blueprint Day 9 — Dashboard + RecordingStore (2026-05-26)
+
+### Completed
+- `RecordingMetadata` — Codable model with blueprint fields + display helpers (duration, date, file size, resolution badge)
+- `RecordingStore` — `@Observable` singleton; persists to Application Support `recordings.json`
+- `RecordingListItemView` — card cell with thumbnail placeholder, name, date, duration, resolution badge
+- `DashboardView` — top bar (FrameFlow title, user initials, Upgrade), subscription banner, New Recording CTA, grid or empty state
+- `AppState` — `SubscriptionStatus` enum, `subscriptionStatus`, computed `isPro`
+- `UserDisplayHelpers` — initials from Supabase user metadata (`full_name` / email fallback)
+- Removed `DashboardView` placeholder from `PlaceholderScreens.swift`
+- **Build:** SUCCESS
+
+### recordings.json path
+`~/Library/Application Support/FrameFlow/recordings.json`  
+Created as `[]` on first load if missing.
+
+### Manual test steps
+1. Log in → Sidebar **Home** → Dashboard loads
+2. Empty state: icon, “No recordings yet”, **New Recording** button
+3. Tap **New Recording** → navigates to Window Picker placeholder
+4. **Upgrade** visible when `subscriptionStatus != .active`; hidden when Pro (DEBUG menu → Active)
+5. DEBUG toolbar **Debug** menu → set Past Due / Expired → subscription banner + **Manage Subscription** → Subscription placeholder
+6. Optional mocks: set scheme env `FRAME_FLOW_MOCK_RECORDINGS=1` → relaunch → two sample cards in grid; right-click → Delete removes entry from JSON
+7. Verify `recordings.json` exists after first dashboard load
+
+### Suggested commit
+```
+feat: dashboard with recording list and empty state
+```

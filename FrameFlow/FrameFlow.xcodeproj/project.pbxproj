@@ -453,8 +453,8 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "FrameFlow uses the camera for picture-in-picture overlay during screen recordings.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FrameFlow uses the microphone to capture narration and audio during screen recordings.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FrameFlow uses the microphone to capture narration and audio during screen recordings.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -499,8 +499,8 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "FrameFlow uses the camera for picture-in-picture overlay during screen recordings.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FrameFlow uses the microphone to capture narration and audio during screen recordings.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FrameFlow uses the microphone to capture narration and audio during screen recordings.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
