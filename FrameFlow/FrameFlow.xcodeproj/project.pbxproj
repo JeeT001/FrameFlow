@@ -37,6 +37,16 @@
 		A014C1202FC3EDD800BD9EBF /* FrameFlowUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FrameFlowUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B014E0012FC3EDD600BD9EBF /* Exceptions for "FrameFlow" folder in "FrameFlow" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				App/Utils/Config.example.swift,
+			);
+			target = A014C1082FC3EDD600BD9EBF /* FrameFlow */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A014C10B2FC3EDD600BD9EBF /* FrameFlow */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -57,16 +67,6 @@
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		B014E0012FC3EDD600BD9EBF /* Exceptions for "FrameFlow" folder in "FrameFlow" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				App/Utils/Config.example.swift,
-			);
-			target = A014C1082FC3EDD600BD9EBF /* FrameFlow */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A014C1062FC3EDD600BD9EBF /* Frameworks */ = {

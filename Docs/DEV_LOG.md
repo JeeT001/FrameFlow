@@ -136,3 +136,29 @@ feat: Supabase client and AuthService
 ```
 chore: merge nested FrameFlow repo into single root repository
 ```
+
+---
+
+## Blueprint Day 6 — Login, Sign Up, Forgot Password (2026-05-26)
+
+### Completed
+- `LoginViewModel`, `SignUpViewModel`, `ForgotPasswordViewModel` (`@Observable`)
+- Replaced placeholder `LoginView`, `SignUpView`, `ForgotPasswordView` with functional forms
+- Shared `AuthFormLayout`, `AuthErrorBanner`, `AuthSuccessBanner` components
+- Client validation, loading states, error/success messages
+- Navigation via `AppRouter.navigate(to:)` on success and footer links
+- Sign-up handles `emailConfirmationRequired` with success banner (no dashboard redirect)
+- **Build:** `xcodebuild -scheme FrameFlow -project FrameFlow/FrameFlow.xcodeproj -destination 'platform=macOS' build` — **SUCCESS**
+
+### Files
+- `App/ViewModels/LoginViewModel.swift`, `SignUpViewModel.swift`, `ForgotPasswordViewModel.swift`
+- `App/Views/Screens/LoginView.swift`, `SignUpView.swift`, `ForgotPasswordView.swift`
+- `App/Components/AuthFormLayout.swift`
+
+### Next
+- **Blueprint Day 7** — `AppState`, session persistence, auth guard at app root
+
+### Suggested commit
+```
+feat: login and sign up screens with form validation
+```

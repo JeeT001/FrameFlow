@@ -11,7 +11,10 @@ All notable changes to FrameFlow are documented in this file.
 - `SupabaseClientProvider` shared Supabase client (Supabase Swift SDK 2.x)
 - `AuthService` with sign-up, sign-in, sign-out, password reset, and session accessor
 - `AuthServiceError` for user-facing auth error messages
+- Login, Sign Up, and Forgot Password screens with `@Observable` ViewModels
+- `AuthFormLayout` shared auth form styling
 
 ### Changed
 - Moved `Services`, `Resources`, and `Utils` stubs into dedicated subfolders under `App/`
 - Excluded `Config.example.swift` from compile when local `Config.swift` is present
+- Replaced auth screen placeholders with functional Supabase-backed forms

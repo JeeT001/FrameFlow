@@ -61,18 +61,6 @@ struct OnboardingView: View {
     var body: some View { ScreenPlaceholder(route: .onboarding) }
 }
 
-struct LoginView: View {
-    var body: some View { ScreenPlaceholder(route: .login) }
-}
-
-struct SignUpView: View {
-    var body: some View { ScreenPlaceholder(route: .signUp) }
-}
-
-struct ForgotPasswordView: View {
-    var body: some View { ScreenPlaceholder(route: .forgotPassword) }
-}
-
 struct ResetPasswordView: View {
     var body: some View { ScreenPlaceholder(route: .resetPassword) }
 }
