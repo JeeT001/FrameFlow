@@ -17,7 +17,7 @@ struct ForgotPasswordView: View {
             TextField("Email", text: $viewModel.email)
                 .textFieldStyle(.roundedBorder)
                 .textContentType(.emailAddress)
-                .disabled(viewModel.isLoading)
+                .disabled(viewModel.isLoading || viewModel.successMessage != nil)
 
             if let errorMessage = viewModel.errorMessage {
                 AuthErrorBanner(message: errorMessage)
@@ -43,7 +43,7 @@ struct ForgotPasswordView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel.isLoading || viewModel.successMessage != nil)
         } footer: {
             Button("Back to Log In") {
                 router.navigate(to: .login)

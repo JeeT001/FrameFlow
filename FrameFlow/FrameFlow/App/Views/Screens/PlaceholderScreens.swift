@@ -5,10 +5,6 @@
 
 import SwiftUI
 
-struct WindowPickerView: View {
-    var body: some View { ScreenPlaceholder(route: .windowPicker) }
-}
-
 struct LayoutPickerView: View {
     var body: some View { ScreenPlaceholder(route: .layoutPicker) }
 }
@@ -39,10 +35,6 @@ struct SubscriptionView: View {
 
 struct PaymentView: View {
     var body: some View { ScreenPlaceholder(route: .payment) }
-}
-
-struct HelpView: View {
-    var body: some View { ScreenPlaceholder(route: .help) }
 }
 
 struct ResetPasswordView: View {

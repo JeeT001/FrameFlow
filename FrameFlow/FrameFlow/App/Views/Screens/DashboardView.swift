@@ -50,6 +50,12 @@ struct DashboardView: View {
                     Button("Subscription: Active (Pro)") { appState.subscriptionStatus = .active }
                     Button("Subscription: Past Due") { appState.subscriptionStatus = .past_due }
                     Button("Subscription: Expired") { appState.subscriptionStatus = .expired }
+                    Divider()
+                    Button("Test window fetch") {
+                        Task {
+                            await WindowCaptureService.shared.debugLogWindowFetch()
+                        }
+                    }
                 }
             }
         }

@@ -14,7 +14,7 @@ All notable changes to FrameFlow are documented in this file.
 - Login, Sign Up, and Forgot Password screens with `@Observable` ViewModels
 - `AuthFormLayout` shared auth form styling
 - `AppState` with root auth routing and session restore on launch
-- Minimal first-run `OnboardingView`
+- First-run `OnboardingView` (replaced Day 7 single-page welcome with 3-page carousel)
 - `AuthService.restoreSession()` for bootstrap
 - `PermissionManager` and `DeviceCapabilityManager`
 - Settings permissions UI (Day 8 testing section)
@@ -26,6 +26,11 @@ All notable changes to FrameFlow are documented in this file.
 - `SettingsStore` with UserDefaults-backed recording, audio, cursor, caption, and appearance preferences
 - Full `ProfileView` with display name edit, password reset, and subscription management navigation
 - `UserService` for Supabase user metadata display name updates
+- 3-page onboarding carousel with Sign Up / Log In on final page
+- `HelpView` with eight FAQ disclosure groups and mailto support link
+- `WindowCaptureService` and `WindowItem` for ScreenCaptureKit window enumeration and thumbnails
+- `WindowPickerView` with 3-column grid, selection limits, and permission empty state
+- `AppState.selectedWindowIDs` for layout picker handoff
 
 ### Changed
 - Moved `Services`, `Resources`, and `Utils` stubs into dedicated subfolders under `App/`
@@ -34,3 +39,6 @@ All notable changes to FrameFlow are documented in this file.
 - `FrameFlowApp` launches `RootView` instead of always showing `MainAppView`
 - Expanded `SettingsView` with full preferences form; removed “Coming Soon” placeholders
 - `RootView` applies appearance override from `SettingsStore`
+- `ForgotPasswordView` disables form after successful reset email request
+- Dashboard DEBUG menu includes **Test window fetch** for `WindowCaptureService`
+- `WindowCaptureService` skips thumbnail capture for windows smaller than 120×120

@@ -3,6 +3,7 @@
 //  FrameFlow
 //
 
+import CoreGraphics
 import Foundation
 import Supabase
 
@@ -27,6 +28,7 @@ final class AppState {
     var currentUser: User?
     var isBootstrapping = true
     var subscriptionStatus: SubscriptionStatus = .free
+    var selectedWindowIDs: Set<CGWindowID> = []
 
     var isPro: Bool {
         subscriptionStatus == .active

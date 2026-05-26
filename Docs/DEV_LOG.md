@@ -280,3 +280,109 @@ feat: dashboard with recording list and empty state
 ```
 feat: profile screen and settings store with full preferences form
 ```
+
+---
+
+## Blueprint Day 11 — Onboarding, Help, Forgot Password (2026-05-26)
+
+### Completed
+- `OnboardingView` — 3-page `TabView` with page dots; pages 1–2 **Next**; page 3 **Sign Up** / **Log In**
+- Onboarding completion: `appState.completeOnboarding()` only when user taps Sign Up or Log In (then `router.navigate` to auth)
+- `HelpView` — 8 `DisclosureGroup` FAQ items, **Email Support** (`mailto:support@frameflow.app`), app version
+- Removed `HelpView` placeholder from `PlaceholderScreens.swift`
+- `ForgotPasswordView` — disable email/send after success message (no logic change)
+- **Build:** SUCCESS
+
+### Onboarding flow (documented)
+- First launch: `authStatus == .firstLaunch` → carousel only; `hasCompletedOnboarding` stays false until auth CTA.
+- Page 3 **Sign Up** → `completeOnboarding()` + navigate `.signUp` → `AuthContainerView` shows Sign Up.
+- Page 3 **Log In** → `completeOnboarding()` + navigate `.login` → Login screen.
+- Swipe or **Next** advances pages 1→2→3 without marking onboarding complete.
+
+### Reset onboarding for testing
+Key: `hasCompletedOnboarding` (see `AppState.hasCompletedOnboardingKey`).
+
+**Option A — defaults (often works for Debug):**
+```bash
+defaults delete com.Simranjit.FrameFlow hasCompletedOnboarding
+```
+Then quit FrameFlow (⌘Q) and relaunch.
+
+**Option B — sandbox container plist:**
+```bash
+plutil -remove hasCompletedOnboarding \
+  ~/Library/Containers/com.Simranjit.FrameFlow/Data/Library/Preferences/com.Simranjit.FrameFlow.plist
+```
+Quit and relaunch. If the container path differs, locate `com.Simranjit.FrameFlow.plist` under `~/Library/Containers/`.
+
+### Manual test steps
+1. Reset onboarding (command above) → relaunch → 3-page carousel appears
+2. Page 1 → **Next** → page 2 → **Next** → page 3
+3. **Sign Up** → Sign Up form (onboarding flag set; won’t show carousel again)
+4. Reset again → page 3 **Log In** → Login form
+5. Log in → main shell → toolbar route picker → **Help** → expand FAQs, **Email Support** opens Mail
+6. Forgot Password from Login → send reset → success banner; fields disabled; **Back to Log In** works
+
+### Suggested commit
+```
+feat: onboarding, help, and forgot password screens
+```
+
+---
+
+## Blueprint Day 12 — WindowCaptureService (2026-05-26)
+
+### Completed
+- `WindowItem` — UI model (`CGWindowID`, title, app name, bundle ID, optional thumbnail + app icon)
+- `WindowCaptureService` — `@MainActor` singleton; `checkPermission()`, `fetchWindows()`, `scWindow(for:)`
+- `WindowCaptureError` — `permissionDenied`, `fetchFailed`
+- Thumbnails via `SCScreenshotManager.captureImage` + `SCContentFilter(desktopIndependentWindow:)`; batches of 4
+- DEBUG: Dashboard **Debug → Test window fetch** logs count to Xcode console
+- **Build:** SUCCESS
+
+### SCWindow retention
+`fetchWindows()` stores `[CGWindowID: SCWindow]` in `scWindowsByID`. Day 13 picker uses `WindowItem`; Day 16 streams resolve via `scWindow(for:)`.
+
+### Manual test steps
+1. Grant **Screen Recording** for FrameFlow (Settings → Permissions or System Settings)
+2. Log in → Dashboard → **Debug → Test window fetch**
+3. In Xcode console: expect `fetchWindows: N window(s)` with **N > 0** when other apps have visible titled windows
+4. Confirm log lines do **not** list FrameFlow’s own windows
+5. Deny screen recording → console shows permission error (or `permissionDenied` if called from code)
+6. **New Recording** still opens Window Picker **placeholder** (unchanged)
+
+### Suggested commit
+```
+feat: window enumeration with ScreenCaptureKit
+```
+
+---
+
+## Blueprint Day 13 — Window Picker UI (2026-05-26)
+
+### Completed
+- `WindowPickerViewModel` — load/refresh, selection with free/pro limits, upgrade sheet
+- `WindowPickerView` — 3-column grid, permission empty state, loading copy (30–60s), toolbar Refresh/Next
+- `ImageDisplayHelpers` — `CGImage`/`NSImage` → SwiftUI `Image`, title truncation
+- `AppState.selectedWindowIDs` — persisted when user taps **Next**
+- `WindowCaptureService` — skip thumbnail capture for frames &lt; 120×120; log window count on fetch
+- Removed `WindowPickerView` placeholder
+- **Build:** SUCCESS
+
+### Selection limits
+- **Free:** 2 windows; third tap → upgrade sheet → Subscription route
+- **Pro:** `min(4, DeviceCapabilityManager.maxWindows)` (4 Apple Silicon, 2 Intel)
+
+### Manual test steps
+1. Grant Screen Recording; log in → Dashboard → **New Recording**
+2. Loading screen appears; wait for grid (may take 30–60s)
+3. Tap windows — checkmark overlay; toolbar shows `N selected (max M)`
+4. Free: select 2, tap third → upgrade sheet; Pro (DEBUG → Active): select up to cap
+5. **Next** → Layout Picker placeholder; `selectedWindowIDs` stored in `AppState`
+6. **Refresh** reloads grid; deny permission → empty state + Open System Settings
+7. Tiny windows show gray placeholder (no thumbnail errors blocking UI)
+
+### Suggested commit
+```
+feat: window picker UI with selection and free/pro limit
+```

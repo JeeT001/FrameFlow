@@ -5,33 +5,30 @@
 
 ## Current Phase
 
-**Phase 4 — Permissions & core screens** (blueprint-aligned, Option B)
+**Phase 6 — Window capture** (blueprint-aligned)
 
 ## Currently Working On
 
-- Ready for **Blueprint Day 11** — Onboarding polish + Help screen
+- Ready for **Blueprint Day 14** — Layout Picker UI
 
 ## Completed
 
-- Single Git repo; MVVM layout; auth (Days 5–7)
-- **Blueprint Day 8:** `PermissionManager`, `DeviceCapabilityManager`, entitlements, minimal Settings permissions UI
-- **Blueprint Day 9:** `DashboardView`, `RecordingStore`, recording list UI + empty state
-- **Blueprint Day 10:** `SettingsStore`, full `SettingsView`, `ProfileView`, `UserService`
+- Auth, Dashboard, Profile, Settings, Onboarding, Help (Days 5–11)
+- **Blueprint Day 12:** `WindowCaptureService`, `WindowItem`
+- **Blueprint Day 13:** `WindowPickerView` + selection limits + permission empty state
 
 ## Next Task
 
-1. **Blueprint Day 11** — Onboarding polish and Help screen
-2. No ScreenCaptureKit recording/streaming yet (Day 12+)
+1. **Blueprint Day 14** — `LayoutPickerView` (format, layouts, camera, audio sheet)
+2. No `SCStream` / recording engine yet (Day 16+)
 
 ## Important Decisions
 
 | Topic | Decision |
 |-------|----------|
-| Permissions | Screen recording checked via `SCShareableContent`; camera/mic via AVFoundation |
-| Sandbox | **Outgoing Connections (Client)** required for Supabase — do not disable |
-| Settings | `SettingsStore` singleton → UserDefaults; appearance via `RootView.preferredColorScheme` |
-| Recording metadata | Sandboxed path: `~/Library/Containers/com.Simranjit.FrameFlow/Data/Library/Application Support/FrameFlow/recordings.json` |
-| Subscription | `AppState.subscriptionStatus` scaffold only; Manage Subscription → placeholder |
+| Selection limits | Free: 2 windows; Pro: `min(4, maxWindows)` |
+| Picker persistence | `AppState.selectedWindowIDs` set on **Next** |
+| Thumbnails | Windows &lt; 120×120 listed without thumbnail capture |
 
 ## Reference Docs
 
