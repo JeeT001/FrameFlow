@@ -9,18 +9,19 @@
 
 ## Currently Working On
 
-- Ready for **Blueprint Day 15** — Audio mode picker with volume sliders + live meter
+- Ready for **Blueprint Day 16** — Composite preview canvas groundwork
 
 ## Completed
 
 - Auth, Dashboard, Profile, Settings, Onboarding, Help (Days 5–11)
 - **Day 12–13:** `WindowCaptureService`, `WindowPickerView`
-- **Blueprint Day 14:** `LayoutPickerView`, layout preview canvas, minimal `AudioModePickerView` sheet
+- **Blueprint Day 14:** `LayoutPickerView`, layout preview canvas, minimal `AudioModePickerView`
+- **Blueprint Day 15:** full `AudioModePickerView` with draft volume sliders + live mic level bars
 
 ## Next Task
 
-1. **Blueprint Day 15** — Full audio sheet (volumes, live level meter)
-2. **Blueprint Day 16+** — `SCStream` composite preview / recording engine
+1. **Blueprint Day 16** — SCStream multi-window composite preview
+2. Recording/export pipeline remains pending
 
 ## Important Decisions
 
@@ -28,8 +29,8 @@
 |-------|----------|
 | 9:16 format | Pro only; free users see upgrade sheet |
 | Layout preview | Placeholder rectangles only (no SCStream until Day 16) |
-| Audio sheet Day 14 | 4 mode cards + Confirm; no live meter yet |
-| Session layout | Format/preset/camera in `LayoutPickerViewModel`; audio/toggles in `SettingsStore` |
+| Audio sheet Day 15 | 4 mode cards + draft mic/system sliders + mic-only live meter |
+| Volume persistence | UI uses 0–100%; saved as Float 0.0–1.0 on Confirm |
 
 ## Reference Docs
 

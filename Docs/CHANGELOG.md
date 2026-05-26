@@ -34,6 +34,7 @@ All notable changes to FrameFlow are documented in this file.
 - `LayoutPickerView` with format/layout/camera controls and placeholder preview canvas
 - `AudioModePickerView` sheet (four modes, Confirm; volumes/meter deferred to Day 15)
 - `LayoutPresetCard` and `LayoutPreviewCanvas` components
+- `AudioLevelMonitor` and `AudioLevelBars` for live microphone level feedback in Audio Mode sheet
 
 ### Changed
 - Moved `Services`, `Resources`, and `Utils` stubs into dedicated subfolders under `App/`
@@ -46,3 +47,4 @@ All notable changes to FrameFlow are documented in this file.
 - Dashboard DEBUG menu includes **Test window fetch** for `WindowCaptureService`
 - `WindowCaptureService` skips thumbnail capture for windows smaller than 120×120
 - Toolbar **Audio Mode** route shows standalone hint (sheet opened from Layout Picker)
+- `AudioModePickerView` now includes draft mic/system sliders and confirms values to `SettingsStore`

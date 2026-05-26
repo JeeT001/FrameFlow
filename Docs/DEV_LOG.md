@@ -415,3 +415,36 @@ feat: window picker UI with selection and free/pro limit
 ```
 feat: layout picker with format, presets, camera, and audio controls
 ```
+
+
+---
+
+## Blueprint Day 15 — Audio Mode Picker (2026-05-26)
+
+### Completed
+- `AudioLevelMonitor` service with `AVAudioEngine` input tap and normalized level output
+- `AudioLevelBars` component (5 animated bars)
+- `AudioModePickerView` extended with draft mic/system volume sliders and live mic meter
+- Meter lifecycle wired to sheet `onAppear` / `onDisappear` and mode changes
+- Mode + volumes persist only on **Confirm**
+- **Build:** SUCCESS
+
+### Slider mapping
+- UI sliders are `0...100` percentages
+- On Confirm:
+  - `settings.defaultMicVolume = Float(draftMicVolumePercent / 100)`
+  - `settings.defaultSystemVolume = Float(draftSystemVolumePercent / 100)`
+
+### Manual test steps
+1. Window Picker → Next → Layout Picker
+2. Open **Audio** sheet
+3. Select **Microphone Only** or **Combined** → speak into mic → bars animate
+4. Move **Microphone volume** slider; displayed percent updates
+5. Select **System Audio Only** or **Combined** (Pro) → move system slider
+6. Tap **Confirm**; reopen sheet and verify mode + percentages restored from settings
+7. Deny microphone permission in System Settings → open sheet with mic mode; bars stay flat and message appears
+
+### Suggested commit
+```
+feat: audio mode picker with volume controls and live level meter
+```
