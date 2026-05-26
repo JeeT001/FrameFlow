@@ -17,7 +17,7 @@ struct RouteDetailView: View {
         case .layoutPicker:
             LayoutPickerView()
         case .audioMode:
-            AudioModePickerView()
+            AudioModePickerStandaloneView()
         case .recording:
             RecordingView()
         case .captionEditor:

@@ -386,3 +386,32 @@ feat: window enumeration with ScreenCaptureKit
 ```
 feat: window picker UI with selection and free/pro limit
 ```
+
+---
+
+## Blueprint Day 14 — Layout Picker + minimal Audio sheet (2026-05-26)
+
+### Completed
+- `RecordingFormat`, `LayoutPreset`, `AudioModeOption` models
+- `LayoutPickerViewModel` — format, layout, camera, SettingsStore sync, Pro gates
+- `LayoutPickerView` — split left controls / right preview canvas, Start Recording → `.recording`
+- `LayoutPresetCard`, `LayoutPreviewCanvas` — diagram cards + placeholder window rects
+- `AudioModePickerView` — sheet with 4 cards, Confirm, Pro gate on system/combined
+- `AudioModePickerStandaloneView` for toolbar route
+- Removed layout/audio placeholders
+- **Build:** SUCCESS
+
+### Manual test steps
+1. Window Picker → select windows → **Next** → Layout Picker
+2. Change format (16:9); free user taps 9:16 → upgrade sheet; stays 16:9
+3. Tap layout preset cards → preview updates
+4. Toggle camera → pick device; tap Audio row → sheet → change mode → Confirm
+5. Free: System/Combined → upgrade sheet
+6. Adjust countdown / auto-focus / cursor highlight
+7. **Start Recording** → Recording placeholder
+8. Clear `selectedWindowIDs` (debug) or skip picker → banner + alert on Start
+
+### Suggested commit
+```
+feat: layout picker with format, presets, camera, and audio controls
+```

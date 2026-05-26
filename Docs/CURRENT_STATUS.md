@@ -5,30 +5,31 @@
 
 ## Current Phase
 
-**Phase 6 — Window capture** (blueprint-aligned)
+**Phase 6 — Window capture & layout** (blueprint-aligned)
 
 ## Currently Working On
 
-- Ready for **Blueprint Day 14** — Layout Picker UI
+- Ready for **Blueprint Day 15** — Audio mode picker with volume sliders + live meter
 
 ## Completed
 
 - Auth, Dashboard, Profile, Settings, Onboarding, Help (Days 5–11)
-- **Blueprint Day 12:** `WindowCaptureService`, `WindowItem`
-- **Blueprint Day 13:** `WindowPickerView` + selection limits + permission empty state
+- **Day 12–13:** `WindowCaptureService`, `WindowPickerView`
+- **Blueprint Day 14:** `LayoutPickerView`, layout preview canvas, minimal `AudioModePickerView` sheet
 
 ## Next Task
 
-1. **Blueprint Day 14** — `LayoutPickerView` (format, layouts, camera, audio sheet)
-2. No `SCStream` / recording engine yet (Day 16+)
+1. **Blueprint Day 15** — Full audio sheet (volumes, live level meter)
+2. **Blueprint Day 16+** — `SCStream` composite preview / recording engine
 
 ## Important Decisions
 
 | Topic | Decision |
 |-------|----------|
-| Selection limits | Free: 2 windows; Pro: `min(4, maxWindows)` |
-| Picker persistence | `AppState.selectedWindowIDs` set on **Next** |
-| Thumbnails | Windows &lt; 120×120 listed without thumbnail capture |
+| 9:16 format | Pro only; free users see upgrade sheet |
+| Layout preview | Placeholder rectangles only (no SCStream until Day 16) |
+| Audio sheet Day 14 | 4 mode cards + Confirm; no live meter yet |
+| Session layout | Format/preset/camera in `LayoutPickerViewModel`; audio/toggles in `SettingsStore` |
 
 ## Reference Docs
 

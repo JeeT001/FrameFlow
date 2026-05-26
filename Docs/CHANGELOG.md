@@ -31,6 +31,9 @@ All notable changes to FrameFlow are documented in this file.
 - `WindowCaptureService` and `WindowItem` for ScreenCaptureKit window enumeration and thumbnails
 - `WindowPickerView` with 3-column grid, selection limits, and permission empty state
 - `AppState.selectedWindowIDs` for layout picker handoff
+- `LayoutPickerView` with format/layout/camera controls and placeholder preview canvas
+- `AudioModePickerView` sheet (four modes, Confirm; volumes/meter deferred to Day 15)
+- `LayoutPresetCard` and `LayoutPreviewCanvas` components
 
 ### Changed
 - Moved `Services`, `Resources`, and `Utils` stubs into dedicated subfolders under `App/`
@@ -42,3 +45,4 @@ All notable changes to FrameFlow are documented in this file.
 - `ForgotPasswordView` disables form after successful reset email request
 - Dashboard DEBUG menu includes **Test window fetch** for `WindowCaptureService`
 - `WindowCaptureService` skips thumbnail capture for windows smaller than 120×120
+- Toolbar **Audio Mode** route shows standalone hint (sheet opened from Layout Picker)
