@@ -63,6 +63,12 @@ final class SettingsViewModel {
 
         if panel.runModal() == .OK, let url = panel.url {
             settings.defaultSaveFolder = url.path
+            do {
+                let bookmark = try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+                settings.defaultSaveFolderBookmarkData = bookmark
+            } catch {
+                settings.defaultSaveFolderBookmarkData = nil
+            }
         }
     }
 
@@ -82,6 +88,10 @@ final class SettingsViewModel {
         capabilities.supports4K
             ? Self.resolutionOptions
             : Self.resolutionOptions.filter { $0 != "4K" }
+    }
+
+    var saveFolderNeedsReauthorization: Bool {
+        settings.defaultSaveFolderBookmarkData == nil
     }
 
     var appVersionString: String {

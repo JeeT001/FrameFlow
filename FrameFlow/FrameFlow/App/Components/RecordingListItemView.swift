@@ -7,6 +7,8 @@ import SwiftUI
 
 struct RecordingListItemView: View {
     let recording: RecordingMetadata
+    var onTap: (() -> Void)?
+    var onExport: (() -> Void)?
     var onDelete: (() -> Void)?
 
     var body: some View {
@@ -50,7 +52,14 @@ struct RecordingListItemView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(Color.secondary.opacity(0.15))
         }
+        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .onTapGesture {
+            onTap?()
+        }
         .contextMenu {
+            if let onExport {
+                Button("Export…", action: onExport)
+            }
             if let onDelete {
                 Button("Delete", role: .destructive, action: onDelete)
             }

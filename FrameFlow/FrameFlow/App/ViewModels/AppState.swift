@@ -29,6 +29,12 @@ final class AppState {
     var isBootstrapping = true
     var subscriptionStatus: SubscriptionStatus = .free
     var selectedWindowIDs: Set<CGWindowID> = []
+    var selectedFormat: RecordingFormat = .sixteenByNine
+    var selectedLayoutPreset: LayoutPreset = .stacked
+    /// Recording queued for the Export screen (Dashboard tap or post-record flow).
+    var exportRecordingID: UUID?
+    /// Recording shown on the Recording Detail screen.
+    var detailRecordingID: UUID?
 
     var isPro: Bool {
         subscriptionStatus == .active

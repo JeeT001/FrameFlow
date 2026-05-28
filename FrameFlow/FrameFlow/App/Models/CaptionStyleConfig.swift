@@ -1,0 +1,171 @@
+//
+//  CaptionStyleConfig.swift
+//  FrameFlow
+//
+
+import AppKit
+import Foundation
+import SwiftUI
+
+enum CaptionStylePreset: String, Codable, CaseIterable, Sendable {
+    case classic
+    case tiktokBold
+    case highlightedWord
+    case minimal
+    case custom
+}
+
+enum CaptionVerticalPosition: String, Codable, Sendable {
+    case top
+    case middle
+    case bottom
+}
+
+struct CaptionStyleConfig: Codable, Equatable, Sendable {
+    var preset: CaptionStylePreset
+    var fontName: String
+    var fontSize: CGFloat
+    var textColorHex: String
+    var backgroundColorHex: String?
+    var showsBackground: Bool
+    var verticalPosition: CaptionVerticalPosition
+
+    static func from(settingsValue: String) -> CaptionStyleConfig {
+        switch settingsValue.lowercased() {
+        case "bold":
+            return .tiktokBold
+        case "minimal":
+            return .minimal
+        case "highlighted", "highlightedword":
+            return .highlightedWord
+        case "custom":
+            return .custom
+        default:
+            return .classic
+        }
+    }
+
+    static func fromSettings() -> CaptionStyleConfig {
+        from(settingsValue: SettingsStore.shared.captionStyle)
+    }
+
+    static func config(for preset: CaptionStylePreset, position: CaptionVerticalPosition) -> CaptionStyleConfig {
+        var base: CaptionStyleConfig
+        switch preset {
+        case .classic:
+            base = .classic
+        case .tiktokBold:
+            base = .tiktokBold
+        case .highlightedWord:
+            base = .highlightedWord
+        case .minimal:
+            base = .minimal
+        case .custom:
+            base = .custom
+        }
+        base.verticalPosition = position
+        return base
+    }
+
+    var displayName: String {
+        switch preset {
+        case .classic: "Classic"
+        case .tiktokBold: "TikTok Bold"
+        case .highlightedWord: "Highlighted"
+        case .minimal: "Minimal"
+        case .custom: "Custom"
+        }
+    }
+
+    var swiftUITextColor: Color {
+        Color(nsColor: nsTextColor)
+    }
+
+    var swiftUIBackgroundColor: Color? {
+        guard showsBackground, let hex = backgroundColorHex else { return nil }
+        return Color(nsColor: NSColor(hex: hex) ?? .black)
+    }
+
+    static let classic = CaptionStyleConfig(
+        preset: .classic,
+        fontName: "Helvetica-Bold",
+        fontSize: 42,
+        textColorHex: "#FFFFFF",
+        backgroundColorHex: "#000000",
+        showsBackground: true,
+        verticalPosition: .bottom
+    )
+
+    static let tiktokBold = CaptionStyleConfig(
+        preset: .tiktokBold,
+        fontName: "Helvetica-Bold",
+        fontSize: 56,
+        textColorHex: "#FFE135",
+        backgroundColorHex: nil,
+        showsBackground: false,
+        verticalPosition: .middle
+    )
+
+    static let minimal = CaptionStyleConfig(
+        preset: .minimal,
+        fontName: "Helvetica",
+        fontSize: 32,
+        textColorHex: "#FFFFFF",
+        backgroundColorHex: nil,
+        showsBackground: false,
+        verticalPosition: .bottom
+    )
+
+    /// Day 24 stub — full per-word highlight ships with Day 25 editor.
+    static let highlightedWord = CaptionStyleConfig(
+        preset: .highlightedWord,
+        fontName: "Helvetica-Bold",
+        fontSize: 44,
+        textColorHex: "#FFFFFF",
+        backgroundColorHex: "#000000CC",
+        showsBackground: true,
+        verticalPosition: .bottom
+    )
+
+    /// Day 24 stub — user-defined styling ships with Day 25 editor.
+    static let custom = CaptionStyleConfig(
+        preset: .custom,
+        fontName: "Helvetica-Bold",
+        fontSize: 42,
+        textColorHex: "#FFFFFF",
+        backgroundColorHex: "#000000",
+        showsBackground: true,
+        verticalPosition: .bottom
+    )
+
+    var nsTextColor: NSColor {
+        NSColor(hex: textColorHex) ?? .white
+    }
+
+    var nsBackgroundColor: NSColor? {
+        guard showsBackground, let hex = backgroundColorHex else { return nil }
+        return NSColor(hex: hex)
+    }
+}
+
+private extension NSColor {
+    convenience init?(hex: String) {
+        var cleaned = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned.hasPrefix("#") { cleaned.removeFirst() }
+        if cleaned.count == 8 {
+            // RGBA
+            guard let value = UInt64(cleaned, radix: 16) else { return nil }
+            let r = CGFloat((value >> 24) & 0xFF) / 255
+            let g = CGFloat((value >> 16) & 0xFF) / 255
+            let b = CGFloat((value >> 8) & 0xFF) / 255
+            let a = CGFloat(value & 0xFF) / 255
+            self.init(srgbRed: r, green: g, blue: b, alpha: a)
+            return
+        }
+        guard cleaned.count == 6, let value = UInt64(cleaned, radix: 16) else { return nil }
+        let r = CGFloat((value >> 16) & 0xFF) / 255
+        let g = CGFloat((value >> 8) & 0xFF) / 255
+        let b = CGFloat(value & 0xFF) / 255
+        self.init(srgbRed: r, green: g, blue: b, alpha: 1)
+    }
+}

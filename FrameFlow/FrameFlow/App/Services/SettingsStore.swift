@@ -19,6 +19,16 @@ final class SettingsStore {
         didSet { defaults.set(defaultSaveFolder, forKey: Keys.defaultSaveFolder) }
     }
 
+    var defaultSaveFolderBookmarkData: Data? {
+        didSet {
+            if let defaultSaveFolderBookmarkData {
+                defaults.set(defaultSaveFolderBookmarkData, forKey: Keys.defaultSaveFolderBookmarkData)
+            } else {
+                defaults.removeObject(forKey: Keys.defaultSaveFolderBookmarkData)
+            }
+        }
+    }
+
     var defaultAudioMode: String {
         didSet { defaults.set(defaultAudioMode, forKey: Keys.defaultAudioMode) }
     }
@@ -88,6 +98,7 @@ final class SettingsStore {
     private init() {
         defaultResolution = defaults.string(forKey: Keys.defaultResolution) ?? "1080p"
         defaultSaveFolder = defaults.string(forKey: Keys.defaultSaveFolder) ?? "~/Desktop"
+        defaultSaveFolderBookmarkData = defaults.data(forKey: Keys.defaultSaveFolderBookmarkData)
         defaultAudioMode = defaults.string(forKey: Keys.defaultAudioMode) ?? "combined"
         defaultMicDevice = defaults.string(forKey: Keys.defaultMicDevice)
         defaultMicVolume = defaults.object(forKey: Keys.defaultMicVolume) as? Float ?? 1.0
@@ -107,6 +118,7 @@ final class SettingsStore {
     private enum Keys {
         static let defaultResolution = "defaultResolution"
         static let defaultSaveFolder = "defaultSaveFolder"
+        static let defaultSaveFolderBookmarkData = "defaultSaveFolderBookmarkData"
         static let defaultAudioMode = "defaultAudioMode"
         static let defaultMicDevice = "defaultMicDevice"
         static let defaultMicVolume = "defaultMicVolume"

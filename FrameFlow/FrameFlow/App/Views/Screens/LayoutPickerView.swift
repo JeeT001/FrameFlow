@@ -1,0 +1,364 @@
+//
+//  LayoutPickerView.swift
+//  FrameFlow
+//
+
+import AVFoundation
+import SwiftUI
+
+struct LayoutPickerView: View {
+    @Environment(AppState.self) private var appState
+    @Environment(AppRouter.self) private var router
+    @State private var viewModel = LayoutPickerViewModel()
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if viewModel.selectedWindowCount(from: appState) == 0 {
+                noWindowsBanner
+            }
+
+            HStack(alignment: .top, spacing: 0) {
+                leftPanel
+                    .frame(width: 340)
+                    .padding(20)
+
+                Divider()
+
+                rightPanel
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(20)
+            }
+
+            Divider()
+
+            bottomBar
+                .padding(20)
+        }
+        .frame(minWidth: 900, minHeight: 600)
+        .navigationTitle("Layout")
+        .task {
+            viewModel.loadCameras()
+            viewModel.loadSessionState(from: appState)
+            viewModel.syncPiPState()
+            await viewModel.startLivePreview(appState: appState)
+            await viewModel.startCameraPreviewIfNeeded()
+        }
+        .onDisappear {
+            Task { await viewModel.stopLivePreview() }
+        }
+        .onChange(of: viewModel.format) { _, _ in
+            viewModel.syncSessionState(to: appState)
+            viewModel.updateLivePreviewLayout()
+        }
+        .onChange(of: viewModel.layoutPreset) { _, _ in
+            viewModel.syncSessionState(to: appState)
+            viewModel.updateLivePreviewLayout()
+        }
+        .onChange(of: appState.selectedWindowIDs) { _, _ in
+            Task { await viewModel.refreshLivePreview(appState: appState) }
+        }
+        .onChange(of: viewModel.cameraEnabled) { _, enabled in
+            viewModel.setCameraEnabled(enabled)
+            Task { await viewModel.startCameraPreviewIfNeeded() }
+        }
+        .onChange(of: viewModel.selectedCameraID) { _, newID in
+            viewModel.setSelectedCameraID(newID)
+            Task { await viewModel.startCameraPreviewIfNeeded() }
+        }
+        .sheet(isPresented: $viewModel.showAudioSheet) {
+            AudioModePickerView(settings: viewModel.settings, isPro: appState.isPro) {
+                viewModel.showAudioSheet = false
+            }
+        }
+        .sheet(isPresented: $viewModel.showUpgradeSheet) {
+            formatUpgradeSheet
+        }
+        .alert("No Windows Selected", isPresented: $viewModel.showNoWindowsAlert) {
+            Button("Back to Window Picker") {
+                router.navigate(to: .windowPicker)
+            }
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Select at least one window before starting a recording.")
+        }
+    }
+
+    private var noWindowsBanner: some View {
+        HStack {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text("No windows selected. Go back to the Window Picker to choose sources.")
+                .font(.subheadline)
+            Spacer()
+            Button("Window Picker") {
+                router.navigate(to: .windowPicker)
+            }
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.12))
+    }
+
+    private var leftPanel: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                formatSection
+                layoutSection
+                cameraSection
+                audioSection
+                togglesSection
+                countdownSection
+            }
+        }
+    }
+
+    private var formatSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Format")
+                .font(.headline)
+
+            Picker("Format", selection: formatBinding) {
+                ForEach(RecordingFormat.allCases) { format in
+                    HStack {
+                        Text(format.title)
+                        if format == .nineBySixteen && !appState.isPro {
+                            Text("Pro")
+                                .font(.caption2)
+                                .padding(.horizontal, 5)
+                                .background(Color.accentColor.opacity(0.15), in: Capsule())
+                        }
+                    }
+                    .tag(format)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
+    }
+
+    private var formatBinding: Binding<RecordingFormat> {
+        Binding(
+            get: { viewModel.format },
+            set: { newValue in
+                if newValue == .nineBySixteen && !appState.isPro {
+                    viewModel.showUpgradeSheet = true
+                } else {
+                    viewModel.format = newValue
+                    viewModel.syncSessionState(to: appState)
+                    viewModel.updateLivePreviewLayout()
+                }
+            }
+        )
+    }
+
+    private var layoutSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Layout")
+                .font(.headline)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(LayoutPreset.allCases) { preset in
+                    LayoutPresetCard(
+                        preset: preset,
+                        isSelected: viewModel.layoutPreset == preset
+                    ) {
+                        viewModel.layoutPreset = preset
+                        viewModel.syncSessionState(to: appState)
+                        viewModel.updateLivePreviewLayout()
+                    }
+                }
+            }
+        }
+    }
+
+    private var cameraSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Camera")
+                .font(.headline)
+
+            Toggle("Enable camera (PiP)", isOn: $viewModel.cameraEnabled)
+
+            if viewModel.cameraEnabled {
+                Picker("Camera source", selection: cameraSelection) {
+                    ForEach(viewModel.availableCameras, id: \.uniqueID) { device in
+                        Text(device.localizedName).tag(Optional(device.uniqueID))
+                    }
+                }
+                .disabled(viewModel.availableCameras.isEmpty)
+
+                Picker("PiP preset", selection: presetSelection) {
+                    ForEach(viewModel.pipPresets) { preset in
+                        Text(preset.title).tag(preset)
+                    }
+                }
+            }
+        }
+    }
+
+    private var cameraSelection: Binding<String?> {
+        Binding(
+            get: { viewModel.selectedCameraID },
+            set: { viewModel.selectedCameraID = $0 }
+        )
+    }
+
+    private var presetSelection: Binding<PiPPreset> {
+        Binding(
+            get: { viewModel.pipController.selectedPreset },
+            set: { viewModel.applyPiPPreset($0) }
+        )
+    }
+
+    private var audioSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Audio")
+                .font(.headline)
+
+            Button {
+                viewModel.showAudioSheet = true
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(viewModel.audioModeLabel)
+                            .font(.body)
+                        Text("Tap to change")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                }
+                .padding(12)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var togglesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Recording")
+                .font(.headline)
+
+            Toggle("Auto-focus on active window", isOn: Bindable(viewModel.settings).autoFocusEnabled)
+            Toggle("Cursor highlight", isOn: Bindable(viewModel.settings).cursorHighlightEnabled)
+        }
+    }
+
+    private var countdownSection: some View {
+        Stepper(
+            value: Bindable(viewModel.settings).countdownDuration,
+            in: 0...5
+        ) {
+            Text("Countdown: \(viewModel.settings.countdownDuration)s")
+        }
+    }
+
+    private var rightPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Preview")
+                .font(.headline)
+
+            ZStack {
+                if appState.selectedWindowIDs.isEmpty {
+                    LayoutPreviewCanvas(
+                        format: viewModel.format,
+                        preset: viewModel.layoutPreset,
+                        windowLabels: viewModel.windowLabels(from: appState),
+                        cameraEnabled: viewModel.cameraEnabled
+                    )
+                } else if viewModel.isStartingLivePreview && viewModel.previewImage == nil {
+                    VStack(spacing: 12) {
+                        ProgressView("Starting live preview…")
+                        Text("Capturing window streams. This may take a few seconds.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if viewModel.isLivePreviewActive, let previewImage = viewModel.previewImage {
+                    CompositePreviewView(
+                        image: previewImage,
+                        aspectRatio: viewModel.format.aspectRatio
+                    )
+                } else {
+                    VStack(spacing: 10) {
+                        LayoutPreviewCanvas(
+                            format: viewModel.format,
+                            preset: viewModel.layoutPreset,
+                            windowLabels: viewModel.windowLabels(from: appState),
+                            cameraEnabled: viewModel.cameraEnabled
+                        )
+
+                        if let message = viewModel.previewErrorMessage {
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: 360)
+                        }
+                    }
+                }
+
+                PiPOverlayView(
+                    controller: viewModel.pipController,
+                    cameraFrame: viewModel.latestCameraFrame
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var bottomBar: some View {
+        HStack {
+            Text("\(viewModel.selectedWindowCount(from: appState)) window(s) selected")
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Button("Start Recording") {
+                startRecording()
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(viewModel.selectedWindowCount(from: appState) == 0)
+        }
+    }
+
+    private var formatUpgradeSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Vertical Format (9:16)")
+                .font(.title2)
+                .fontWeight(.semibold)
+
+            Text("9:16 exports for TikTok, Reels, and Shorts are included with FrameFlow Pro.")
+                .foregroundStyle(.secondary)
+
+            HStack {
+                Button("Not Now", role: .cancel) {
+                    viewModel.showUpgradeSheet = false
+                }
+                Spacer()
+                Button("View Plans") {
+                    viewModel.showUpgradeSheet = false
+                    router.navigate(to: .subscription)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .frame(minWidth: 360)
+    }
+
+    private func startRecording() {
+        guard viewModel.validateWindowsSelected(from: appState) else { return }
+        viewModel.syncSessionState(to: appState)
+        router.navigate(to: .recording)
+    }
+}
+
+#Preview {
+    LayoutPickerView()
+        .environment(AppState())
+        .environment(AppRouter())
+        .frame(width: 1000, height: 700)
+}

@@ -68,6 +68,12 @@ final class RecordingStore {
         try save()
     }
 
+    func update(_ recording: RecordingMetadata) throws {
+        guard let index = recordings.firstIndex(where: { $0.id == recording.id }) else { return }
+        recordings[index] = recording
+        try save()
+    }
+
     #if DEBUG
     /// Inserts sample metadata when `FRAME_FLOW_MOCK_RECORDINGS=1` is set in the scheme environment.
     func loadDebugMocksIfNeeded() throws {

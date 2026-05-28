@@ -100,6 +100,12 @@ struct SettingsView: View {
                 }
             }
 
+            if viewModel.saveFolderNeedsReauthorization {
+                Text("Choose… again to allow saving to this folder (required for Desktop and other locations outside the app).")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
             Stepper(
                 value: Bindable(viewModel.settings).countdownDuration,
                 in: 0...5

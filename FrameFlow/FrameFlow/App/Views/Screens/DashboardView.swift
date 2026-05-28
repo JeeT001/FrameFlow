@@ -176,11 +176,24 @@ struct DashboardView: View {
     private var recordingsGrid: some View {
         LazyVGrid(columns: gridColumns, spacing: 16) {
             ForEach(recordingStore.recordings) { recording in
-                RecordingListItemView(recording: recording) {
-                    deleteRecording(recording)
-                }
+                RecordingListItemView(
+                    recording: recording,
+                    onTap: { openDetail(for: recording) },
+                    onExport: { openExport(for: recording) },
+                    onDelete: { deleteRecording(recording) }
+                )
             }
         }
+    }
+
+    private func openDetail(for recording: RecordingMetadata) {
+        appState.detailRecordingID = recording.id
+        router.navigate(to: .recordingDetail)
+    }
+
+    private func openExport(for recording: RecordingMetadata) {
+        appState.exportRecordingID = recording.id
+        router.navigate(to: .export)
     }
 
     private func deleteRecording(_ recording: RecordingMetadata) {

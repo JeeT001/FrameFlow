@@ -35,6 +35,30 @@ All notable changes to FrameFlow are documented in this file.
 - `AudioModePickerView` sheet (four modes, Confirm; volumes/meter deferred to Day 15)
 - `LayoutPresetCard` and `LayoutPreviewCanvas` components
 - `AudioLevelMonitor` and `AudioLevelBars` for live microphone level feedback in Audio Mode sheet
+- `WindowStreamManager`, `CompositeEngine`, and live `CompositePreviewView` on Layout Picker
+- `AppState.selectedFormat` and `selectedLayoutPreset` for recording session handoff
+- `RecordingEngine` (AVAssetWriter) and Recording HUD to save MP4s locally (video-only for now)
+- Security-scoped bookmark persistence for export save folder selection
+- `AudioCaptureService` with microphone capture lifecycle, mode handling, and live level output
+- Recording audio writer path (AAC) with `RecordingEngine.appendAudioSampleBuffer(_:)`
+- ScreenCaptureKit audio callback plumbing in `WindowStreamManager` for system-audio ingress
+- Dedicated system-audio ScreenCaptureKit stream lifecycle (`startSystemAudioCapture` / `stopSystemAudioCapture`)
+- `CursorTracker`, `ZoomController`, and `ClickEffectRenderer` services for recording-time cursor zoom/click emphasis
+- `ActiveWindowMonitor` service for frontmost-app-driven auto-focus mapping to selected recording windows
+- Sandbox save-folder entitlements for user-selected read/write access and app-scope bookmarks
+- `CameraCapture`, `PiPController`, and `PiPOverlayView` for Day 21 camera PiP capture and interactive positioning
+- Pause and resume recording with timestamp offset compensation (`totalPausedDuration`) in `RecordingEngine`
+- Recording screen Pause/Resume control with paused visual state
+- `RecordingHUDView` with auto-hide, pre-roll countdown overlay, and full-window recording preview layout
+- WhisperKit caption pipeline: `TranscriptionService`, `CaptionEngine`, `CaptionRenderer` (SRT + burn-in MP4)
+- `CaptionSegment`, `CaptionStyleConfig`, and `CaptionGenerationState` for Pro post-record transcription
+- Thin `CaptionEditorView` (Day 24 progress UI; full editor deferred to Day 25)
+- Full `CaptionEditorView` with `CaptionEditorViewModel`, `CaptionPreviewView`, `CaptionSegmentRow`, `CaptionStyleCard`
+- `ExportService` and `ExportView` with resolution picker, export progress, caption burn-in, and free-tier watermark
+- `AppState.exportRecordingID` for navigation to export from Dashboard, post-record alert, and Caption Editor
+- `RecordingDetailView` with rename on disk, thumbnail preview, metadata, Re-export, Delete, and Reveal in Finder
+- `AppState.detailRecordingID`; Dashboard recording cards open Recording Detail (context menu Export unchanged)
+- Day 28: polished free-tier export watermark (`WatermarkCompositor`) on full canvas for 16:9 and 9:16; export no longer replaces recording `filePath`
 
 ### Changed
 - Moved `Services`, `Resources`, and `Utils` stubs into dedicated subfolders under `App/`
@@ -48,3 +72,24 @@ All notable changes to FrameFlow are documented in this file.
 - `WindowCaptureService` skips thumbnail capture for windows smaller than 120×120
 - Toolbar **Audio Mode** route shows standalone hint (sheet opened from Layout Picker)
 - `AudioModePickerView` now includes draft mic/system sliders and confirms values to `SettingsStore`
+- Layout Picker preview uses live multi-window composite when streams succeed; placeholder fallback otherwise
+- Recording flow now produces a saved MP4 and adds local recording metadata (Dashboard list)
+- Recording export now resolves security-scoped bookmarks before moving to user-selected folders, with app-container fallback when access is unavailable
+- Recording session startup now enforces free-tier fallback from system/combined audio modes to mic-only capture
+- Per-window capture streams are now video-only; system audio is sourced from one display-based stream for stability
+- Recording composite pipeline now supports settings-driven auto-zoom transform and click/cursor overlay compositing
+- Recording composite pipeline now supports animated active-window focus border overlays when auto-focus is enabled
+- Save-folder fallback diagnostics now include explicit reasons (`bookmark missing`, `bookmark stale`, `scope access denied`)
+- Layout Picker now supports draggable/resizable camera PiP with preset placement options
+- Recording composite pipeline now applies camera PiP overlay after base/zoom/click/focus stages
+- Pro users with audio after stop navigate to Caption Editor and start background caption generation (free users unchanged)
+- `hasCaptions` on recording metadata is set when user exports from Caption Editor, not when transcription finishes
+- Free users can export after recording via alert **Export** button; Dashboard card tap opens Recording Detail
+- Export success updates `hasCaptions` only; original recording `filePath` preserved for Detail / Re-export
+- Free-tier export watermark anchored to full letterboxed canvas bottom-left (16:9 and 9:16)
+
+### Fixed
+- Recording A/V desync from mismatched video frame-counter timestamps vs ~30 Hz writer cadence; video and audio now share a host session clock in `RecordingEngine`
+- Mic CMSampleBuffer duration now uses `frameLength/sampleRate` for correct writer retiming in `AudioCaptureService`
+- `.combined` mode writer path is currently mic-only (until proper PCM mic+system mixing is added) to avoid unsafe single-track concatenation drift
+- Audio writer append is gated until the first video frame establishes the session clock (fixes audio-leading-video on mic recordings)

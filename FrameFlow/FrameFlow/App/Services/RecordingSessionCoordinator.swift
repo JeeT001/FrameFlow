@@ -1,0 +1,401 @@
+//
+//  RecordingSessionCoordinator.swift
+//  FrameFlow
+//
+
+import CoreGraphics
+import CoreImage
+import Foundation
+
+@MainActor
+@Observable
+final class RecordingSessionCoordinator {
+    private(set) var previewImage: CGImage?
+    private(set) var isStarting = false
+    private(set) var isRecording = false
+    var errorMessage: String?
+
+    let engine = RecordingEngine()
+
+    /// Latest zoom scale from `ZoomController` (updated each writer tick while recording).
+    private(set) var displayZoomScale: CGFloat = 1.0
+
+    private let streamManager = WindowStreamManager.shared
+    private let compositeEngine = CompositeEngine.shared
+    private let audioCaptureService = AudioCaptureService()
+    private let cursorTracker = CursorTracker()
+    private let zoomController = ZoomController()
+    private let clickEffectRenderer = ClickEffectRenderer()
+    private let activeWindowMonitor = ActiveWindowMonitor()
+    private let pipController = PiPController.shared
+    private let cameraCapture = CameraCapture()
+    /// ~30 Hz writer cadence for compositing + video append (independent of SCStream capture FPS).
+    private var displayTimer: Timer?
+
+    private var windowOrder: [CGWindowID] = []
+    private var format: RecordingFormat = .sixteenByNine
+    private var layoutPreset: LayoutPreset = .stacked
+    private var outputSize: CGSize = CGSize(width: 1280, height: 720)
+    private var outputURL: URL?
+    private var lastHandledClickID: UUID?
+    private var autoFocusEnabled = false
+    private var lastSaveFolderAccessIssue: String?
+
+    func startRecording(
+        windowIDs: Set<CGWindowID>,
+        format: RecordingFormat,
+        preset: LayoutPreset,
+        outputURL: URL,
+        isPro: Bool
+    ) async {
+        await stopAll()
+
+        guard !windowIDs.isEmpty else {
+            errorMessage = "No windows selected."
+            return
+        }
+
+        isStarting = true
+        errorMessage = nil
+
+        self.windowOrder = windowIDs.sorted()
+        self.format = format
+        self.layoutPreset = preset
+        self.outputURL = outputURL
+
+        outputSize = recordingOutputSize(format: format)
+
+        let requestedMode = AudioModeOption(rawValue: SettingsStore.shared.defaultAudioMode) ?? .none
+        let effectiveMode = effectiveAudioMode(requestedMode, isPro: isPro)
+        // Hotfix: in `.combined` we currently prioritize microphone-only for the writer append path.
+        // Combined mic+system buffers are not mixed into one PCM timeline yet, and interleaving can
+        // still cause subtle A/V drift even with a shared video/audio PTS clock.
+        let writerAudioMode: AudioModeOption = (effectiveMode == .combined) ? .mic : effectiveMode
+        #if DEBUG
+        if effectiveMode == .combined {
+            print("[RecordingSessionCoordinator] Combined writer hotfix: using mic-only for A/V stability.")
+        }
+        #endif
+        let shouldCaptureSystemAudio = (writerAudioMode == .system) && isPro
+        let settings = SettingsStore.shared
+        zoomController.configure(
+            autoZoomOnClick: settings.autoZoomOnClick,
+            zoomStrength: settings.zoomStrength,
+            zoomHoldDuration: settings.zoomHoldDuration
+        )
+        autoFocusEnabled = settings.autoFocusEnabled
+        cursorTracker.startTracking()
+        if autoFocusEnabled {
+            activeWindowMonitor.startMonitoring(selectedWindowIDs: windowIDs)
+        }
+        lastHandledClickID = nil
+
+        do {
+            streamManager.onSystemAudioSampleBuffer = { [weak self] sampleBuffer in
+                Task { @MainActor [weak self] in
+                    self?.audioCaptureService.ingestSystemAudioSampleBuffer(sampleBuffer)
+                }
+            }
+            try await streamManager.startAll(windowIDs: windowIDs)
+            if shouldCaptureSystemAudio {
+                try await streamManager.startSystemAudioCapture()
+            }
+            try engine.start(outputURL: outputURL, outputSize: outputSize)
+            if pipController.isCameraEnabled {
+                await cameraCapture.start(preferredCameraID: pipController.selectedCameraID)
+                if let cameraStatus = cameraCapture.statusMessage {
+                    errorMessage = cameraStatus
+                }
+            } else {
+                cameraCapture.stop()
+            }
+            await audioCaptureService.start(
+                mode: writerAudioMode,
+                micVolume: SettingsStore.shared.defaultMicVolume,
+                systemVolume: SettingsStore.shared.defaultSystemVolume,
+                preferredMicDeviceUniqueID: SettingsStore.shared.defaultMicDevice
+            ) { [weak self] sampleBuffer in
+                guard let self else { return }
+                do {
+                    try self.engine.appendAudioSampleBuffer(sampleBuffer)
+                } catch {
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+            if let audioStatus = audioCaptureService.statusMessage {
+                errorMessage = audioStatus
+            }
+            isRecording = true
+            startTimer()
+        } catch {
+            errorMessage = error.localizedDescription
+            await stopAll()
+        }
+
+        isStarting = false
+    }
+
+    func updateLayout(format: RecordingFormat, preset: LayoutPreset) {
+        self.format = format
+        self.layoutPreset = preset
+    }
+
+    func pauseRecording() {
+        guard isRecording else { return }
+        engine.pauseRecording()
+    }
+
+    func resumeRecording() {
+        guard isRecording else { return }
+        engine.resumeRecording()
+    }
+
+    func stopAll() async {
+        displayTimer?.invalidate()
+        displayTimer = nil
+        previewImage = nil
+        cursorTracker.stopTracking()
+        activeWindowMonitor.stopMonitoring()
+        cameraCapture.stop()
+        audioCaptureService.stop()
+        await streamManager.stopSystemAudioCapture()
+        streamManager.onSystemAudioSampleBuffer = nil
+
+        if isRecording {
+            try? await engine.stop()
+        }
+
+        isRecording = false
+        await streamManager.stopAllVideoStreams()
+    }
+
+    func finalizeAndStop(moveTo destinationURL: URL) async throws -> URL {
+        guard let currentOutputURL = outputURL else {
+            await stopAll()
+            throw RecordingEngineError.notRecording
+        }
+
+        try await engine.stop()
+        cursorTracker.stopTracking()
+        activeWindowMonitor.stopMonitoring()
+        cameraCapture.stop()
+        audioCaptureService.stop()
+        await streamManager.stopSystemAudioCapture()
+        isRecording = false
+        streamManager.onSystemAudioSampleBuffer = nil
+        await streamManager.stopAllVideoStreams()
+        displayTimer?.invalidate()
+        displayTimer = nil
+
+        let fileManager = FileManager.default
+        let saveFolderName = destinationURL.lastPathComponent
+        lastSaveFolderAccessIssue = nil
+
+        do {
+            if let scopedFolderURL = resolvedSecurityScopedSaveFolderURL() {
+                let finalURL = scopedFolderURL.appendingPathComponent(saveFolderName)
+                return try moveRecording(
+                    from: currentOutputURL,
+                    to: finalURL,
+                    fileManager: fileManager,
+                    stopSecurityScopeOnFolderURL: scopedFolderURL
+                )
+            } else {
+                let fallbackURL = fallbackDestinationURL(filename: saveFolderName)
+                let reason = lastSaveFolderAccessIssue ?? "bookmark missing"
+                errorMessage = "Save folder permission issue (\(reason)). Recording saved to Application Support/Recordings. Re-select your save folder in Settings."
+                return try moveRecording(
+                    from: currentOutputURL,
+                    to: fallbackURL,
+                    fileManager: fileManager,
+                    stopSecurityScopeOnFolderURL: nil
+                )
+            }
+        } catch {
+            let fallbackURL = fallbackDestinationURL(filename: saveFolderName)
+            do {
+                errorMessage = "Save folder access failed. Recording saved to Application Support/Recordings. Re-select your save folder in Settings."
+                return try moveRecording(
+                    from: currentOutputURL,
+                    to: fallbackURL,
+                    fileManager: fileManager,
+                    stopSecurityScopeOnFolderURL: nil
+                )
+            } catch {
+                throw RecordingEngineError.moveFailed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func startTimer() {
+        displayTimer?.invalidate()
+        // Writer tick: composite once and append one video frame; session clock anchors on first video append (audio gated until then).
+        displayTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.tick()
+            }
+        }
+        tick()
+    }
+
+    private func tick() {
+        guard isRecording else { return }
+
+        activeWindowMonitor.updateVisibleWindowIDs(Set(streamManager.latestFrames.keys))
+        let zoomScale = currentZoomScale()
+        let clickOverlay = currentClickOverlay()
+        let focusedWindowID = autoFocusEnabled ? activeWindowMonitor.activeWindowID : nil
+        let cameraFrame = cameraCapture.latestFrame
+        let pipEnabled = pipController.isCameraEnabled
+        let pipConfig = pipController.config
+
+        guard let ci = compositeEngine.renderCompositeCIImage(
+            frames: streamManager.latestFrames,
+            windowOrder: windowOrder,
+            preset: layoutPreset,
+            canvasSize: outputSize,
+            zoomScale: zoomScale,
+            zoomFocalPointNormalized: zoomController.focalPointNormalized,
+            clickOverlay: clickOverlay,
+            activeWindowID: focusedWindowID,
+            autoFocusEnabled: autoFocusEnabled,
+            cameraFrame: cameraFrame,
+            pipConfig: pipConfig,
+            pipEnabled: pipEnabled
+        ) else {
+            return
+        }
+
+        previewImage = compositeEngine.renderComposite(
+            frames: streamManager.latestFrames,
+            windowOrder: windowOrder,
+            preset: layoutPreset,
+            canvasSize: outputSize,
+            zoomScale: zoomScale,
+            zoomFocalPointNormalized: zoomController.focalPointNormalized,
+            clickOverlay: clickOverlay,
+            activeWindowID: focusedWindowID,
+            autoFocusEnabled: autoFocusEnabled,
+            cameraFrame: cameraFrame,
+            pipConfig: pipConfig,
+            pipEnabled: pipEnabled
+        )
+
+        do {
+            try engine.appendFrame(ciImage: ci, outputSize: outputSize)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func currentZoomScale() -> CGFloat {
+        cursorTracker.pruneExpiredClicks()
+        if let latestClick = cursorTracker.recentClicks.last, latestClick.id != lastHandledClickID {
+            zoomController.handleClick(latestClick)
+            lastHandledClickID = latestClick.id
+        }
+        zoomController.updateCursorPosition(normalizedPoint: cursorTracker.normalizedCursorPoint)
+        zoomController.tick()
+        let scale = zoomController.currentScale
+        displayZoomScale = scale
+        return scale
+    }
+
+    private func currentClickOverlay() -> CIImage? {
+        clickEffectRenderer.makeOverlay(
+            clicks: cursorTracker.recentClicks,
+            cursorNormalizedPoint: cursorTracker.normalizedCursorPoint,
+            showCursorHighlight: SettingsStore.shared.cursorHighlightEnabled,
+            cursorColorName: SettingsStore.shared.cursorHighlightColor,
+            canvasSize: outputSize
+        )
+    }
+
+    private func recordingOutputSize(format: RecordingFormat) -> CGSize {
+        let prefers = SettingsStore.shared.defaultResolution.lowercased()
+        let supports4K = DeviceCapabilityManager.shared.supports4K
+
+        let landscape: CGSize
+        switch prefers {
+        case "4k":
+            landscape = supports4K ? CGSize(width: 3840, height: 2160) : CGSize(width: 1920, height: 1080)
+        case "720p":
+            landscape = CGSize(width: 1280, height: 720)
+        default:
+            landscape = CGSize(width: 1920, height: 1080)
+        }
+
+        if format == .sixteenByNine {
+            return landscape
+        } else {
+            return CGSize(width: landscape.height, height: landscape.width)
+        }
+    }
+
+    private func effectiveAudioMode(_ requestedMode: AudioModeOption, isPro: Bool) -> AudioModeOption {
+        guard requestedMode.requiresPro, !isPro else { return requestedMode }
+        errorMessage = "System audio capture requires Pro. Continuing with microphone audio."
+        return .mic
+    }
+
+    private func resolvedSecurityScopedSaveFolderURL() -> URL? {
+        guard let bookmarkData = SettingsStore.shared.defaultSaveFolderBookmarkData else {
+            lastSaveFolderAccessIssue = "bookmark missing"
+            return nil
+        }
+
+        var isStale = false
+        guard let url = try? URL(
+            resolvingBookmarkData: bookmarkData,
+            options: [.withSecurityScope],
+            relativeTo: nil,
+            bookmarkDataIsStale: &isStale
+        ) else {
+            lastSaveFolderAccessIssue = "bookmark resolve failed"
+            return nil
+        }
+
+        guard !isStale else {
+            lastSaveFolderAccessIssue = "bookmark stale"
+            return nil
+        }
+
+        guard url.startAccessingSecurityScopedResource() else {
+            lastSaveFolderAccessIssue = "scope access denied"
+            return nil
+        }
+
+        lastSaveFolderAccessIssue = nil
+        return url
+    }
+
+    private func fallbackDestinationURL(filename: String) -> URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return appSupport
+            .appendingPathComponent("FrameFlow", isDirectory: true)
+            .appendingPathComponent("Recordings", isDirectory: true)
+            .appendingPathComponent(filename)
+    }
+
+    private func moveRecording(
+        from sourceURL: URL,
+        to destinationURL: URL,
+        fileManager: FileManager,
+        stopSecurityScopeOnFolderURL folderURLToStop: URL?
+    ) throws -> URL {
+        defer {
+            folderURLToStop?.stopAccessingSecurityScopedResource()
+        }
+
+        try fileManager.createDirectory(
+            at: destinationURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try fileManager.removeItem(at: destinationURL)
+        }
+        try fileManager.moveItem(at: sourceURL, to: destinationURL)
+        return destinationURL
+    }
+}
+

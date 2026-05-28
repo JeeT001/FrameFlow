@@ -448,3 +448,532 @@ feat: layout picker with format, presets, camera, and audio controls
 ```
 feat: audio mode picker with volume controls and live level meter
 ```
+
+---
+
+## Blueprint Day 16 — Live Composite Preview (2026-05-26)
+
+### Completed
+- `WindowStreamManager` — per-window `SCStream` + `SCStreamOutput`; latest `CIImage` per `CGWindowID`
+- `CompositeEngine` — layout compositing (stacked, side-by-side, PiP) into 1280×720 or 720×1280 canvas
+- `CompositePreviewCoordinator` — start/stop streams, 30 Hz UI composite timer
+- `CompositePreviewView` — `NSViewRepresentable` displaying composited `CGImage` via `CALayer`
+- `AppState.selectedFormat` + `selectedLayoutPreset` synced from Layout Picker
+- Layout Picker right panel: live preview with placeholder fallback on failure
+- Streams stop on Layout Picker `onDisappear`
+- **Build:** SUCCESS
+
+### Stream lifecycle
+- **Start:** Layout Picker `.task` → `startLivePreview` → `WindowStreamManager.startAll`
+- **Update layout/format:** re-composite only (no stream restart)
+- **Change window set:** restart streams via `refreshLivePreview`
+- **Stop:** `onDisappear` → `stopAll` (no background capture)
+
+### FPS
+- `SCStreamConfiguration.minimumFrameInterval` from `DeviceCapabilityManager.compositeFrameRate` (60 Apple Silicon, 30 Intel)
+- UI timer ~30 Hz for `CompositeEngine.renderComposite`
+
+### Manual test steps
+1. Grant Screen Recording; Window Picker → select 2 windows → **Next**
+2. Layout Picker shows “Starting live preview…” then live video composite
+3. Switch layout preset (stacked ↔ side-by-side) — arrangement updates
+4. Switch format 16:9 ↔ 9:16 (Pro for 9:16) — canvas aspect updates
+5. Leave Layout Picker — streams stop (no ongoing capture in background)
+6. If `SCWindow` stale/missing — fallback placeholder + error message
+
+### Known console notes
+- ScreenCaptureKit may log filter/thumbnail warnings for tiny or protected windows; UI falls back gracefully
+
+### Suggested commit
+```
+feat: live composite preview canvas with multi-window SCStream
+```
+
+---
+
+## Blueprint Day 17 — AVAssetWriter Recording (2026-05-26)
+
+### Completed
+- `RecordingEngine` — AVAssetWriter H.264 MP4 (video-only for now), `start(outputURL:outputSize:)`, `appendFrame(ciImage:)`, `stop()`
+- `RecordingSessionCoordinator` — keeps `SCStream` running, composites frames, appends to writer, updates live preview
+- `RecordingView` + `RecordingViewModel` — recording HUD, live composite preview, duration, Stop → save + metadata
+- Temp file writes to `FileManager.default.temporaryDirectory` and moves to `SettingsStore.expandedSaveFolder` with `FrameFlow_YYYY-MM-DD_HH-mm-ss.mp4`
+- Adds `RecordingMetadata` via `RecordingStore.shared.add(_)` so Dashboard updates
+- **Build:** SUCCESS
+
+### Manual test steps
+1. Settings → set resolution (720p / 1080p; 4K only on Apple Silicon)
+2. Dashboard → New Recording → select 1–2 windows → Next → confirm live layout preview
+3. Tap **Start Recording** → Recording HUD appears; timer increments; live preview continues
+4. Record ~10 seconds → **Stop**
+5. Confirm file exists in the Save folder with `FrameFlow_*.mp4`
+6. Return to Dashboard → new recording card appears (duration/resolution/date)
+
+### Notes
+- **Audio is not recorded yet** (Day 18).
+- Save-folder export now uses security-scoped bookmarks; if missing/stale, recording falls back to `Application Support/FrameFlow/Recordings` and prompts user to reselect folder in Settings.
+
+### Sandbox save-folder test steps
+1. Open Settings → Recording & Export → **Choose…** and select Desktop.
+2. Start a recording and tap Stop.
+3. Verify the `FrameFlow_*.mp4` file appears on Desktop.
+4. Quit and relaunch FrameFlow.
+5. Record again and stop; verify a second file appears on Desktop (bookmark persisted across launches).
+
+### Fix — duration + save-folder hint (2026-05-26)
+- **Duration 0s on Dashboard:** `stopAndSave` now reads `currentDurationSeconds()` before `finalizeAndStop()`. `RecordingEngine` stores `lastRecordedDurationSeconds` in `stop()` before clearing `startDate`.
+- **Settings hint:** Orange caption under Save folder when `defaultSaveFolderBookmarkData` is nil — prompts user to tap **Choose…** again for Desktop/external folders.
+
+### Manual test (duration + bookmark)
+1. Settings → Save folder → **Choose…** → select Desktop (orange hint should disappear).
+2. Record ~10s → **Stop** → Dashboard card shows ~`00:10`, not `0s`.
+3. Confirm MP4 on Desktop (not only Application Support fallback).
+4. Quit and relaunch → record again → Desktop save + correct duration persist.
+
+### Suggested commit
+```
+feat: AVAssetWriter recording pipeline with H.264 video
+```
+
+---
+
+## Blueprint Day 18 — Audio capture + writer audio track (2026-05-27)
+
+### Completed
+- Added `AudioCaptureService` with `start()`/`stop()`, mode-aware handling (`mic`, `system`, `combined`, `none`), and live level publishing for future HUD use.
+- Wired real microphone capture via `AVAudioEngine` input tap and normalized PCM conversion into `CMSampleBuffer` for writer append.
+- Extended `RecordingEngine` with AAC `AVAssetWriterInput` (`.audio`) and `appendAudioSampleBuffer(_:)`.
+- Updated `RecordingSessionCoordinator` to start/stop audio capture alongside recording lifecycle and route mode/volume/mic-device settings from `SettingsStore`.
+- Added ScreenCaptureKit audio ingress plumbing in `WindowStreamManager` (`includeSystemAudio`, `.audio` stream output callback) and connected it into `AudioCaptureService`.
+- Added free-tier safety gate in recording start path: system/combined requests downgrade to mic-only for free users.
+
+### Fallback behavior
+- Mic permission denied: recording continues, non-blocking status message set.
+- System audio unavailable or not yet mix-ready in current multi-window architecture: safe no-crash fallback; video + mic recording still succeeds.
+
+### Manual test steps (Day 18)
+1. **Mic only**: select Microphone mode, record, verify voice is present in MP4.
+2. **Combined/System**: on Pro, verify mode starts and recording succeeds; on free-tier, verify it falls back to mic-only behavior without crash.
+3. **None**: select No Audio, record, verify output is silent.
+4. **Stop/save**: record ~10s and stop, verify save flow still works and Dashboard duration is correct.
+
+### Not done yet
+- True frame-accurate mic+system PCM mixing remains TODO while multi-window ScreenCaptureKit audio stream selection is stabilized.
+
+### Suggested commit
+```
+feat: add audio capture and mixing pipeline for recordings
+```
+
+---
+
+## Blueprint Day 18.5 — Dedicated system audio stream (2026-05-27)
+
+### Completed
+- Refined `WindowStreamManager` so per-window streams are now strictly **video-only** (`capturesAudio = false`).
+- Added dedicated system-audio lifecycle in `WindowStreamManager`:
+  - `startSystemAudioCapture()`
+  - `stopSystemAudioCapture()`
+  - display-based `SCContentFilter` source for stable system audio callback flow
+- Dedicated audio stream configuration uses:
+  - `capturesAudio = true`
+  - `excludesCurrentProcessAudio = true`
+  - `sampleRate = 48000`
+  - `channelCount = 2`
+- Updated `RecordingSessionCoordinator` start order:
+  1. start video window streams
+  2. start dedicated system-audio stream (when mode requires it and user is Pro)
+  3. start `RecordingEngine` + `AudioCaptureService`
+- Updated stop/error cleanup to stop system audio + video streams and clear `onSystemAudioSampleBuffer` callback.
+- `AudioCaptureService.ingestSystemAudioSampleBuffer(_:)` now consumes dedicated system buffers directly while preserving mode checks and safe fallback behavior.
+
+### Manual test steps (Day 18.5)
+1. **Mic mode:** record and verify mic audio is present.
+2. **System mode (Pro):** record and verify system audio source is present.
+3. **Combined mode (Pro):** record and verify both mic + system behavior.
+4. **Free tier:** system/combined requests remain downgraded/gated to safe mic path.
+5. **None mode:** output remains silent.
+
+### Suggested commit
+```
+refactor: use dedicated system audio stream and video-only window streams
+```
+
+---
+
+## Blueprint Day 19 — Zoom controller + cursor tracker (2026-05-27)
+
+### Completed
+- Added `CursorTracker` service with global/local mouse movement and click monitors.
+- Added `ZoomController` with settings-driven auto-zoom state machine:
+  - click zoom-in animation
+  - hold duration
+  - smooth zoom-out back to identity
+- Added `ClickEffectRenderer` to render cursor highlight and click ripple overlays as CIImage layers.
+- Extended `CompositeEngine` to apply:
+  - zoom transform (scale + focal point)
+  - optional click/cursor overlay
+- Wired `RecordingSessionCoordinator` lifecycle:
+  - start cursor tracking on recording start
+  - update zoom + ripple state per frame
+  - stop/cleanup monitors on stop/finalize/error paths
+- Kept Day 18/18.5 audio pipeline unchanged (dedicated system-audio stream + writer path preserved).
+
+### Manual test steps (Day 19)
+1. Start recording with auto-zoom enabled.
+2. Click different preview regions and confirm zoom focuses near click location.
+3. Confirm zoom returns to identity after configured hold duration.
+4. Confirm click ripple appears and fades.
+5. Disable auto-zoom in Settings and verify recording still works without zoom animation.
+6. Confirm stop/save duration + audio modes continue working.
+
+### Suggested commit
+```
+feat: add cursor tracking and auto-zoom click effects
+```
+
+---
+
+## Blueprint Day 20 — Auto-focus mode (2026-05-27)
+
+### Completed
+- Added `ActiveWindowMonitor` service:
+  - observes `NSWorkspace.didActivateApplicationNotification`
+  - maps frontmost app bundle ID to selected recording window IDs
+  - publishes `activeWindowID` and non-blocking status text
+- Deterministic mapping:
+  - prefer matching selected window IDs that are currently visible in stream frames
+  - fallback to lowest matching `CGWindowID`
+  - clear focus when active app has no selected windows
+- Extended `CompositeEngine` to accept `activeWindowID` + `autoFocusEnabled` and render animated focus border.
+- Focus border implementation:
+  - ~3pt blue stroke around active panel rect
+  - ~0.4s transition lerp between old/new panel rects
+  - compositing order now: base layout -> zoom -> click/cursor overlay -> focus border
+- Updated `RecordingSessionCoordinator` lifecycle:
+  - starts monitor when `SettingsStore.autoFocusEnabled` is true
+  - updates visible frame IDs each tick
+  - passes active focus state into `CompositeEngine`
+  - cleans up monitor on stop/finalize/error
+- Kept Day 17–19 recording/audio/zoom paths intact.
+
+### Manual test steps (Day 20)
+1. Enable Auto-Focus in Settings/Layout path.
+2. Start recording with 2+ windows from different apps.
+3. Switch active app (Cmd+Tab/click windows).
+4. Verify blue focus border moves to matching panel with smooth transition.
+5. Disable Auto-Focus and verify no border appears.
+6. Verify stop/save, duration, and audio modes still work.
+
+### Suggested commit
+```
+feat: add active-window auto-focus highlight in composite
+```
+
+---
+
+## Save-folder entitlement verification patch (2026-05-27)
+
+### Completed
+- Updated `FrameFlow.entitlements` with:
+  - `com.apple.security.files.user-selected.read-write = true`
+  - `com.apple.security.files.bookmarks.app-scope = true`
+- Added explicit save-folder diagnostic reasons in `RecordingSessionCoordinator` fallback path:
+  - `bookmark missing`
+  - `bookmark stale`
+  - `scope access denied`
+- Kept fallback behavior unchanged (`Application Support/FrameFlow/Recordings`).
+
+### Important note
+- After entitlement change, users should re-pick save folder once in Settings (`Choose…`) so a fresh bookmark is used.
+
+### Verification checklist
+1. Launch app after entitlement change.
+2. Settings → Save folder → **Choose…** → Desktop.
+3. Record 5–10s and stop.
+4. Confirm MP4 appears on Desktop.
+5. Relaunch app and record again; confirm it still saves to Desktop.
+6. Confirm no fallback message appears in normal flow.
+
+### Suggested commit
+```
+fix: enable sandbox file entitlements for user-selected save folder
+```
+
+---
+
+## Blueprint Day 21 — PiP camera overlay (2026-05-27)
+
+### Completed
+- Added `CameraCapture` service using `AVCaptureSession` + `AVCaptureVideoDataOutput` to produce camera `CIImage` frames.
+- Added `PiPController` + `PiPConfig` with observable PiP state:
+  - normalized position + size
+  - shape (`roundedRect`, `circle`)
+  - border style + width
+  - presets: Bottom-Right, Bottom-Left, Top-Right, Face-Top (9:16), Face-Left, No Camera
+- Added interactive `PiPOverlayView` in Layout Picker preview:
+  - drag to reposition
+  - corner-handle resize
+  - edge snapping (~20pt normalized threshold)
+- Wired recording lifecycle:
+  - `RecordingSessionCoordinator` starts camera capture when PiP is enabled
+  - camera frame + PiP config are fed into `CompositeEngine` each tick
+  - camera capture stops on stop/finalize/error cleanup paths
+- Extended `CompositeEngine` compositing order to include PiP after focus overlay:
+  - base layout -> zoom -> click/cursor -> auto-focus border -> camera PiP
+
+### Fallback behavior
+- If camera permission is denied/unavailable, recording continues and PiP is safely skipped (non-blocking message only).
+- If no camera frame is available for a tick, composite output renders without PiP for that frame (no crash).
+
+### Manual test steps (Day 21)
+1. Enable camera/PiP in Layout Picker and verify PiP preview appears.
+2. Drag PiP to corners and verify snapping behavior.
+3. Resize PiP via corner handle and verify size bounds/stability.
+4. Switch presets (Bottom-Right, Top-Right, Face-Top, etc.) and verify placement updates.
+5. Record a short clip and verify PiP camera is burned into exported output.
+6. Disable camera/PiP and verify recording still works without PiP overlay.
+7. Recheck Days 18–20 behavior (audio modes, zoom/click effects, auto-focus, duration/save).
+
+### Suggested commit
+```
+feat: add PiP camera overlay with drag, resize, and presets
+```
+
+---
+
+## A/V sync hotfix — shared session clock (2026-05-27)
+
+### Completed
+- Updated `RecordingEngine` to anchor writer timestamps to one host session clock:
+  - `recordingStartHostTime` captured at `start()`
+  - writer timescale fixed at **600**
+- Fixed mic CMSampleBuffer durations in `AudioMixerEngine.makeSampleBuffer`:
+  - duration now uses `frameLength/sampleRate` (was previously `1/sampleRate`), improving audio retiming accuracy.
+- Video append PTS now uses elapsed host time (not `frameIndex / compositeFrameRate`).
+- Audio append now retimes incoming buffers onto the same session timeline:
+  - first buffer anchored to elapsed host time
+  - subsequent buffers advance by buffer duration with monotonic PTS guard
+- Added DEBUG-only first-append diagnostics for video/audio PTS vs wall elapsed seconds.
+- Documented coordinator writer tick (~30 Hz) as compositor cadence independent from capture FPS.
+- In `.combined` mode, the writer append path is currently **mic-only** (system buffers are not interleaved into the single audio timeline yet) to avoid single-track mic/system concatenation drift until proper PCM mixing lands.
+
+### Why
+- Compositor tick is ~30 Hz while video PTS previously assumed 60 Hz on Apple Silicon, causing fast-motion video and drift vs real-time audio.
+
+### Manual verification checklist
+1. Settings → choose Desktop save folder.
+2. Record ~10s in **mic** mode; clap once near ~5s.
+3. QuickTime: duration ~10s; clap audio/visual alignment within ~200ms.
+4. Record **combined/system** (Pro; writer uses mic-only for sync hotfix) and confirm no obvious drift.
+5. Record with PiP enabled; camera motion should no longer look sped up.
+6. Dashboard duration still correct; MP4 saves to Desktop.
+
+### Suggested commit
+```
+fix: align recording audio and video timestamps to shared session clock
+```
+
+---
+
+## A/V sync follow-up — video-led session clock (2026-05-27)
+
+### Completed
+- `RecordingEngine` now anchors `recordingStartHostTime` on the **first successful video frame append** only.
+- Early mic audio buffers are dropped until `hasStartedVideoTimeline` is true (reduces audio-leading-video by ~100–300ms from compositor latency).
+- DEBUG logs once when audio is gated: `Dropping audio until first video frame is appended.`
+
+### Manual test
+1. Mic mode, record 10s, clap at 5s.
+2. QuickTime: clap should align better (audio no longer noticeably ahead).
+3. Confirm MP4 duration and Desktop save still work.
+
+### Suggested commit
+```
+fix: align audio start to first video frame
+```
+
+---
+
+## Blueprint Day 22 — Pause / resume recording (2026-05-27)
+
+### Completed
+- `RecordingEngine.pauseRecording()` / `resumeRecording()` with timestamp offset compensation:
+  - `pauseStartHostTime` + accumulated `totalPausedDuration` (timescale 600)
+  - append methods no-op while paused (no frozen gap in MP4)
+  - effective PTS = host elapsed − `totalPausedDuration`
+- HUD timer uses active recording elapsed (excludes pause intervals).
+- `RecordingSessionCoordinator` exposes pause/resume; streams/camera/audio stay warm.
+- `RecordingView` Pause/Resume control, paused state indicator (orange dot + “Paused”).
+
+### Manual test steps (Day 22)
+1. Record 15s wall time; pause at ~5s for ~3s; resume; stop at ~15s wall.
+2. Exported MP4 duration ~12s (15 − 3 pause), no visible freeze gap in timeline.
+3. Clap before pause and after resume — rough sync check only.
+4. Stop/save to Desktop; Dashboard metadata duration matches ~12s.
+
+### Suggested commit
+```
+feat: pause and resume recording with timestamp offset compensation
+```
+
+---
+
+## Blueprint Day 23 — Recording screen + HUD (2026-05-27)
+
+### Completed
+- `RecordingHUDView` pill overlay: status dot + timer, zoom label, audio mode icon, Pause/Resume + Stop.
+- `RecordingView` layout refresh: full-window `CompositePreviewView` (`fillsWindow`), HUD overlay, slim chrome (no legacy header/footer controls).
+- Pre-roll countdown from `SettingsStore.countdownDuration` before `startRecording` (3-2-1 style with scale animation); `0` skips overlay.
+- HUD auto-hide after 3s idle; reappears on preview hover/interaction; stays visible while paused.
+- PiP remains fixed during recording (configured in Layout Picker only; composited in coordinator tick).
+
+### Manual test steps (Day 23)
+1. Countdown 3-2-1 when setting = 3, then capture starts.
+2. HUD shows timer/zoom/audio/pause/stop; hides after ~3s idle; returns on mouse move.
+3. Pause shows yellow state; Day 22 duration behavior unchanged.
+4. Countdown 0 → immediate start.
+5. Stop → Desktop save + Dashboard entry.
+
+### Suggested commit
+```
+feat: recording screen with HUD, countdown, and PiP positioning
+```
+
+---
+
+## Blueprint Day 24 — WhisperKit captions (2026-05-27)
+
+### Completed
+- `CaptionSegment`, `CaptionSidecar`, `CaptionStyleConfig` (presets: classic, tiktokBold, highlightedWord, minimal, custom).
+- `TranscriptionService`: MP4 → M4A extract (`AVAssetExportSession`), WhisperKit transcribe with word timestamps, phrase merge (~3–6 words).
+- `CaptionEngine`: orchestrates extract → transcribe → sidecar JSON (`{name}_captions.json` + App Support fallback) → SRT → burn-in MP4.
+- `CaptionRenderer`: SRT writer; `AVMutableVideoComposition` + `CATextLayer` burn-in (Classic, TikTokBold word-by-word, Minimal); HighlightedWord/Custom fall back to Classic visuals.
+- `CaptionGenerationState` + thin `CaptionEditorView` (progress, preview lines, retry, Skip → Dashboard).
+- Pro post-record: `RecordingView` navigates to `.captionEditor` and starts background generation when `isPro`, audio mode ≠ none, and file has audio track.
+- `RecordingStore.update` for `hasCaptions` after success.
+
+### Performance notes
+- First WhisperKit run may download models (status message in UI).
+- Burn-in export is synchronous after transcription; long clips may take additional time on top of Whisper decode.
+
+### Deferred
+- Day 25: full caption editor (timeline, drag timings, per-word highlight editing).
+- Day 26–28: export screen, watermark pipeline.
+
+### Manual test steps (Day 24)
+1. Pro + speech clip → stop → Caption Editor → transcription completes.
+2. `{recording}_captions.json` beside MP4 with plausible timestamps.
+3. `.srt` opens in TextEdit with valid blocks.
+4. `{recording}_captioned.mp4` shows burned captions (Classic from Settings).
+5. Free user → saved alert + Dashboard (no auto transcription).
+6. Silent / no-audio → graceful error, no crash.
+7. Record/pause/HUD/save regression.
+
+### Suggested commit
+```
+feat: WhisperKit captions with style presets and video burn-in
+```
+
+---
+
+## Blueprint Day 25 — Caption Editor screen (2026-05-27)
+
+### Completed
+- `CaptionEditorViewModel` — editable segments, style/position/export format, `AVPlayer` + time observer, `exportCaptions()` via `CaptionEngine` + `CaptionRenderer`.
+- `CaptionPreviewView` — `VideoPlayer`, scrubber, `CaptionOverlayView` mimicking preset styles at playback time.
+- `CaptionSegmentRow` — `m:ss` labels + editable `TextField`; tap seeks preview.
+- `CaptionStyleCard` — five preset cards with blue selection border.
+- `CaptionEditorView` — full HStack layout; transcription progress → editor transition; Pro gate + Skip; export success alert (Finder / Dashboard).
+- `CaptionGenerationState.applySegments`; removed auto `hasCaptions` on transcription complete (export only).
+- `CaptionRenderer` — Highlighted Word burn-in (per-word yellow highlight layers).
+
+### Deferred
+- Day 26: dedicated Export screen, resolution picker, watermark, `ExportService`.
+
+### Manual test steps (Day 25)
+1. Pro + speech → wait for transcription → full editor.
+2. Edit segment → Export SRT → valid file.
+3. Change style card → overlay updates.
+4. Export Burned In → `*_captioned.mp4` plays with captions.
+5. Export Both → SRT + MP4 exist.
+6. Skip → Dashboard.
+7. Segment row tap → preview seeks near start.
+
+### Suggested commit
+```
+feat: caption editor screen with live preview and segment editing
+```
+
+---
+
+## Blueprint Day 26 — Export screen + ExportService (2026-05-27)
+
+### Completed
+- `ExportService` — `ExportOptions` / `ExportResolution`; caption burn-in via `CaptionRenderer`; scale to 720p/1080p/4K; free-tier `Made with FrameFlow` CATextLayer watermark; security-scoped save folder + App Support fallback; `UNUserNotificationCenter` on completion (respects `notificationsEnabled`).
+- `ExportViewModel` + `ExportView` — preview player, resolution locks (Pro / Apple Silicon for 4K), captions toggle, progress, success alert + Reveal in Finder.
+- `AppState.exportRecordingID` handoff from Dashboard, free post-record alert (**Export** / Dashboard), Caption Editor **Export Video** toolbar.
+- `RecordingListItemView` tap → export; placeholder `ExportView` removed.
+
+### Deferred
+- Day 28: dedicated watermark polish (Day 26 implements basic bottom-left text per blueprint).
+- Day 27: Recording Detail screen.
+
+### Manual test steps (Day 26)
+1. Free: record → alert **Export** → 720p export with watermark.
+2. Pro: 1080p/4K (Silicon) export without watermark.
+3. Recording with sidecar → toggle captions → burned export.
+4. Dashboard card tap → Export with correct recording.
+5. Notification when enabled in Settings.
+6. Intel: 4K row locked with Apple Silicon message.
+
+### Suggested commit
+```
+feat: export screen with resolution picker, watermark, and progress
+```
+
+---
+
+## Blueprint Day 27 — Recording Detail screen (2026-05-27)
+
+### Completed
+- `RecordingDetailViewModel` — load from `RecordingStore`, `AVAssetImageGenerator` thumbnail (~1s), rename via `FileManager.moveItem` + sanitized filename, delete with sidecar/SRT/captioned/export variants cleanup, play/reveal helpers.
+- `RecordingDetailView` — 16:9 thumbnail (tap → `NSWorkspace.open`), name field + Save, metadata grid, Reveal / Re-export / Delete.
+- `AppState.detailRecordingID`; Dashboard **card tap** → `.recordingDetail`; context menu **Export…** unchanged.
+- Removed `RecordingDetailView` placeholder.
+
+### Deferred
+- Day 28: watermark polish (basic watermark already in `ExportService`).
+
+### Manual test steps (Day 27)
+1. Dashboard tap → Detail with correct metadata.
+2. Thumbnail tap → system player.
+3. Rename → Finder + Dashboard name update.
+4. Re-export → Export screen.
+5. Reveal in Finder.
+6. Delete → file + grid entry removed.
+7. Context menu Export from Dashboard.
+
+### Suggested commit
+```
+feat: recording detail screen with rename, re-export, and delete
+```
+
+---
+
+## Blueprint Day 28 — Watermark system polish (2026-05-27)
+
+### Completed
+- Extracted `WatermarkCompositor` in `ExportService.swift` — exact text **Made with FrameFlow**; bottom-left of full `targetSize` canvas (letterbox included); padding `10 * (canvasHeight / 1080)`; white @ 80% opacity; subtle pill + text shadow for 9:16 readability.
+- Fixed prior bug: watermark used `y = padding` (top-left under flipped geometry); now `y = canvasHeight - padding - pillHeight`.
+- Pro: unchanged — `applyWatermark: !options.isPro` only.
+- `ExportViewModel`: stop overwriting `RecordingMetadata.filePath` on export (sibling `_export_*.mp4` only in success alert).
+
+### Verified (manual)
+- 16:9 and 9:16 free 720p exports: watermark on canvas bottom-left, not on video sub-rect only.
+- Pro export: no watermark layer added.
+
+### Suggested commit
+```
+feat: watermark compositing for free tier exports
+```
