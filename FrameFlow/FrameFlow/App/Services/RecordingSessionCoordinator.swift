@@ -150,6 +150,65 @@ final class RecordingSessionCoordinator {
         engine.resumeRecording()
     }
 
+    func zoomIn() {
+        zoomController.zoomIn()
+        displayZoomScale = zoomController.currentScale
+    }
+
+    func zoomOut() {
+        zoomController.zoomOut()
+        displayZoomScale = zoomController.currentScale
+    }
+
+    func resetZoom() {
+        zoomController.resetZoom()
+        displayZoomScale = zoomController.currentScale
+    }
+
+    func toggleAutoFocus() {
+        let settings = SettingsStore.shared
+        settings.autoFocusEnabled.toggle()
+        setAutoFocusEnabled(settings.autoFocusEnabled)
+    }
+
+    func toggleCursorHighlight() {
+        SettingsStore.shared.cursorHighlightEnabled.toggle()
+    }
+
+    func togglePiPCamera(isPro: Bool) async -> Bool {
+        guard isPro else { return false }
+
+        if pipController.isCameraEnabled {
+            pipController.applyPreset(.noCamera)
+            cameraCapture.stop()
+        } else {
+            pipController.isCameraEnabled = true
+            if pipController.selectedPreset == .noCamera {
+                pipController.applyPreset(.bottomRight)
+            }
+            await cameraCapture.start(preferredCameraID: pipController.selectedCameraID)
+            if let cameraStatus = cameraCapture.statusMessage {
+                errorMessage = cameraStatus
+            }
+        }
+        return true
+    }
+
+    private func setAutoFocusEnabled(_ enabled: Bool) {
+        autoFocusEnabled = enabled
+        if enabled, isRecording {
+            activeWindowMonitor.startMonitoring(selectedWindowIDs: Set(windowOrder))
+        } else {
+            activeWindowMonitor.stopMonitoring()
+        }
+    }
+
+    private func syncAutoFocusFromSettings() {
+        let enabled = SettingsStore.shared.autoFocusEnabled
+        guard enabled != autoFocusEnabled else { return }
+        setAutoFocusEnabled(enabled)
+    }
+
     func stopAll() async {
         displayTimer?.invalidate()
         displayTimer = nil
@@ -169,6 +228,7 @@ final class RecordingSessionCoordinator {
         await streamManager.stopAllVideoStreams()
     }
 
+    /// Finalizes the writer and moves the temp file to `destinationURL` (staging — no save-folder bookmark).
     func finalizeAndStop(moveTo destinationURL: URL) async throws -> URL {
         guard let currentOutputURL = outputURL else {
             await stopAll()
@@ -188,43 +248,12 @@ final class RecordingSessionCoordinator {
         displayTimer = nil
 
         let fileManager = FileManager.default
-        let saveFolderName = destinationURL.lastPathComponent
-        lastSaveFolderAccessIssue = nil
-
-        do {
-            if let scopedFolderURL = resolvedSecurityScopedSaveFolderURL() {
-                let finalURL = scopedFolderURL.appendingPathComponent(saveFolderName)
-                return try moveRecording(
-                    from: currentOutputURL,
-                    to: finalURL,
-                    fileManager: fileManager,
-                    stopSecurityScopeOnFolderURL: scopedFolderURL
-                )
-            } else {
-                let fallbackURL = fallbackDestinationURL(filename: saveFolderName)
-                let reason = lastSaveFolderAccessIssue ?? "bookmark missing"
-                errorMessage = "Save folder permission issue (\(reason)). Recording saved to Application Support/Recordings. Re-select your save folder in Settings."
-                return try moveRecording(
-                    from: currentOutputURL,
-                    to: fallbackURL,
-                    fileManager: fileManager,
-                    stopSecurityScopeOnFolderURL: nil
-                )
-            }
-        } catch {
-            let fallbackURL = fallbackDestinationURL(filename: saveFolderName)
-            do {
-                errorMessage = "Save folder access failed. Recording saved to Application Support/Recordings. Re-select your save folder in Settings."
-                return try moveRecording(
-                    from: currentOutputURL,
-                    to: fallbackURL,
-                    fileManager: fileManager,
-                    stopSecurityScopeOnFolderURL: nil
-                )
-            } catch {
-                throw RecordingEngineError.moveFailed(error.localizedDescription)
-            }
-        }
+        return try moveRecording(
+            from: currentOutputURL,
+            to: destinationURL,
+            fileManager: fileManager,
+            stopSecurityScopeOnFolderURL: nil
+        )
     }
 
     private func startTimer() {
@@ -240,6 +269,8 @@ final class RecordingSessionCoordinator {
 
     private func tick() {
         guard isRecording else { return }
+
+        syncAutoFocusFromSettings()
 
         activeWindowMonitor.updateVisibleWindowIDs(Set(streamManager.latestFrames.keys))
         let zoomScale = currentZoomScale()

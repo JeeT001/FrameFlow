@@ -9,7 +9,7 @@
 
 ## Currently Working On
 
-- **Blueprint Day 36** — Settings wiring verification / polish (SettingsStore already exists)
+- **Blueprint Day 37** — Profile delete account (next)
 
 ## Completed
 
@@ -38,10 +38,11 @@
 - **Blueprint Day 33:** `ExpiryBannerView` on Dashboard (dismiss until next launch); Renew → SubscriptionView; Profile Manage Subscription with RC portal + fallback alert; inactive entitlement maps to `past_due` / `expired`
 - **Blueprint Day 34:** `KeyboardShortcutManager` — global + local Cmd shortcuts during recording; manual zoom on `ZoomController`; Help FAQ for shortcuts + Accessibility
 - **Blueprint Day 35:** Asset Catalog semantic colors (10 tokens + AccentColor aligned); `AppColors` enum; View/Component migration (not Services/CI pipeline)
+- **Blueprint Day 36:** SettingsStore wiring audit — export default resolution from settings; zoom strength slider in Settings; live auto-focus sync during recording; full property audit table in DEV_LOG
 
 ## Next Task
 
-1. **Blueprint Day 36** — Verify SettingsStore wiring to app behaviour (already largely done)
+1. **Blueprint Day 37** — Profile delete account flow
 
 ## Important Decisions
 
@@ -77,6 +78,7 @@
 | Expiry banner (Day 33) | Dismiss hides until next cold launch; re-shows if still `past_due`/`expired`; **Renew** → SubscriptionView; **Manage** (Profile) → RC billing portal |
 | Recording shortcuts (Day 34) | Global + local NSEvent monitors while recording; Accessibility permission for unfocused app; manual zoom × auto-click multiplier |
 | Semantic colors (Day 35) | `AppColors` enum + Asset Catalog light/dark; Views/Components only; `AccentColor` aligned with `appPrimary`; HUD/video black unchanged |
+| Settings wiring (Day 36) | Every `SettingsStore` key drives UI + runtime behavior; export resolution pre-selects from settings (Pro/hardware clamped); zoom/auto-focus/cursor live or next-session documented |
 
 ## Reference Docs
 

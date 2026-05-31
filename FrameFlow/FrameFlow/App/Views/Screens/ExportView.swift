@@ -34,11 +34,9 @@ struct ExportView: View {
         .onAppear {
             viewModel.load(
                 exportRecordingID: appState.exportRecordingID,
-                pendingRecording: appState.pendingRecording
+                pendingRecording: appState.pendingRecording,
+                isPro: appState.isPro
             )
-            if !appState.isPro {
-                viewModel.selectedResolution = .p720
-            }
         }
         .onDisappear {
             viewModel.teardown()

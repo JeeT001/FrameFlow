@@ -11,6 +11,7 @@ import Foundation
 @Observable
 final class ExportViewModel {
     var recording: RecordingMetadata?
+    var isPendingExport = false
     var selectedResolution: ExportResolution = .p720
     var applyCaptions = true
     var isExporting = false
@@ -36,21 +37,53 @@ final class ExportViewModel {
         hasCaptionsAvailable && applyCaptions
     }
 
-    func load(exportRecordingID: UUID?) {
+    func load(exportRecordingID: UUID?, pendingRecording: RecordingMetadata?, isPro: Bool) {
         guard let exportRecordingID else {
             recording = nil
+            isPendingExport = false
             return
         }
-        recording = RecordingStore.shared.recordings.first { $0.id == exportRecordingID }
+
+        if let pending = pendingRecording, pending.id == exportRecordingID {
+            recording = pending
+            isPendingExport = true
+        } else {
+            recording = RecordingStore.shared.recordings.first { $0.id == exportRecordingID }
+            isPendingExport = false
+        }
+
         applyCaptions = hasCaptionsAvailable
 
         if let recording {
             let url = URL(fileURLWithPath: recording.filePath)
-            if player.currentItem == nil {
-                player.replaceCurrentItem(with: AVPlayerItem(url: url))
-            }
-            clampResolutionForHardware()
+            player.replaceCurrentItem(with: AVPlayerItem(url: url))
+            applyDefaultResolution(isPro: isPro)
+        } else {
+            player.replaceCurrentItem(with: nil)
         }
+    }
+
+    func applyDefaultResolution(isPro: Bool) {
+        let pref = SettingsStore.shared.defaultResolution.lowercased()
+        let requested: ExportResolution
+        switch pref {
+        case "4k":
+            requested = .p4K
+        case "720p":
+            requested = .p720
+        default:
+            requested = .p1080
+        }
+
+        if canSelectResolution(requested, isPro: isPro) {
+            selectedResolution = requested
+        } else if requested == .p4K, canSelectResolution(.p1080, isPro: isPro) {
+            selectedResolution = .p1080
+        } else {
+            selectedResolution = .p720
+        }
+
+        clampResolutionForHardware()
     }
 
     func canSelectResolution(_ resolution: ExportResolution, isPro: Bool) -> Bool {
@@ -81,7 +114,7 @@ final class ExportViewModel {
         }
     }
 
-    func export(isPro: Bool) async {
+    func export(isPro: Bool, appState: AppState) async {
         guard let recording else {
             exportError = "No recording selected."
             return
@@ -105,14 +138,21 @@ final class ExportViewModel {
 
         defer { isExporting = false }
 
+        let previousPath = recording.filePath
         let style = ExportService.captionStyle(for: sourceURL, recordingID: recording.id)
+        let outputFilename = Self.exportFilename(
+            for: recording,
+            resolution: selectedResolution,
+            isFirstExport: isPendingExport
+        )
         let options = ExportOptions(
             sourceVideoURL: sourceURL,
             recordingID: recording.id,
             resolution: selectedResolution,
             isPro: isPro,
             applyCaptionsIfAvailable: applyCaptions && hasCaptionsAvailable,
-            captionStyle: style
+            captionStyle: style,
+            outputFilename: outputFilename
         )
 
         do {
@@ -124,7 +164,11 @@ final class ExportViewModel {
             }
 
             exportedURL = url
-            updateRecordingMetadata(afterExport: url, resolution: selectedResolution)
+            try persistAfterExport(
+                exportedURL: url,
+                previousPath: previousPath,
+                appState: appState
+            )
             showSuccessAlert = true
         } catch {
             let rawMessage = error.localizedDescription.lowercased()
@@ -137,6 +181,14 @@ final class ExportViewModel {
                 exportError = error.localizedDescription
             }
         }
+    }
+
+    func discardPending(appState: AppState) {
+        if let pending = appState.pendingRecording {
+            RecordingFileCleanup.deleteStagingAndSidecars(for: pending)
+        }
+        appState.pendingRecording = nil
+        appState.exportRecordingID = nil
     }
 
     func revealInFinder() {
@@ -159,16 +211,64 @@ final class ExportViewModel {
         }
     }
 
-    private func updateRecordingMetadata(afterExport url: URL, resolution: ExportResolution) {
+    private func persistAfterExport(
+        exportedURL: URL,
+        previousPath: String,
+        appState: AppState
+    ) throws {
         guard var metadata = recording else { return }
-        // Keep `filePath` pointing at the original recording; export writes a sibling `_export_*.mp4`.
-        _ = url
-        _ = resolution
+
+        if isPendingExport {
+            RecordingFileCleanup.deleteStagingAndSidecars(for: metadata)
+        }
+
+        let attributes = try? FileManager.default.attributesOfItem(atPath: exportedURL.path)
+        metadata.filePath = exportedURL.path
+        metadata.fileSizeBytes = attributes?[.size] as? Int ?? metadata.fileSizeBytes
+        metadata.resolution = resolutionBadge(for: selectedResolution, format: metadata.format)
         if applyCaptions && hasCaptionsAvailable {
             metadata.hasCaptions = true
         }
 
+        if isPendingExport {
+            try RecordingStore.shared.add(metadata)
+            appState.pendingRecording = nil
+            isPendingExport = false
+        } else {
+            if previousPath != exportedURL.path,
+               FileManager.default.fileExists(atPath: previousPath) {
+                try? FileManager.default.removeItem(atPath: previousPath)
+            }
+            try RecordingStore.shared.update(metadata)
+        }
+
         recording = metadata
-        try? RecordingStore.shared.update(metadata)
+    }
+
+    private static func exportFilename(
+        for recording: RecordingMetadata,
+        resolution: ExportResolution,
+        isFirstExport: Bool
+    ) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let stamp = formatter.string(from: isFirstExport ? recording.createdAt : Date())
+        return "FrameFlow_\(stamp)_\(resolution.rawValue).mp4"
+    }
+
+    private func resolutionBadge(for resolution: ExportResolution, format: String) -> String {
+        let landscape: String
+        switch resolution {
+        case .p720: landscape = "1280x720"
+        case .p1080: landscape = "1920x1080"
+        case .p4K: landscape = "3840x2160"
+        }
+        if format == "9:16" {
+            let parts = landscape.split(separator: "x")
+            if parts.count == 2 {
+                return "\(parts[1])x\(parts[0])"
+            }
+        }
+        return landscape
     }
 }

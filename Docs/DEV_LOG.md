@@ -1263,3 +1263,59 @@ feat: global keyboard shortcuts for all recording controls
 ```
 feat: semantic colour system with dark mode via Asset Catalog
 ```
+
+---
+
+## Blueprint Day 36 — SettingsStore wiring audit (2026-05-30)
+
+### Completed
+- **`ExportViewModel.applyDefaultResolution(isPro:)`** — maps `SettingsStore.defaultResolution` (`720p` / `1080p` / `4k`) to `ExportResolution`; free users clamp to 720p; 4K falls back to 1080p when hardware unsupported; called from `load(…, isPro:)`
+- **`ExportView`** — removed blunt `onAppear` override that always forced 720p for free users
+- **`SettingsView`** — added **Zoom strength** slider (`0…3`, displays resulting scale %)
+- **`RecordingSessionCoordinator.syncAutoFocusFromSettings()`** — re-reads `autoFocusEnabled` each composite tick so Settings / Layout Picker changes apply live during recording (keyboard shortcut path unchanged)
+
+### Live vs next-session behavior
+
+| Setting | When it applies |
+|---------|-----------------|
+| Auto-focus, cursor highlight | **Live** during recording (tick reads SettingsStore) |
+| Zoom strength / hold / auto-zoom on click | **Next recording** (`ZoomController.configure` at session start) |
+| Default resolution (recording output) | **Next recording** (`RecordingSessionCoordinator` output size) |
+| Default resolution (export picker) | **Each Export screen open** (`ExportViewModel.load`) |
+| Audio mode / mic device / volumes | **Next recording** (coordinator reads at start) |
+| Countdown | **Next recording** (`RecordingViewModel`) |
+| Caption style | **Next caption load/export** (`CaptionStyleConfig.fromSettings()` fallback) |
+| Notifications | **Each export** (`ExportService.notifyExportComplete` guard) |
+| Dark mode | **Immediate** (`RootView.preferredColorScheme`) |
+
+### Settings wiring audit
+
+| Key | Read site(s) | Status |
+|-----|--------------|--------|
+| `defaultResolution` | `RecordingSessionCoordinator` (output size), `RecordingViewModel.resolutionString`, `ExportViewModel.applyDefaultResolution`, Settings picker | **Fixed** (export pre-select) |
+| `defaultSaveFolder` | `ExportService` resolved path, Settings UI | OK |
+| `defaultSaveFolderBookmarkData` | `ExportService` security-scoped access | OK |
+| `defaultAudioMode` | `RecordingSessionCoordinator.startRecording`, `LayoutPickerViewModel`, `AudioModePickerView` | OK |
+| `defaultMicDevice` | `RecordingSessionCoordinator` → `AudioCaptureService`, Settings mic picker | OK |
+| `defaultMicVolume` | `AudioCaptureService.configure`, Settings slider | OK |
+| `defaultSystemVolume` | `AudioCaptureService.configure`, Settings slider | OK |
+| `autoFocusEnabled` | `RecordingSessionCoordinator` (start + live tick sync), Layout Picker + Settings toggles, Cmd+F | **Fixed** (live sync) |
+| `cursorHighlightEnabled` | `RecordingSessionCoordinator.currentClickOverlay` (live), Layout Picker + Settings, Cmd+H | OK |
+| `autoZoomOnClick` | `ZoomController.configure` at record start, Settings toggle | OK |
+| `zoomStrength` | `ZoomController.configure` at record start, Settings slider | **Fixed** (UI added) |
+| `zoomHoldDuration` | `ZoomController.configure` at record start, Settings stepper | OK |
+| `cursorHighlightColor` | `RecordingSessionCoordinator` → `ClickEffectRenderer` (live), Settings picker | OK |
+| `countdownDuration` | `RecordingViewModel` pre-roll, Layout Picker + Settings stepper | OK |
+| `captionStyle` | `CaptionStyleConfig.fromSettings()`, `ExportService.captionStyle` fallback, `CaptionEditorViewModel`, Settings picker | OK |
+| `notificationsEnabled` | `ExportService.notifyExportComplete` guard, Settings toggle | OK |
+| `darkModeOverride` | `RootView.preferredColorScheme`, Settings picker | OK |
+| `showLifetimeDeal` | `SubscriptionView` lifetime card visibility, DEBUG Settings toggle | OK |
+| `expiryBannerDismissed` | `ExpiryBannerView` / Dashboard banner dismiss | OK |
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: wire SettingsStore defaults to export and recording behavior
+```

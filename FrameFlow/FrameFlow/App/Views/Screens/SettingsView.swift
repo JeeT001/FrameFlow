@@ -154,6 +154,15 @@ struct SettingsView: View {
             Toggle("Cursor highlight", isOn: Bindable(viewModel.settings).cursorHighlightEnabled)
             Toggle("Auto zoom on click", isOn: Bindable(viewModel.settings).autoZoomOnClick)
 
+            VStack(alignment: .leading) {
+                Text("Zoom strength: \(String(format: "%.0f", (1 + viewModel.settings.zoomStrength) * 100))%")
+                Slider(
+                    value: Bindable(viewModel.settings).zoomStrength,
+                    in: 0...3,
+                    step: 0.05
+                )
+            }
+
             Stepper(
                 value: Bindable(viewModel.settings).zoomHoldDuration,
                 in: 0.5...5.0,

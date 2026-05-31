@@ -111,6 +111,8 @@ All notable changes to FrameFlow are documented in this file.
 - Pro upgrade sheet on gated features (9:16, multi-window, system audio, PiP, captions, HD export)
 - Inactive RevenueCat entitlement correctly maps to past_due / expired for banner and Pro gates
 - Help FAQ documents recording keyboard shortcuts and Accessibility requirement for global hotkeys
+- Asset Catalog semantic color tokens with light/dark variants; `AppColors` enum for Views/Components
+- Export screen pre-selects resolution from Settings default (Pro/hardware clamped); zoom strength slider in Settings
 
 ### Fixed
 - Recording A/V desync from mismatched video frame-counter timestamps vs ~30 Hz writer cadence; video and audio now share a host session clock in `RecordingEngine`
