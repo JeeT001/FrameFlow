@@ -11,6 +11,7 @@ import SwiftUI
 struct FrameFlowApp: App {
     @State private var appState = AppState()
     @State private var router = AppRouter()
+    @State private var subscriptionManager = SubscriptionManager.shared
 
     var body: some Scene {
         WindowGroup {
@@ -18,6 +19,11 @@ struct FrameFlowApp: App {
                 .environment(appState)
                 .environment(router)
                 .environment(SettingsStore.shared)
+                .environment(subscriptionManager)
+                .onAppear {
+                    subscriptionManager.configureIfNeeded()
+                    SettingsStore.shared.resetExpiryBannerDismissedForLaunch()
+                }
         }
         .defaultSize(width: 1100, height: 700)
     }

@@ -9,7 +9,7 @@
 
 ## Currently Working On
 
-- **Blueprint Day 37** — Profile delete account (next)
+- **Blueprint Day 38** — PostHog analytics + Sentry (next)
 
 ## Completed
 
@@ -39,10 +39,11 @@
 - **Blueprint Day 34:** `KeyboardShortcutManager` — global + local Cmd shortcuts during recording; manual zoom on `ZoomController`; Help FAQ for shortcuts + Accessibility
 - **Blueprint Day 35:** Asset Catalog semantic colors (10 tokens + AccentColor aligned); `AppColors` enum; View/Component migration (not Services/CI pipeline)
 - **Blueprint Day 36:** SettingsStore wiring audit — export default resolution from settings; zoom strength slider in Settings; live auto-focus sync during recording; full property audit table in DEV_LOG
+- **Blueprint Day 37:** Profile header (app icon + version); display name save checkmark + disabled when unchanged; delete account via RPC `delete_user` (client-safe, CASCADE to public.users/subscriptions); RevenueCat + session cleanup
 
 ## Next Task
 
-1. **Blueprint Day 37** — Profile delete account flow
+1. **Blueprint Day 38** — PostHog analytics + Sentry error tracking
 
 ## Important Decisions
 
@@ -79,6 +80,7 @@
 | Recording shortcuts (Day 34) | Global + local NSEvent monitors while recording; Accessibility permission for unfocused app; manual zoom × auto-click multiplier |
 | Semantic colors (Day 35) | `AppColors` enum + Asset Catalog light/dark; Views/Components only; `AccentColor` aligned with `appPrimary`; HUD/video black unchanged |
 | Settings wiring (Day 36) | Every `SettingsStore` key drives UI + runtime behavior; export resolution pre-selects from settings (Pro/hardware clamped); zoom/auto-focus/cursor live or next-session documented |
+| Delete account (Day 37) | RPC `delete_user` (not admin API); CASCADE FKs; `hasCompletedOnboarding` preserved; only `expiryBannerDismissed` cleared |
 
 ## Reference Docs
 

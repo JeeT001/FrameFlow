@@ -9,12 +9,13 @@ import Foundation
 
 enum Config {
     /// Supabase project URL (Project Settings → API → Project URL)
-    static let supabaseURL = ""
+    static let supabaseURL = "https://rdqohexzpxrkggcagrmq.supabase.co"
 
     /// Supabase anon/public key (Project Settings → API → anon public)
-    static let supabaseAnonKey = ""
+    static let supabaseAnonKey = "sb_publishable_Z68W_NZiDm1u_ouq7Glk1g_HUWJyUtU"
 
-    /// RevenueCat public API key (Dashboard → Project → API keys)
+    /// RevenueCat public API key (Dashboard → Project → API keys).
+    /// Day 31 dev: use Test Store key (`test_...`); entitlement identifier `pro`.
     static let revenueCatAPIKey = ""
 
     /// Sentry DSN (Project Settings → Client Keys)

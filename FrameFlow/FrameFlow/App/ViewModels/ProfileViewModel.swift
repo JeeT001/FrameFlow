@@ -9,14 +9,34 @@ import Supabase
 @Observable
 final class ProfileViewModel {
     var displayName = ""
+    private(set) var savedDisplayName = ""
     var isSaving = false
+    var showSaveSuccess = false
     var isSendingPasswordReset = false
+    var showDeleteConfirmation = false
+    var isDeletingAccount = false
     var alertTitle = ""
     var alertMessage = ""
     var showAlert = false
 
+    static var appVersionString: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        guard let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String else {
+            return version
+        }
+        return build == version ? version : "\(version) (\(build))"
+    }
+
+    var canSaveDisplayName: Bool {
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        return trimmed != savedDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     func syncDisplayName(from user: User?) {
-        displayName = UserDisplayHelpers.displayName(for: user)
+        let name = UserDisplayHelpers.displayName(for: user)
+        displayName = name
+        savedDisplayName = name
     }
 
     func saveDisplayName(appState: AppState) async {
@@ -32,12 +52,28 @@ final class ProfileViewModel {
         do {
             let updatedUser = try await UserService.shared.updateDisplayName(trimmed)
             appState.currentUser = updatedUser
-            displayName = UserDisplayHelpers.displayName(for: updatedUser)
-            presentAlert(title: "Saved", message: "Your display name was updated.")
+            let name = UserDisplayHelpers.displayName(for: updatedUser)
+            displayName = name
+            savedDisplayName = name
+            await playSaveSuccessAnimation()
         } catch let error as AuthServiceError {
             presentAlert(title: "Save Failed", message: error.localizedDescription)
         } catch {
             presentAlert(title: "Save Failed", message: error.localizedDescription)
+        }
+    }
+
+    func deleteAccount(appState: AppState, router: AppRouter) async {
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
+
+        do {
+            try await appState.deleteAccount()
+            router.navigate(to: .login)
+        } catch let error as AuthServiceError {
+            presentAlert(title: "Delete Failed", message: error.localizedDescription)
+        } catch {
+            presentAlert(title: "Delete Failed", message: error.localizedDescription)
         }
     }
 
@@ -61,6 +97,12 @@ final class ProfileViewModel {
         } catch {
             presentAlert(title: "Request Failed", message: error.localizedDescription)
         }
+    }
+
+    private func playSaveSuccessAnimation() async {
+        showSaveSuccess = true
+        try? await Task.sleep(for: .seconds(1))
+        showSaveSuccess = false
     }
 
     private func presentAlert(title: String, message: String) {

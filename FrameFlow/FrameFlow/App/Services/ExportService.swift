@@ -37,6 +37,7 @@ struct ExportOptions: Sendable {
     let isPro: Bool
     let applyCaptionsIfAvailable: Bool
     let captionStyle: CaptionStyleConfig
+    let outputFilename: String
 }
 
 enum ExportServiceError: LocalizedError {
@@ -103,10 +104,9 @@ final class ExportService: @unchecked Sendable {
 
             progress(0.3, "Encoding at \(options.resolution.displayName)…")
 
-            let baseName = options.sourceVideoURL.deletingPathExtension().lastPathComponent
             let outputURL = try await writeEncodedExport(
                 sourceURL: sourceURL,
-                baseName: baseName,
+                outputFilename: options.outputFilename,
                 resolution: options.resolution,
                 applyWatermark: !options.isPro,
                 progress: progress
@@ -136,7 +136,7 @@ final class ExportService: @unchecked Sendable {
 
     private func writeEncodedExport(
         sourceURL: URL,
-        baseName: String,
+        outputFilename: String,
         resolution: ExportResolution,
         applyWatermark: Bool,
         progress: @Sendable (Double, String) -> Void
@@ -221,8 +221,7 @@ final class ExportService: @unchecked Sendable {
         progress(0.55, "Writing file…")
 
         return try await withSecurityScopedSaveFolder { folderURL in
-            let filename = "\(baseName)_export_\(resolution.rawValue).mp4"
-            let outputURL = folderURL.appendingPathComponent(filename)
+            let outputURL = folderURL.appendingPathComponent(outputFilename)
 
             if fileManager.fileExists(atPath: outputURL.path) {
                 try fileManager.removeItem(at: outputURL)
@@ -258,6 +257,10 @@ final class ExportService: @unchecked Sendable {
         _ sourceURL: URL,
         _ work: () async throws -> T
     ) async throws -> T {
+        if RecordingStaging.isAppContainerPath(sourceURL) {
+            return try await work()
+        }
+
         if sourceURL.startAccessingSecurityScopedResource() {
             defer { sourceURL.stopAccessingSecurityScopedResource() }
             return try await work()

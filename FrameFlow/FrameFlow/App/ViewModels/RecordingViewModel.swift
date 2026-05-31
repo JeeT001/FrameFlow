@@ -22,9 +22,6 @@ final class RecordingViewModel {
     private(set) var isStopping = false
     private(set) var isHUDVisible = true
 
-    var showSavedAlert = false
-    var savedPathForAlert: String = ""
-
     private var hudAutoHideTask: Task<Void, Never>?
 
     var isPaused: Bool {
@@ -78,7 +75,7 @@ final class RecordingViewModel {
         )
     }
 
-    func stopAndSave(appState: AppState) async throws -> RecordingMetadata {
+    func stopAndStage(appState: AppState) async throws -> RecordingMetadata {
         guard !isStopping else { throw RecordingEngineError.notRecording }
         isStopping = true
         defer { isStopping = false }
@@ -87,17 +84,19 @@ final class RecordingViewModel {
         isHUDVisible = true
 
         let durationSeconds = coordinator.engine.currentDurationSeconds()
-        let finalURL = makeFinalOutputURL()
-        let savedURL = try await coordinator.finalizeAndStop(moveTo: finalURL)
+        let recordingID = UUID()
+        try RecordingStaging.ensureDirectoryExists()
+        let stagingURL = RecordingStaging.fileURL(recordingID: recordingID)
+        let stagedURL = try await coordinator.finalizeAndStop(moveTo: stagingURL)
         let resolutionString = resolutionString(for: appState.selectedFormat)
-        let fileSize = (try? fileSizeBytes(at: savedURL)) ?? 0
+        let fileSize = (try? fileSizeBytes(at: stagedURL)) ?? 0
 
         phase = .idle
 
         return RecordingMetadata(
-            id: UUID(),
+            id: recordingID,
             name: defaultRecordingName(),
-            filePath: savedURL.path,
+            filePath: stagedURL.path,
             durationSeconds: durationSeconds,
             resolution: resolutionString,
             format: appState.selectedFormat.rawValue,
@@ -135,6 +134,11 @@ final class RecordingViewModel {
         revealHUD(andScheduleAutoHide: !isPaused)
     }
 
+    var onStopRecording: (() -> Void)?
+    var onDiscardRecording: (() -> Void)?
+    var onPiPUpgradeRequired: (() -> Void)?
+    var isPro = false
+
     private func runCountdownIfNeeded() async {
         let seconds = max(0, SettingsStore.shared.countdownDuration)
         guard seconds > 0 else { return }
@@ -171,12 +175,6 @@ final class RecordingViewModel {
         return FileManager.default.temporaryDirectory.appendingPathComponent(name)
     }
 
-    private func makeFinalOutputURL() -> URL {
-        let folder = SettingsStore.shared.expandedSaveFolder
-        let filename = "FrameFlow_\(timestampForFilename()).mp4"
-        return URL(fileURLWithPath: folder).appendingPathComponent(filename)
-    }
-
     private func fileSizeBytes(at url: URL) throws -> Int {
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         return attributes[.size] as? Int ?? 0
@@ -184,12 +182,6 @@ final class RecordingViewModel {
 
     private func defaultRecordingName() -> String {
         "Recording \(timestampForDisplay())"
-    }
-
-    private func timestampForFilename() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        return formatter.string(from: Date())
     }
 
     private func timestampForDisplay() -> String {
@@ -217,5 +209,63 @@ final class RecordingViewModel {
         } else {
             return "\(landscape.1)x\(landscape.0)"
         }
+    }
+}
+
+extension RecordingViewModel: RecordingKeyboardShortcutHandling {
+    func shortcutTogglePauseResume() {
+        togglePauseResume()
+    }
+
+    func shortcutStopRecording() {
+        guard phase == .recording, coordinator.isRecording, !isStopping else { return }
+        onStopRecording?()
+    }
+
+    func shortcutZoomIn() {
+        guard coordinator.isRecording else { return }
+        coordinator.zoomIn()
+        previewInteraction()
+    }
+
+    func shortcutZoomOut() {
+        guard coordinator.isRecording else { return }
+        coordinator.zoomOut()
+        previewInteraction()
+    }
+
+    func shortcutResetZoom() {
+        guard coordinator.isRecording else { return }
+        coordinator.resetZoom()
+        previewInteraction()
+    }
+
+    func shortcutToggleAutoFocus() {
+        guard coordinator.isRecording else { return }
+        coordinator.toggleAutoFocus()
+        previewInteraction()
+    }
+
+    func shortcutToggleCursorHighlight() {
+        guard coordinator.isRecording else { return }
+        coordinator.toggleCursorHighlight()
+        previewInteraction()
+    }
+
+    func shortcutTogglePiPCamera() {
+        guard coordinator.isRecording else { return }
+        Task {
+            let toggled = await coordinator.togglePiPCamera(isPro: isPro)
+            if !toggled {
+                onPiPUpgradeRequired?()
+            } else {
+                previewInteraction()
+            }
+        }
+    }
+
+    func shortcutDiscardRecording() {
+        guard coordinator.isRecording || phase == .recording else { return }
+        onDiscardRecording?()
     }
 }

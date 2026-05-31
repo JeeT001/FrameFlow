@@ -91,6 +91,16 @@ final class SettingsStore {
         didSet { defaults.set(darkModeOverride, forKey: Keys.darkModeOverride) }
     }
 
+    /// When true, SubscriptionView shows the Lifetime plan card (blueprint default: hidden).
+    var showLifetimeDeal: Bool {
+        didSet { defaults.set(showLifetimeDeal, forKey: Keys.showLifetimeDeal) }
+    }
+
+    /// Hides the Dashboard expiry banner until the next app launch (cleared on cold start).
+    var expiryBannerDismissed: Bool {
+        didSet { defaults.set(expiryBannerDismissed, forKey: Keys.expiryBannerDismissed) }
+    }
+
     var expandedSaveFolder: String {
         (defaultSaveFolder as NSString).expandingTildeInPath
     }
@@ -113,6 +123,18 @@ final class SettingsStore {
         captionStyle = defaults.string(forKey: Keys.captionStyle) ?? "classic"
         notificationsEnabled = defaults.object(forKey: Keys.notificationsEnabled) as? Bool ?? true
         darkModeOverride = defaults.string(forKey: Keys.darkModeOverride) ?? "system"
+        showLifetimeDeal = defaults.object(forKey: Keys.showLifetimeDeal) as? Bool ?? false
+        expiryBannerDismissed = defaults.object(forKey: Keys.expiryBannerDismissed) as? Bool ?? false
+    }
+
+    func resetExpiryBannerDismissedForLaunch() {
+        expiryBannerDismissed = false
+    }
+
+    func clearExpiryBannerDismissedIfRecovered(from status: SubscriptionStatus) {
+        if status != .past_due && status != .expired {
+            expiryBannerDismissed = false
+        }
     }
 
     private enum Keys {
@@ -133,5 +155,7 @@ final class SettingsStore {
         static let captionStyle = "captionStyle"
         static let notificationsEnabled = "notificationsEnabled"
         static let darkModeOverride = "darkModeOverride"
+        static let showLifetimeDeal = "showLifetimeDeal"
+        static let expiryBannerDismissed = "expiryBannerDismissed"
     }
 }

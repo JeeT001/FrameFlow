@@ -1319,3 +1319,59 @@ feat: semantic colour system with dark mode via Asset Catalog
 ```
 feat: wire SettingsStore defaults to export and recording behavior
 ```
+
+---
+
+## Blueprint Day 37 — Profile edit + delete account (2026-05-30)
+
+### Completed
+- **Profile header** — `NSApp.applicationIconImage` (64pt), “FrameFlow” title, version + build from bundle, user avatar + display name below
+- **Display name UX** — Save disabled when empty or unchanged; success checkmark animation (~1s) instead of alert on save; errors still use alert
+- **`AuthService.deleteAccount()`** — calls RPC `delete_user` (authenticated self-delete); **not** `auth.admin.deleteUser()` (service role must stay server-side)
+- **`AppState.deleteAccount()`** — RPC delete → RevenueCat `logOut()` → `signOut()` → clear session + user-specific prefs
+- **ProfileView** — destructive Delete Account button + confirmation alert in Security section
+- **Migration** — `supabase/migrations/20260530_delete_own_account_rpc.sql` (`SECURITY DEFINER`, deletes `auth.users` where `id = auth.uid()`)
+
+### Delete account flow
+
+```
+User taps Delete Account
+  → Confirmation alert
+  → AuthService.deleteAccount()  [RPC delete_user → DELETE auth.users CASCADE]
+  → SubscriptionManager.logOut()
+  → AuthService.signOut()        [clear local session]
+  → AppState.clearAuthenticatedSession()
+  → clearUserSpecificDefaults()
+  → router.navigate(.login)
+```
+
+### SDK note
+supabase-swift **2.46** has no public `AuthClient.deleteUser()` (admin-only). RPC `delete_user` matches the pattern in [supabase-swift integration tests](https://github.com/supabase/supabase-swift/blob/main/Tests/IntegrationTests/AuthClientIntegrationTests.swift) (`testDeleteAccountAndSignOut`).
+
+### DB CASCADE
+Migration `20260529_users_subscriptions_rls.sql`:
+- `public.users.id` → `REFERENCES auth.users(id) ON DELETE CASCADE`
+- `public.subscriptions.user_id` → `REFERENCES public.users(id) ON DELETE CASCADE`
+
+Deleting the auth user removes `public.users` and `public.subscriptions` rows automatically. RevenueCat customer record is not deleted (RC `logOut()` only).
+
+### UserDefaults cleared on delete
+
+| Key | Cleared? | Reason |
+|-----|----------|--------|
+| `expiryBannerDismissed` | Yes | User-specific banner state |
+| `hasCompletedOnboarding` | **No** | Device-level; user may re-register without re-onboarding |
+| All other `SettingsStore` keys | **No** | Device preferences (resolution, save folder, audio, etc.) |
+
+Local recordings (`RecordingStore`) are **not** wiped — they remain on disk for the device.
+
+### Sign-out consistency
+Both **Log Out** and **Delete Account** call `SubscriptionManager.logOut()` + Supabase `signOut()`. Delete runs RPC first (requires active JWT), then RC logOut, then signOut for session manager cleanup.
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: profile name editing and delete account flow
+```

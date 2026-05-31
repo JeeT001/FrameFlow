@@ -41,10 +41,12 @@ final class LoginViewModel {
         defer { isLoading = false }
 
         do {
-            return try await AuthService.shared.signIn(
+            let user = try await AuthService.shared.signIn(
                 email: email.trimmingCharacters(in: .whitespacesAndNewlines),
                 password: password
             )
+            await UserService.shared.ensureUserProfile(for: user)
+            return user
         } catch {
             errorMessage = userFacingMessage(for: error)
             return nil

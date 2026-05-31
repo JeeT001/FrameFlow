@@ -16,6 +16,12 @@ final class ZoomController {
     private var targetScale: CGFloat = 1.75
     private var holdDuration: TimeInterval = 1.0
     private var animation: ZoomAnimationState = .idle
+    private var manualScale: CGFloat = 1.0
+    private var autoScaleMultiplier: CGFloat = 1.0
+
+    private static let minManualScale: CGFloat = 1.0
+    private static let maxManualScale: CGFloat = 4.0
+    private static let manualStep: CGFloat = 0.25
 
     func configure(autoZoomOnClick: Bool, zoomStrength: Float, zoomHoldDuration: Double) {
         self.autoZoomOnClick = autoZoomOnClick
@@ -24,8 +30,30 @@ final class ZoomController {
 
         if !autoZoomOnClick {
             animation = .idle
-            currentScale = 1
+            autoScaleMultiplier = 1.0
+            updateCurrentScale()
         }
+    }
+
+    func zoomIn() {
+        manualScale = min(Self.maxManualScale, manualScale + Self.manualStep)
+        animation = .idle
+        autoScaleMultiplier = 1.0
+        updateCurrentScale()
+    }
+
+    func zoomOut() {
+        manualScale = max(Self.minManualScale, manualScale - Self.manualStep)
+        animation = .idle
+        autoScaleMultiplier = 1.0
+        updateCurrentScale()
+    }
+
+    func resetZoom() {
+        manualScale = 1.0
+        animation = .idle
+        autoScaleMultiplier = 1.0
+        updateCurrentScale()
     }
 
     func updateCursorPosition(normalizedPoint: CGPoint) {
@@ -39,48 +67,53 @@ final class ZoomController {
         animation = .zoomingIn(
             startTime: event.timestamp,
             duration: 0.25,
-            fromScale: currentScale,
+            fromScale: autoScaleMultiplier,
             toScale: targetScale
         )
     }
 
     func tick(now: Date = Date()) {
-        guard autoZoomOnClick else {
-            currentScale = 1
+        if autoZoomOnClick {
+            switch animation {
+            case .idle:
+                autoScaleMultiplier = 1.0
+
+            case .zoomingIn(let startTime, let duration, let fromScale, let toScale):
+                let progress = normalizedProgress(from: startTime, duration: duration, now: now)
+                autoScaleMultiplier = interpolate(from: fromScale, to: toScale, t: easeInOut(progress))
+                if progress >= 1 {
+                    animation = .holding(until: startTime.addingTimeInterval(duration + holdDuration), atScale: toScale)
+                }
+
+            case .holding(let until, let atScale):
+                autoScaleMultiplier = atScale
+                if now >= until {
+                    animation = .zoomingOut(
+                        startTime: until,
+                        duration: 0.35,
+                        fromScale: atScale,
+                        toScale: 1
+                    )
+                }
+
+            case .zoomingOut(let startTime, let duration, let fromScale, let toScale):
+                let progress = normalizedProgress(from: startTime, duration: duration, now: now)
+                autoScaleMultiplier = interpolate(from: fromScale, to: toScale, t: easeOutSpring(progress))
+                if progress >= 1 {
+                    autoScaleMultiplier = 1.0
+                    animation = .idle
+                }
+            }
+        } else {
+            autoScaleMultiplier = 1.0
             animation = .idle
-            return
         }
 
-        switch animation {
-        case .idle:
-            currentScale = 1
+        updateCurrentScale()
+    }
 
-        case .zoomingIn(let startTime, let duration, let fromScale, let toScale):
-            let progress = normalizedProgress(from: startTime, duration: duration, now: now)
-            currentScale = interpolate(from: fromScale, to: toScale, t: easeInOut(progress))
-            if progress >= 1 {
-                animation = .holding(until: startTime.addingTimeInterval(duration + holdDuration), atScale: toScale)
-            }
-
-        case .holding(let until, let atScale):
-            currentScale = atScale
-            if now >= until {
-                animation = .zoomingOut(
-                    startTime: until,
-                    duration: 0.35,
-                    fromScale: atScale,
-                    toScale: 1
-                )
-            }
-
-        case .zoomingOut(let startTime, let duration, let fromScale, let toScale):
-            let progress = normalizedProgress(from: startTime, duration: duration, now: now)
-            currentScale = interpolate(from: fromScale, to: toScale, t: easeOutSpring(progress))
-            if progress >= 1 {
-                currentScale = 1
-                animation = .idle
-            }
-        }
+    private func updateCurrentScale() {
+        currentScale = manualScale * autoScaleMultiplier
     }
 
     private func clamped(_ point: CGPoint) -> CGPoint {
@@ -107,7 +140,6 @@ final class ZoomController {
     }
 
     private func easeOutSpring(_ t: CGFloat) -> CGFloat {
-        // Lightweight deterministic spring-ish easing without dynamic simulation.
         let clamped = min(max(t, 0), 1)
         let overshoot: CGFloat = 1.70158
         let shifted = clamped - 1

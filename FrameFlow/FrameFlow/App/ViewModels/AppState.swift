@@ -31,13 +31,24 @@ final class AppState {
     var selectedWindowIDs: Set<CGWindowID> = []
     var selectedFormat: RecordingFormat = .sixteenByNine
     var selectedLayoutPreset: LayoutPreset = .stacked
-    /// Recording queued for the Export screen (Dashboard tap or post-record flow).
+    /// Staged recording between Stop and Export/Discard (not yet in RecordingStore).
+    var pendingRecording: RecordingMetadata?
+    /// Recording queued for the Export screen (pending or Dashboard re-export).
     var exportRecordingID: UUID?
     /// Recording shown on the Recording Detail screen.
     var detailRecordingID: UUID?
+    /// Synced profile from `public.users` (subscription row logged in DEBUG only).
+    var syncedProfile: FrameFlowUser?
 
     var isPro: Bool {
         subscriptionStatus == .active
+    }
+
+    func syncSubscriptionAfterAuth(userId: UUID) async {
+        let manager = SubscriptionManager.shared
+        await manager.logIn(appUserID: userId.uuidString)
+        await manager.fetchStatus()
+        manager.syncToAppState(self)
     }
 
     func bootstrap(router: AppRouter) async {
@@ -52,6 +63,12 @@ final class AppState {
         if let session = await AuthService.shared.restoreSession() {
             currentUser = session.user
             authStatus = .authenticated
+            await UserService.shared.ensureUserProfile(for: session.user)
+            syncedProfile = try? await UserService.shared.fetchUser(userId: session.user.id)
+            await syncSubscriptionAfterAuth(userId: session.user.id)
+            #if DEBUG
+            await UserService.shared.debugLogSubscription(for: session.user.id)
+            #endif
             router.selectSidebar(.home)
             return
         }
@@ -73,9 +90,10 @@ final class AppState {
         }
     }
 
-    func markAuthenticated(user: User) {
+    func markAuthenticated(user: User) async {
         currentUser = user
         authStatus = .authenticated
+        await syncSubscriptionAfterAuth(userId: user.id)
     }
 
     func signOut() async {
@@ -84,7 +102,31 @@ final class AppState {
         } catch {
             // Clear local auth state even if the network sign-out fails.
         }
+        clearAuthenticatedSession()
+        await SubscriptionManager.shared.logOut()
+    }
+
+    /// Deletes the remote auth account, clears RevenueCat + local session, resets user-specific prefs.
+    func deleteAccount() async throws {
+        try await AuthService.shared.deleteAccount()
+        await SubscriptionManager.shared.logOut()
+        try? await AuthService.shared.signOut()
+        clearAuthenticatedSession()
+        clearUserSpecificDefaults()
+    }
+
+    private func clearAuthenticatedSession() {
         currentUser = nil
         authStatus = .unauthenticated
+        subscriptionStatus = .free
+        syncedProfile = nil
+        pendingRecording = nil
+        exportRecordingID = nil
+        detailRecordingID = nil
+    }
+
+    /// User-specific prefs cleared on delete; device settings and onboarding flag are kept.
+    private func clearUserSpecificDefaults() {
+        SettingsStore.shared.expiryBannerDismissed = false
     }
 }

@@ -62,6 +62,19 @@ final class SignUpViewModel {
                 password: password,
                 name: name.trimmingCharacters(in: .whitespacesAndNewlines)
             )
+
+            do {
+                _ = try await UserService.shared.createUser(
+                    id: user.id,
+                    email: user.email ?? email.trimmingCharacters(in: .whitespacesAndNewlines),
+                    name: name.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+            } catch {
+                #if DEBUG
+                print("[SignUpViewModel] createUser failed (non-blocking): \(error.localizedDescription)")
+                #endif
+            }
+
             return .signedIn(user)
         } catch AuthServiceError.emailConfirmationRequired {
             successMessage = AuthServiceError.emailConfirmationRequired.errorDescription

@@ -157,32 +157,7 @@ final class RecordingDetailViewModel {
     }
 
     private func deleteRelatedFiles(for metadata: RecordingMetadata) {
-        let fileManager = FileManager.default
-        let engine = CaptionEngine.shared
-        let videoURL = URL(fileURLWithPath: metadata.filePath)
-
-        var urls: [URL] = [
-            videoURL,
-            engine.sidecarURLAdjacent(to: videoURL),
-            engine.srtURL(for: videoURL),
-            engine.burnedInURL(for: videoURL)
-        ]
-
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("FrameFlow/Captions/\(metadata.id.uuidString).json")
-        urls.append(appSupport)
-
-        let directory = videoURL.deletingLastPathComponent()
-        let baseName = videoURL.deletingPathExtension().lastPathComponent
-        for resolution in ExportResolution.allCases {
-            urls.append(directory.appendingPathComponent("\(baseName)_export_\(resolution.rawValue).mp4"))
-        }
-        urls.append(directory.appendingPathComponent("\(baseName)_captioned.mp4"))
-
-        for url in urls {
-            guard fileManager.fileExists(atPath: url.path) else { continue }
-            try? fileManager.removeItem(at: url)
-        }
+        RecordingFileCleanup.deleteExportedRecordingFiles(for: metadata)
     }
 
     private static func sanitizedFilename(from name: String) -> String {

@@ -84,6 +84,24 @@ final class AuthService {
         }
     }
 
+    /// Deletes the signed-in user's auth account (not admin API).
+    /// supabase-swift 2.46 has no `AuthClient.deleteUser()`; uses RPC `delete_user`
+    /// (same pattern as supabase-swift integration tests) which deletes `auth.users`
+    /// for `auth.uid()` and CASCADE removes `public.users` / `public.subscriptions`.
+    func deleteAccount() async throws {
+        try ensureConfigured()
+
+        guard client.auth.currentUser != nil else {
+            throw AuthServiceError.unknown("Not signed in.")
+        }
+
+        do {
+            try await client.rpc("delete_user").execute()
+        } catch {
+            throw mapError(error)
+        }
+    }
+
     func resetPassword(email: String) async throws {
         try ensureConfigured()
 
