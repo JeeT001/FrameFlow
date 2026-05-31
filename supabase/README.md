@@ -111,3 +111,15 @@ See `supabase/functions/revenuecat-webhook/README.md` for curl examples and prod
 1. Wrong `Authorization` header → **401**
 2. Mock `INITIAL_PURCHASE` with valid secret and real `app_user_id` (UUID in `public.users`) → row in `public.subscriptions`
 3. App client: user A cannot read user B's subscription (RLS `subs_select_own`)
+
+---
+
+## Password reset redirect URL (Day 39)
+
+Add to **Authentication → URL Configuration → Redirect URLs**:
+
+```
+com.simranjit.frameflow://auth/callback
+```
+
+The macOS app registers URL scheme `com.simranjit.frameflow` and passes this URL as `redirectTo` when sending forgot-password emails.

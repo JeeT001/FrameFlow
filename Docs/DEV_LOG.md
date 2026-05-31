@@ -1418,3 +1418,41 @@ feat: profile name editing and delete account flow
 ```
 feat: PostHog analytics and Sentry error tracking
 ```
+
+---
+
+## Blueprint Day 39 — Password reset deep link fix (2026-05-30)
+
+### Problem
+- Supabase reset email sent but link had no app redirect (`redirectTo` missing)
+- `ResetPasswordView` was a placeholder; no URL scheme or `onOpenURL` handler
+
+### Completed
+- **`Info.plist`** — URL scheme `com.simranjit.frameflow` (merged with generated Info.plist)
+- **`AuthConstants`** — `redirectURL` = `com.simranjit.frameflow://auth/callback`
+- **`AuthService`** — `resetPasswordForEmail` with `redirectTo`; `session(from:)` for recovery link; `updatePassword(_:)` via `auth.update(user:)`
+- **`ResetPasswordView` + `ResetPasswordViewModel`** — new/confirm password, 8+ chars + match validation, sign out after success
+- **`FrameFlowApp.onOpenURL`** — queue URL, parse recovery session, navigate to reset password
+- **`AppState`** — `isPasswordRecoveryFlow`, `pendingAuthCallbackURL`, `pendingLoginMessage`; bootstrap skips auto-login during recovery
+- **`AuthContainerView`** — routes `.resetPassword` on auth stack
+- **`LoginView`** — shows success banner after password reset
+
+### Supabase Dashboard (manual)
+Auth → URL Configuration → **Redirect URLs** — add:
+```
+com.simranjit.frameflow://auth/callback
+```
+
+### Flow
+1. Forgot Password → email with deep link
+2. User clicks link → FrameFlow opens → `session(from: url)` establishes recovery session
+3. Set New Password → `updatePassword` → sign out → Login with success message
+4. Log in with new password
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: password reset deep link and ResetPasswordView
+```

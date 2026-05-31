@@ -36,6 +36,12 @@ struct FrameFlowApp: App {
                     subscriptionManager.configureIfNeeded()
                     SettingsStore.shared.resetExpiryBannerDismissedForLaunch()
                 }
+                .onOpenURL { url in
+                    appState.queueAuthCallbackURL(url)
+                    Task {
+                        await appState.processAuthCallbackIfNeeded(router: router)
+                    }
+                }
         }
         .defaultSize(width: 1100, height: 700)
     }

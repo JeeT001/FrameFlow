@@ -9,7 +9,7 @@
 
 ## Currently Working On
 
-- **Blueprint Day 39** — Auth + permission flow testing (next)
+- **Blueprint Day 40** — Auth + permission flow testing (next)
 
 ## Completed
 
@@ -41,10 +41,11 @@
 - **Blueprint Day 36:** SettingsStore wiring audit — export default resolution from settings; zoom strength slider in Settings; live auto-focus sync during recording; full property audit table in DEV_LOG
 - **Blueprint Day 37:** Profile header (app icon + version); display name save checkmark + disabled when unchanged; delete account via RPC `delete_user` (client-safe, CASCADE to public.users/subscriptions); RevenueCat + session cleanup
 - **Blueprint Day 38:** `AnalyticsService` (PostHog events); Sentry init in `FrameFlowApp`; identify/reset on auth; events wired in ViewModels + Pro gates
+- **Blueprint Day 39:** Password reset deep link — URL scheme `com.simranjit.frameflow`, `redirectTo` on reset email, `ResetPasswordView` + recovery session via `session(from:)`
 
 ## Next Task
 
-1. **Blueprint Day 39** — Auth + permission flow testing checklist
+1. **Blueprint Day 40** — Auth + permission flow testing checklist (continued)
 
 ## Important Decisions
 

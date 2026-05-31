@@ -43,6 +43,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				App/Utils/Config.example.swift,
+				Info.plist,
 			);
 			target = A014C1082FC3EDD600BD9EBF /* FrameFlow */;
 		};
@@ -456,6 +457,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FrameFlow/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "FrameFlow uses the camera for picture-in-picture overlay during screen recordings.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FrameFlow uses the microphone to capture narration and audio during screen recordings.";
@@ -502,6 +504,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FrameFlow/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "FrameFlow uses the camera for picture-in-picture overlay during screen recordings.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FrameFlow uses the microphone to capture narration and audio during screen recordings.";

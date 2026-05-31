@@ -8,7 +8,3 @@ import SwiftUI
 struct PaymentView: View {
     var body: some View { ScreenPlaceholder(route: .payment) }
 }
-
-struct ResetPasswordView: View {
-    var body: some View { ScreenPlaceholder(route: .resetPassword) }
-}

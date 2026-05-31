@@ -106,7 +106,37 @@ final class AuthService {
         try ensureConfigured()
 
         do {
-            try await client.auth.resetPasswordForEmail(email)
+            try await client.auth.resetPasswordForEmail(
+                email,
+                redirectTo: AuthConstants.redirectURL
+            )
+        } catch {
+            throw mapError(error)
+        }
+    }
+
+    @discardableResult
+    func session(from url: URL) async throws -> Session {
+        try ensureConfigured()
+
+        do {
+            return try await client.auth.session(from: url)
+        } catch {
+            throw mapError(error)
+        }
+    }
+
+    func updatePassword(_ password: String) async throws {
+        try ensureConfigured()
+
+        guard client.auth.currentSession != nil else {
+            throw AuthServiceError.unknown(
+                "Password reset session expired. Request a new reset link from Log In."
+            )
+        }
+
+        do {
+            try await client.auth.update(user: UserAttributes(password: password))
         } catch {
             throw mapError(error)
         }

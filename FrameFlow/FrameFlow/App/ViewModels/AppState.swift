@@ -39,6 +39,12 @@ final class AppState {
     var detailRecordingID: UUID?
     /// Synced profile from `public.users` (subscription row logged in DEBUG only).
     var syncedProfile: FrameFlowUser?
+    /// Deep-link password recovery — session exists in Supabase client but UI stays on auth stack.
+    var isPasswordRecoveryFlow = false
+    /// Shown once on Login after a successful password reset.
+    var pendingLoginMessage: String?
+    /// Auth callback URL received before bootstrap completes (cold start from email link).
+    var pendingAuthCallbackURL: URL?
 
     var isPro: Bool {
         subscriptionStatus == .active
@@ -57,6 +63,18 @@ final class AppState {
 
         guard UserDefaults.standard.bool(forKey: Self.hasCompletedOnboardingKey) else {
             authStatus = .firstLaunch
+            return
+        }
+
+        if let url = pendingAuthCallbackURL {
+            pendingAuthCallbackURL = nil
+            await processAuthCallbackURL(url, router: router)
+            return
+        }
+
+        if isPasswordRecoveryFlow {
+            authStatus = .unauthenticated
+            router.navigate(to: .resetPassword)
             return
         }
 
@@ -98,6 +116,44 @@ final class AppState {
         await syncSubscriptionAfterAuth(userId: user.id)
     }
 
+    func queueAuthCallbackURL(_ url: URL) {
+        pendingAuthCallbackURL = url
+    }
+
+    func processAuthCallbackIfNeeded(router: AppRouter) async {
+        guard let url = pendingAuthCallbackURL else { return }
+        pendingAuthCallbackURL = nil
+        await processAuthCallbackURL(url, router: router)
+    }
+
+    func processAuthCallbackURL(_ url: URL, router: AppRouter) async {
+        guard url.scheme == AuthConstants.callbackScheme else { return }
+        guard SupabaseClientProvider.isConfigured else { return }
+
+        do {
+            _ = try await AuthService.shared.session(from: url)
+            isPasswordRecoveryFlow = true
+            authStatus = .unauthenticated
+            currentUser = nil
+            router.navigate(to: .resetPassword)
+        } catch {
+            #if DEBUG
+            print("[AppState] auth callback failed: \(error.localizedDescription)")
+            #endif
+        }
+    }
+
+    func finishPasswordRecovery(successMessage: String) {
+        isPasswordRecoveryFlow = false
+        pendingLoginMessage = successMessage
+        clearAuthenticatedSession()
+    }
+
+    func consumePendingLoginMessage() -> String? {
+        defer { pendingLoginMessage = nil }
+        return pendingLoginMessage
+    }
+
     func signOut() async {
         do {
             try await AuthService.shared.signOut()
@@ -123,6 +179,7 @@ final class AppState {
         authStatus = .unauthenticated
         subscriptionStatus = .free
         syncedProfile = nil
+        isPasswordRecoveryFlow = false
         pendingRecording = nil
         exportRecordingID = nil
         detailRecordingID = nil
