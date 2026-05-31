@@ -63,6 +63,7 @@ final class AppState {
         if let session = await AuthService.shared.restoreSession() {
             currentUser = session.user
             authStatus = .authenticated
+            AnalyticsService.identify(userID: session.user.id.uuidString)
             await UserService.shared.ensureUserProfile(for: session.user)
             syncedProfile = try? await UserService.shared.fetchUser(userId: session.user.id)
             await syncSubscriptionAfterAuth(userId: session.user.id)
@@ -93,6 +94,7 @@ final class AppState {
     func markAuthenticated(user: User) async {
         currentUser = user
         authStatus = .authenticated
+        AnalyticsService.identify(userID: user.id.uuidString)
         await syncSubscriptionAfterAuth(userId: user.id)
     }
 
@@ -116,6 +118,7 @@ final class AppState {
     }
 
     private func clearAuthenticatedSession() {
+        AnalyticsService.reset()
         currentUser = nil
         authStatus = .unauthenticated
         subscriptionStatus = .free

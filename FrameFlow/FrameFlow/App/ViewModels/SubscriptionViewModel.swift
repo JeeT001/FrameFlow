@@ -66,6 +66,7 @@ final class SubscriptionViewModel {
             try await subscriptionManager.purchase(package: package)
             await subscriptionManager.fetchStatus()
             subscriptionManager.syncToAppState(appState)
+            AnalyticsService.trackPurchaseCompleted(plan: Self.analyticsPlanName(for: package))
             router.selectSidebar(.home)
         } catch SubscriptionManagerError.userCancelled {
             return
@@ -73,5 +74,13 @@ final class SubscriptionViewModel {
             errorMessage = error.localizedDescription
             showErrorAlert = true
         }
+    }
+
+    private static func analyticsPlanName(for package: Package) -> String {
+        let productId = package.storeProduct.productIdentifier.lowercased()
+        if productId.contains("lifetime") { return "lifetime" }
+        if productId.contains("annual") { return "annual" }
+        if productId.contains("monthly") { return "monthly" }
+        return package.identifier.lowercased()
     }
 }

@@ -22,7 +22,10 @@ struct DashboardView: View {
                 if showsExpiryBanner {
                     ExpiryBannerView(
                         status: appState.subscriptionStatus,
-                        onRenew: { router.navigate(to: .subscription) },
+                        onRenew: {
+                            AnalyticsService.trackUpgradeClicked(source: "expiry_banner")
+                            router.navigate(to: .subscription)
+                        },
                         onDismiss: { settingsStore.expiryBannerDismissed = true }
                     )
                 }
@@ -90,6 +93,7 @@ struct DashboardView: View {
 
             if !appState.isPro {
                 Button("Upgrade") {
+                    AnalyticsService.trackUpgradeClicked(source: "dashboard")
                     router.navigate(to: .subscription)
                 }
                 .buttonStyle(.borderedProminent)

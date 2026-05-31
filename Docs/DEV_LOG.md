@@ -1141,10 +1141,23 @@ feat: RevenueCat SDK and SubscriptionManager
 4. Without products → friendly setup message, no crash
 5. Settings (DEBUG) → enable **Show Lifetime plan** → Lifetime card appears
 
-### Not in scope
+### Not in scope (Day 32)
 - Day 33 expiry banner dismiss polish
-- Stripe / web billing (production DMG distribution — future)
 - Mac App Store Connect IAP
+
+### Deferred — Stripe / production billing
+
+There is **no dedicated blueprint coding day** for switching from Test Store to Stripe. Timeline:
+
+| When | What |
+|------|------|
+| **Now (Days 31–37)** | RC **Test Store** + `test_...` API key in local `Config.swift` — intentional for dev |
+| **Before Day 42** | Connect **Stripe** (test mode) to RevenueCat; add **Web Billing** config (not App Store); map same product IDs to Stripe-backed packages. App code from Day 32 unchanged — dashboard/config only |
+| **Day 42 testing** | Blueprint expects Stripe test cards (`4242…`, failure card `4000…`), manage-subscription → Stripe portal |
+| **Day 54** | Deploy webhook to Supabase production; RC Sandbox → **Production**; verify purchase + webhook sync |
+| **Launch checklist** | RC Production mode, Stripe connected in Production, production API keys in release builds (not `test_`) |
+
+Mac App Store IAP skipped — DMG distribution uses RevenueCat + Stripe via Web Billing per blueprint.
 
 ### Build
 - `xcodebuild` macOS — **BUILD SUCCEEDED**
@@ -1374,4 +1387,34 @@ Both **Log Out** and **Delete Account** call `SubscriptionManager.logOut()` + Su
 ### Suggested commit
 ```
 feat: profile name editing and delete account flow
+```
+
+---
+
+## Blueprint Day 38 — PostHog analytics + Sentry (2026-05-30)
+
+### Completed
+- **SPM:** Added `https://github.com/PostHog/posthog-ios` product `PostHog` to FrameFlow target
+- **`AnalyticsService.swift`** — static PostHog wrapper; `configure` / `identify` / `reset`; seven launch-checklist events (snake_case); no-op when API key empty
+- **`FrameFlowApp.init()`** — Sentry `SentrySDK.start` when `Config.sentryDSN` non-empty (`tracesSampleRate = 0.2`); `AnalyticsService.configure(postHogAPIKey:)`
+- **Event wiring:**
+  - `sign_up` → `SignUpViewModel` on successful sign-in session
+  - `recording_started` → `RecordingViewModel.runRecordingFlow` after capture starts
+  - `recording_completed` → `RecordingViewModel.stopAndStage`
+  - `export_completed` → `ExportViewModel.export` after persist
+  - `upgrade_clicked` → Dashboard Upgrade, `ProUpgradeSheet`, Expiry banner Renew
+  - `purchase_completed` → `SubscriptionViewModel.purchase`
+  - `feature_blocked` → `ProGate.perform`, `WindowPickerViewModel` (4 windows), `LayoutPickerViewModel` (9:16)
+- **User identity:** `AnalyticsService.identify` on bootstrap session restore + `markAuthenticated`; `reset` on logout/delete via `clearAuthenticatedSession`
+
+### Empty-key behavior
+- Empty `sentryDSN` → Sentry not started
+- Empty `postHogAPIKey` → `isConfigured` false; all track/identify/reset methods return immediately
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: PostHog analytics and Sentry error tracking
 ```

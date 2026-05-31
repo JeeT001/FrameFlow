@@ -16,6 +16,7 @@ enum ProGate {
         if isPro {
             action()
         } else {
+            AnalyticsService.trackFeatureBlocked(feature: feature)
             present(feature, description)
         }
     }
@@ -47,6 +48,7 @@ struct ProUpgradeSheet: View {
 
                 Button("Upgrade") {
                     isPresented = false
+                    AnalyticsService.trackUpgradeClicked(source: "pro_gate")
                     router.navigate(to: .subscription)
                 }
                 .buttonStyle(.borderedProminent)

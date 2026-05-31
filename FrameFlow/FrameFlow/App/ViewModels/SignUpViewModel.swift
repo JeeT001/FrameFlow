@@ -75,6 +75,7 @@ final class SignUpViewModel {
                 #endif
             }
 
+            AnalyticsService.trackSignUp(method: "email")
             return .signedIn(user)
         } catch AuthServiceError.emailConfirmationRequired {
             successMessage = AuthServiceError.emailConfirmationRequired.errorDescription

@@ -56,6 +56,12 @@ final class RecordingViewModel {
             return
         }
 
+        AnalyticsService.trackRecordingStarted(
+            windowCount: appState.selectedWindowIDs.count,
+            format: appState.selectedFormat.rawValue,
+            layout: appState.selectedLayoutPreset.rawValue
+        )
+
         revealHUD(andScheduleAutoHide: !isPaused)
     }
 
@@ -92,6 +98,11 @@ final class RecordingViewModel {
         let fileSize = (try? fileSizeBytes(at: stagedURL)) ?? 0
 
         phase = .idle
+
+        AnalyticsService.trackRecordingCompleted(
+            duration: durationSeconds,
+            format: appState.selectedFormat.rawValue
+        )
 
         return RecordingMetadata(
             id: recordingID,

@@ -1853,6 +1853,8 @@ in AudioModePicker, PiP in LayoutPicker, captions in CaptionEditorView, 1080p/4K
 
 Git Commit: feat: subscription pricing screen and Pro gate modifier
 
+**Note (Test Store → Stripe):** Day 32 purchase code stays as-is. During dev use RevenueCat **Test Store**. Before **Day 42** testing, connect **Stripe** (test mode) and **Web Billing** in the RevenueCat dashboard — no new Swift billing screens. Switch to **Production** RC + Stripe on **Day 54** before launch (see MVP Launch Checklist, Payments).
+
 ---
 
 **DAY 33 — Expired Subscription Banner + Manage Subscription**

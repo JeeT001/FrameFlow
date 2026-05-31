@@ -12,6 +12,7 @@
 		A014C1D22FC3FA0900BD9EBF /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = B014D0312FC3EDD600BD9EBF /* WhisperKit */; };
 		A014C1D32FC3FA0900BD9EBF /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = B014D0412FC3EDD600BD9EBF /* Sparkle */; };
 		A014C1D42FC3FA0900BD9EBF /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = B014D0512FC3EDD600BD9EBF /* Sentry */; };
+		A014C1D52FC3FA0900BD9EBF /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = B014D0612FC3EDD600BD9EBF /* PostHog */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,6 +74,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A014C1D52FC3FA0900BD9EBF /* PostHog in Frameworks */,
 				A014C1D42FC3FA0900BD9EBF /* Sentry in Frameworks */,
 				A014C1D32FC3FA0900BD9EBF /* Sparkle in Frameworks */,
 				A014C1D22FC3FA0900BD9EBF /* WhisperKit in Frameworks */,
@@ -143,6 +145,7 @@
 				B014D0312FC3EDD600BD9EBF /* WhisperKit */,
 				B014D0412FC3EDD600BD9EBF /* Sparkle */,
 				B014D0512FC3EDD600BD9EBF /* Sentry */,
+				B014D0612FC3EDD600BD9EBF /* PostHog */,
 			);
 			productName = FrameFlow;
 			productReference = A014C1092FC3EDD600BD9EBF /* FrameFlow.app */;
@@ -232,6 +235,7 @@
 				B014D0032FC3EDD600BD9EBF /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				B014D0042FC3EDD600BD9EBF /* XCRemoteSwiftPackageReference "Sparkle" */,
 				B014D0052FC3EDD600BD9EBF /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+				B014D0062FC3EDD600BD9EBF /* XCRemoteSwiftPackageReference "posthog-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A014C10A2FC3EDD600BD9EBF /* Products */;
@@ -681,6 +685,14 @@
 				minimumVersion = 8.0.0;
 			};
 		};
+		B014D0062FC3EDD600BD9EBF /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -708,6 +720,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B014D0052FC3EDD600BD9EBF /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
 			productName = Sentry;
+		};
+		B014D0612FC3EDD600BD9EBF /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B014D0062FC3EDD600BD9EBF /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

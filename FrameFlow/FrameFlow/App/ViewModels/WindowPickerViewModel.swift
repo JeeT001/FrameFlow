@@ -65,6 +65,7 @@ final class WindowPickerViewModel {
         let limit = selectionLimit(isPro: isPro)
         guard selectedIDs.count < limit else {
             if !isPro {
+                AnalyticsService.trackFeatureBlocked(feature: "four_windows")
                 showUpgradeSheet = true
             }
             return

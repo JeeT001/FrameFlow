@@ -169,6 +169,13 @@ final class ExportViewModel {
                 previousPath: previousPath,
                 appState: appState
             )
+            if let exported = self.recording {
+                AnalyticsService.trackExportCompleted(
+                    resolution: selectedResolution.rawValue,
+                    hasCaptions: exported.hasCaptions,
+                    hasCamera: exported.hasCamera
+                )
+            }
             showSuccessAlert = true
         } catch {
             let rawMessage = error.localizedDescription.lowercased()

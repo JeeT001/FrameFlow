@@ -69,6 +69,7 @@ final class LayoutPickerViewModel {
 
     func selectFormat(_ newFormat: RecordingFormat, isPro: Bool) {
         if newFormat == .nineBySixteen && !isPro {
+            AnalyticsService.trackFeatureBlocked(feature: "9_16_format")
             showUpgradeSheet = true
             return
         }
