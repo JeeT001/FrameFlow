@@ -25,11 +25,11 @@ struct LayoutPreviewCanvas: View {
 
                 ZStack {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.secondary.opacity(0.08))
+                        .fill(AppColors.surface)
                         .frame(width: canvasSize.width, height: canvasSize.height)
                         .overlay {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .strokeBorder(Color.secondary.opacity(0.2))
+                                .strokeBorder(AppColors.border)
                         }
 
                     layoutContent(in: canvasSize)
@@ -140,16 +140,16 @@ struct LayoutPreviewCanvas: View {
     private func windowPlaceholder(label: String, width: CGFloat, height: CGFloat) -> some View {
         VStack(spacing: 4) {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.accentColor.opacity(0.25))
+                .fill(AppColors.primary.opacity(0.25))
                 .overlay {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .strokeBorder(Color.accentColor.opacity(0.45))
+                        .strokeBorder(AppColors.primary.opacity(0.45))
                 }
                 .frame(width: max(width, 40), height: max(height, 28))
 
             Text(label.truncatedWindowTitle)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .lineLimit(1)
         }
     }

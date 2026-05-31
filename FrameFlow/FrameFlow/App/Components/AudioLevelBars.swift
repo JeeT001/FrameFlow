@@ -15,7 +15,7 @@ struct AudioLevelBars: View {
             HStack(alignment: .bottom, spacing: 6) {
                 ForEach(0..<barCount, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(Color.accentColor.opacity(0.85))
+                        .fill(AppColors.primary.opacity(0.85))
                         .frame(width: 10, height: barHeight(for: index))
                 }
             }

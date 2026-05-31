@@ -20,7 +20,7 @@ struct LayoutPresetCard: View {
                 Text(preset.title)
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppColors.textPrimary)
             }
             .padding(10)
             .frame(maxWidth: .infinity)
@@ -28,7 +28,7 @@ struct LayoutPresetCard: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(
-                        isSelected ? Color.accentColor : Color.secondary.opacity(0.25),
+                        isSelected ? AppColors.primary : AppColors.border,
                         lineWidth: isSelected ? 2.5 : 1
                     )
             }
@@ -40,8 +40,8 @@ struct LayoutPresetCard: View {
 struct LayoutPresetDiagram: View {
     let preset: LayoutPreset
 
-    private let fill = Color.accentColor.opacity(0.35)
-    private let stroke = Color.accentColor.opacity(0.6)
+    private let fill = AppColors.primary.opacity(0.35)
+    private let stroke = AppColors.primary.opacity(0.6)
 
     var body: some View {
         GeometryReader { geometry in

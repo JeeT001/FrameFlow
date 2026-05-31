@@ -57,7 +57,7 @@ struct RecordingDetailView: View {
                 if let error = viewModel.errorMessage {
                     Text(error)
                         .font(.subheadline)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(AppColors.recRed)
                 }
 
                 metadataSection
@@ -76,7 +76,7 @@ struct RecordingDetailView: View {
         } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.secondary.opacity(0.15))
+                    .fill(AppColors.border)
                     .aspectRatio(16 / 9, contentMode: .fit)
 
                 if let thumbnail = viewModel.thumbnail {
@@ -87,7 +87,7 @@ struct RecordingDetailView: View {
                 } else {
                     Image(systemName: "play.rectangle.fill")
                         .font(.system(size: 48))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
 
                 if viewModel.fileExistsOnDisk {
@@ -158,7 +158,7 @@ struct RecordingDetailView: View {
     private func metadataRow(_ label: String, _ value: String) -> some View {
         GridRow {
             Text(label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .frame(width: 100, alignment: .leading)
             Text(value)
         }

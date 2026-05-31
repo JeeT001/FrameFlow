@@ -10,6 +10,9 @@ struct WindowPickerView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
     @State private var viewModel = WindowPickerViewModel()
+    @State private var showProGate = false
+    @State private var proGateFeature = ""
+    @State private var proGateDescription = ""
 
     private let gridColumns = [
         GridItem(.flexible(), spacing: 16),
@@ -37,8 +40,18 @@ struct WindowPickerView: View {
         .task {
             await viewModel.loadWindows(isPro: appState.isPro)
         }
-        .sheet(isPresented: $viewModel.showUpgradeSheet) {
-            upgradeSheet
+        .proUpgradeSheet(
+            isPresented: $showProGate,
+            feature: proGateFeature,
+            description: proGateDescription
+        )
+        .onChange(of: viewModel.showUpgradeSheet) { _, show in
+            if show {
+                proGateFeature = "Multiple Windows"
+                proGateDescription = "Free accounts can select up to 2 windows. Pro unlocks up to 4 windows on supported Macs."
+                showProGate = true
+                viewModel.showUpgradeSheet = false
+            }
         }
     }
 
@@ -50,7 +63,7 @@ struct WindowPickerView: View {
                         .controlSize(.small)
                     Text("Refreshing thumbnails…")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.bottom, 8)
@@ -77,7 +90,7 @@ struct WindowPickerView: View {
 
             Text("Fetching window thumbnails can take 30–60 seconds.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 360)
 
@@ -92,7 +105,7 @@ struct WindowPickerView: View {
         VStack(spacing: 16) {
             Image(systemName: "lock.shield")
                 .font(.system(size: 48))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
 
             Text("Screen Recording Permission Required")
                 .font(.title2)
@@ -100,7 +113,7 @@ struct WindowPickerView: View {
 
             Text("FrameFlow needs screen recording access to list your open windows.")
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
 
@@ -121,7 +134,7 @@ struct WindowPickerView: View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 44))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
 
             Text("Could Not Load Windows")
                 .font(.title2)
@@ -129,7 +142,7 @@ struct WindowPickerView: View {
 
             Text(message)
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
 
@@ -145,7 +158,7 @@ struct WindowPickerView: View {
         VStack(spacing: 16) {
             Image(systemName: "macwindow.on.rectangle")
                 .font(.system(size: 44))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
 
             Text("No Windows Found")
                 .font(.title2)
@@ -153,7 +166,7 @@ struct WindowPickerView: View {
 
             Text("Open an app with a visible window, then refresh.")
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
 
             Button("Refresh") {
@@ -168,7 +181,7 @@ struct WindowPickerView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .automatic) {
             Text(selectionLabel)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
         }
 
         ToolbarItem(placement: .automatic) {
@@ -192,34 +205,6 @@ struct WindowPickerView: View {
         return "\(count) selected (max \(limit))"
     }
 
-    private var upgradeSheet: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Upgrade to Pro")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("Free accounts can select up to 2 windows. Pro unlocks up to 4 windows on supported Macs.")
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack {
-                Button("Not Now", role: .cancel) {
-                    viewModel.showUpgradeSheet = false
-                }
-
-                Spacer()
-
-                Button("View Plans") {
-                    viewModel.showUpgradeSheet = false
-                    router.navigate(to: .subscription)
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(24)
-        .frame(minWidth: 360)
-    }
-
     private func proceedToLayoutPicker() {
         appState.selectedWindowIDs = viewModel.selectedIDs
         router.navigate(to: .layoutPicker)
@@ -241,7 +226,7 @@ private struct WindowPickerCell: View {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.title2)
                             .symbolRenderingMode(.palette)
-                            .foregroundStyle(.white, Color.accentColor)
+                            .foregroundStyle(.white, AppColors.primary)
                             .padding(8)
                     }
                 }
@@ -250,7 +235,7 @@ private struct WindowPickerCell: View {
                     .font(.caption)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppColors.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(10)
@@ -258,7 +243,7 @@ private struct WindowPickerCell: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(
-                        isSelected ? Color.accentColor : Color.secondary.opacity(0.2),
+                        isSelected ? AppColors.primary : AppColors.border,
                         lineWidth: isSelected ? 2 : 1
                     )
             }
@@ -270,7 +255,7 @@ private struct WindowPickerCell: View {
     private var thumbnailArea: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.secondary.opacity(0.12))
+                .fill(AppColors.surface)
                 .aspectRatio(16 / 10, contentMode: .fit)
 
             if let image = ImageDisplayHelpers.thumbnailImage(from: window.thumbnail) {
@@ -284,7 +269,7 @@ private struct WindowPickerCell: View {
             } else {
                 Image(systemName: "macwindow")
                     .font(.system(size: 28))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
             }
         }
         .overlay(alignment: .bottomLeading) {

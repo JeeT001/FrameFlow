@@ -14,7 +14,7 @@ struct ScreenPlaceholder: View {
                 VStack(spacing: 12) {
                     Image(systemName: route.systemImage)
                         .font(.system(size: 44))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                         .symbolRenderingMode(.hierarchical)
 
                     Text(route.title)
@@ -23,7 +23,7 @@ struct ScreenPlaceholder: View {
 
                     Text(route.subtitle)
                         .font(.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: 480)
                 }
@@ -31,7 +31,7 @@ struct ScreenPlaceholder: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Planned UI")
                         .font(.headline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
 
                     ForEach(route.plannedElements, id: \.self) { element in
                         Button(element) {}

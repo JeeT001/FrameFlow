@@ -48,7 +48,7 @@ struct SignUpView: View {
                     let outcome = await viewModel.signUp()
                     switch outcome {
                     case .signedIn(let user):
-                        appState.markAuthenticated(user: user)
+                        await appState.markAuthenticated(user: user)
                         router.selectSidebar(.home)
                     case .emailConfirmationRequired, .failed:
                         break

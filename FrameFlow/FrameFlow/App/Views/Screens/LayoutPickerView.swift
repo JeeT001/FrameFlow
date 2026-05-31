@@ -10,6 +10,9 @@ struct LayoutPickerView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
     @State private var viewModel = LayoutPickerViewModel()
+    @State private var showProGate = false
+    @State private var proGateFeature = ""
+    @State private var proGateDescription = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -70,9 +73,11 @@ struct LayoutPickerView: View {
                 viewModel.showAudioSheet = false
             }
         }
-        .sheet(isPresented: $viewModel.showUpgradeSheet) {
-            formatUpgradeSheet
-        }
+        .proUpgradeSheet(
+            isPresented: $showProGate,
+            feature: proGateFeature,
+            description: proGateDescription
+        )
         .alert("No Windows Selected", isPresented: $viewModel.showNoWindowsAlert) {
             Button("Back to Window Picker") {
                 router.navigate(to: .windowPicker)
@@ -86,7 +91,7 @@ struct LayoutPickerView: View {
     private var noWindowsBanner: some View {
         HStack {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
+                .foregroundStyle(AppColors.proGold)
             Text("No windows selected. Go back to the Window Picker to choose sources.")
                 .font(.subheadline)
             Spacer()
@@ -95,7 +100,7 @@ struct LayoutPickerView: View {
             }
         }
         .padding(12)
-        .background(Color.orange.opacity(0.12))
+        .background(AppColors.proGold.opacity(0.12))
     }
 
     private var leftPanel: some View {
@@ -124,7 +129,7 @@ struct LayoutPickerView: View {
                             Text("Pro")
                                 .font(.caption2)
                                 .padding(.horizontal, 5)
-                                .background(Color.accentColor.opacity(0.15), in: Capsule())
+                                .background(AppColors.primary.opacity(0.15), in: Capsule())
                         }
                     }
                     .tag(format)
@@ -139,13 +144,17 @@ struct LayoutPickerView: View {
         Binding(
             get: { viewModel.format },
             set: { newValue in
-                if newValue == .nineBySixteen && !appState.isPro {
-                    viewModel.showUpgradeSheet = true
-                } else {
-                    viewModel.format = newValue
-                    viewModel.syncSessionState(to: appState)
-                    viewModel.updateLivePreviewLayout()
-                }
+                ProGate.perform(
+                    isPro: appState.isPro,
+                    feature: "Vertical Format (9:16)",
+                    description: "9:16 exports for TikTok, Reels, and Shorts are included with FrameFlow Pro.",
+                    present: presentProGate,
+                    action: {
+                        viewModel.format = newValue
+                        viewModel.syncSessionState(to: appState)
+                        viewModel.updateLivePreviewLayout()
+                    }
+                )
             }
         )
     }
@@ -175,7 +184,7 @@ struct LayoutPickerView: View {
             Text("Camera")
                 .font(.headline)
 
-            Toggle("Enable camera (PiP)", isOn: $viewModel.cameraEnabled)
+            Toggle("Enable camera (PiP)", isOn: cameraEnabledBinding)
 
             if viewModel.cameraEnabled {
                 Picker("Camera source", selection: cameraSelection) {
@@ -192,6 +201,30 @@ struct LayoutPickerView: View {
                 }
             }
         }
+    }
+
+    private var cameraEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.cameraEnabled },
+            set: { newValue in
+                ProGate.perform(
+                    isPro: appState.isPro,
+                    feature: "Camera PiP",
+                    description: "Overlay your webcam in the recording with a draggable picture-in-picture window.",
+                    present: presentProGate,
+                    action: {
+                        viewModel.setCameraEnabled(newValue)
+                        Task { await viewModel.startCameraPreviewIfNeeded() }
+                    }
+                )
+            }
+        )
+    }
+
+    private func presentProGate(feature: String, description: String) {
+        proGateFeature = feature
+        proGateDescription = description
+        showProGate = true
     }
 
     private var cameraSelection: Binding<String?> {
@@ -222,14 +255,14 @@ struct LayoutPickerView: View {
                             .font(.body)
                         Text("Tap to change")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
                 .padding(12)
-                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
         }
@@ -272,7 +305,7 @@ struct LayoutPickerView: View {
                         ProgressView("Starting live preview…")
                         Text("Capturing window streams. This may take a few seconds.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if viewModel.isLivePreviewActive, let previewImage = viewModel.previewImage {
@@ -292,7 +325,7 @@ struct LayoutPickerView: View {
                         if let message = viewModel.previewErrorMessage {
                             Text(message)
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppColors.textSecondary)
                                 .multilineTextAlignment(.center)
                                 .frame(maxWidth: 360)
                         }
@@ -311,7 +344,7 @@ struct LayoutPickerView: View {
     private var bottomBar: some View {
         HStack {
             Text("\(viewModel.selectedWindowCount(from: appState)) window(s) selected")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
 
             Spacer()
 
@@ -322,31 +355,6 @@ struct LayoutPickerView: View {
             .controlSize(.large)
             .disabled(viewModel.selectedWindowCount(from: appState) == 0)
         }
-    }
-
-    private var formatUpgradeSheet: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Vertical Format (9:16)")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("9:16 exports for TikTok, Reels, and Shorts are included with FrameFlow Pro.")
-                .foregroundStyle(.secondary)
-
-            HStack {
-                Button("Not Now", role: .cancel) {
-                    viewModel.showUpgradeSheet = false
-                }
-                Spacer()
-                Button("View Plans") {
-                    viewModel.showUpgradeSheet = false
-                    router.navigate(to: .subscription)
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(24)
-        .frame(minWidth: 360)
     }
 
     private func startRecording() {

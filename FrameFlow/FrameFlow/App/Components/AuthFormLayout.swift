@@ -33,7 +33,7 @@ struct AuthFormLayout<Content: View, Footer: View>: View {
 
                     Text(subtitle)
                         .font(.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: 420)
                 }
@@ -58,10 +58,10 @@ struct AuthErrorBanner: View {
     var body: some View {
         Text(message)
             .font(.callout)
-            .foregroundStyle(.red)
+            .foregroundStyle(AppColors.recRed)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(Color.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            .background(AppColors.recRed.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -71,9 +71,9 @@ struct AuthSuccessBanner: View {
     var body: some View {
         Text(message)
             .font(.callout)
-            .foregroundStyle(.green)
+            .foregroundStyle(AppColors.successGreen)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(Color.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            .background(AppColors.successGreen.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
     }
 }

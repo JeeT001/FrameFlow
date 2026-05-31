@@ -27,12 +27,12 @@ struct CaptionStyleCard: View {
 
                 Text(previewStyle.displayName)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppColors.textPrimary)
             }
             .padding(10)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(isSelected ? Color.accentColor : Color.secondary.opacity(0.25), lineWidth: isSelected ? 2 : 1)
+                    .strokeBorder(isSelected ? AppColors.primary : AppColors.border, lineWidth: isSelected ? 2 : 1)
             )
         }
         .buttonStyle(.plain)

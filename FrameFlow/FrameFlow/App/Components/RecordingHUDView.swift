@@ -39,7 +39,7 @@ struct RecordingHUDView: View {
     private var leftSection: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(isPaused ? Color.orange : Color.red)
+                .fill(isPaused ? AppColors.pauseYellow : AppColors.recRed)
                 .frame(width: 10, height: 10)
             Text(formattedDuration)
                 .font(.system(.title3, design: .monospaced))

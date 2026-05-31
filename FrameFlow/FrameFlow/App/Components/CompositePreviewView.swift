@@ -21,7 +21,7 @@ struct CompositePreviewView: View {
                 .overlay {
                     if !fillsWindow {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(Color.secondary.opacity(0.2))
+                            .strokeBorder(AppColors.border)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

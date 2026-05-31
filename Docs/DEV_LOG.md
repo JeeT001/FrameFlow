@@ -977,3 +977,289 @@ feat: recording detail screen with rename, re-export, and delete
 ```
 feat: watermark compositing for free tier exports
 ```
+
+---
+
+## Save flow alignment — stage on Stop, export to save folder (2026-05-28)
+
+### Completed
+- **Stop** finalizes to `~/Library/Application Support/FrameFlow/Staging/<uuid>.mp4` — no save-folder bookmark on stop.
+- `RecordingViewModel.stopAndStage`; removed “Saved Recording” alert; free → Export directly; Pro+audio → Caption Editor → Export.
+- `AppState.pendingRecording` — not in `RecordingStore` until export succeeds.
+- **Export** writes single deliverable: `FrameFlow_yyyy-MM-dd_HH-mm-ss_720p.mp4` (resolution suffix); re-export uses fresh timestamp.
+- **Discard** deletes staging MP4 + caption sidecars via `RecordingFileCleanup`.
+- `ExportService.withSourceReadAccess` reads app-container staging without bookmark.
+- Caption Editor **Skip Captions** → Export (not Dashboard).
+- Recording Detail delete uses simplified cleanup (no `_export_*` siblings).
+
+### Suggested commit
+```
+feat: save recordings to user folder only on export, not on stop
+```
+
+---
+
+## Blueprint Day 29 — Supabase tables + RLS (2026-05-29)
+
+### Completed
+- Migration `supabase/migrations/20260529_users_subscriptions_rls.sql`:
+  - `public.users` (PK → `auth.users`, CASCADE delete)
+  - `public.subscriptions` (FK → users, plan/status defaults, RevenueCat/Stripe fields)
+  - Index `subscriptions_user_id_idx`
+  - RLS: users SELECT/UPDATE/INSERT own row; subscriptions SELECT own rows only
+  - `set_updated_at` triggers on both tables
+  - `GRANT` for `authenticated` role
+- `supabase/README.md` — SQL Editor steps, RLS verification, rollback notes
+
+### Deferred
+- Day 31: RevenueCat SDK / SubscriptionManager
+
+### Manual steps
+1. Supabase Dashboard → SQL Editor → run migration file.
+2. Confirm tables in Table Editor.
+3. Verify RLS with two test users (see `supabase/README.md`).
+
+### Suggested commit
+```
+chore: Supabase users and subscriptions tables with RLS
+```
+
+---
+
+## Blueprint Day 30 — UserService + RevenueCat webhook (2026-05-29)
+
+### Completed
+- **`FrameFlowUser.swift`** — Codable model matching `public.users` (`FrameFlowUserInsert` / `FrameFlowUserUpdate` for writes; DEBUG `FrameFlowSubscription` for bootstrap logging)
+- **`UserService`** extended:
+  - `createUser(id:email:name:)` — INSERT via Supabase; idempotent on duplicate key (fetch existing)
+  - `fetchUser(userId:)` — SELECT own row
+  - `ensureUserProfile(for:)` — backfill from auth email + `UserDisplayHelpers.displayName` when row missing
+  - `updateDisplayName(userId:name:)` — UPDATE `display_name` + auth metadata; `updateDisplayName(_:)` delegates to session user
+  - Graceful no-op when `SupabaseClientProvider.isConfigured` is false
+- **Call sites:** `SignUpViewModel` (non-blocking `createUser` after sign-up); `LoginViewModel` + `AppState.bootstrap` (`ensureUserProfile` + `fetchUser` → `syncedProfile`); Profile unchanged (`updateDisplayName(_:)`)
+- **Edge Function** `supabase/functions/revenuecat-webhook/index.ts`:
+  - Validates `Authorization` vs `REVENUECAT_WEBHOOK_SECRET`
+  - Service role upsert to `public.subscriptions` (one row per `user_id`)
+  - Events: `INITIAL_PURCHASE`, `RENEWAL`, `CANCELLATION`, `EXPIRATION`, `BILLING_ISSUE`
+  - Product-id → plan placeholders (`monthly` / `annual` / `lifetime`)
+  - Missing `public.users` row → **400** (user must sign in / backfill first)
+- **`supabase/README.md`** — Day 30 deploy, secrets, verification steps
+- **`supabase/functions/revenuecat-webhook/README.md`** — curl test, mapping table
+
+### Not in scope (Day 31+)
+- RevenueCat Purchases SDK / `SubscriptionManager`
+- Paywall UI / Pro gates from DB
+
+### Backfill strategy
+- **Sign-up:** immediate `createUser` when session returned (errors logged, sign-up UX not blocked)
+- **Login / bootstrap:** `ensureUserProfile` if `fetchUser` nil — covers pre-Day-30 accounts
+- **Webhook:** requires existing `public.users` FK; returns 400 if profile never synced
+
+### Manual verification
+- App: sign up → row in Table Editor; relaunch → `fetchUser`; Profile save → DB + metadata; pre-Day-30 account → backfill on sign-in
+- Webhook: deploy with `--no-verify-jwt`; wrong secret → 401; mock `INITIAL_PURCHASE` → `public.subscriptions` row; RLS blocks cross-user SELECT
+
+### Build
+- `xcodebuild -scheme FrameFlow -project FrameFlow/FrameFlow.xcodeproj -destination 'platform=macOS' build` — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: UserService public.users sync and RevenueCat webhook edge function
+```
+
+---
+
+## Blueprint Day 31 — RevenueCat SDK + SubscriptionManager (2026-05-30)
+
+### Completed
+- **`SubscriptionManager.swift`** — `@MainActor` `@Observable` singleton:
+  - `configureIfNeeded()` — `Purchases.configure(withAPIKey:)`; skips empty key; DEBUG log level
+  - `logIn(appUserID:)` / `logOut()` / `fetchStatus()` — `customerInfo` only (no `getOfferings` / purchase)
+  - `applyCustomerInfo` — entitlement `pro` → `isPro`, status, plan name, renewal date
+  - `syncToAppState` — trialing/active/cancelled-but-active → `.active`; past_due → `.past_due`
+  - `PurchasesDelegate` + `customerInfoStream` for live entitlement updates
+  - `showManageSubscriptions()` with `managementURL` fallback (Day 32 billing portal)
+- **`FrameFlowApp.swift`** — configure on launch; `.environment(SubscriptionManager.shared)`
+- **`AppState`** — `syncSubscriptionAfterAuth`; async `markAuthenticated` wires RC; `signOut` calls `logOut` + `.free`
+- **`RootView`** — `onChange` syncs RC updates to `AppState`
+- **UI hooks:** Dashboard + Profile “Manage Subscription” → `showManageSubscriptions()`; DEBUG subscription override only when `!isConfigured`
+
+### Testing notes
+- Dev: RevenueCat **Test Store** API key (`test_...`) in local `Config.swift` (gitignored)
+- Entitlement identifier: **`pro`**
+- Grant promotional entitlement in RevenueCat → Customers for a signed-in Supabase UUID
+- Mac App Store product setup skipped (DMG + Stripe/web billing in Day 32)
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: RevenueCat SDK and SubscriptionManager
+```
+
+---
+
+## Blueprint Day 32 — Subscription screen + Pro gates (2026-05-30)
+
+### Completed
+- **`SubscriptionView.swift`** + **`SubscriptionViewModel.swift`** — feature comparison table (Free vs Pro); Annual / Monthly / Lifetime plan cards; Test Store purchase via `SubscriptionManager.purchase(package:)`; success → Dashboard + `isPro`; empty/error state when RC not configured or offerings missing
+- **`ProGateModifier.swift`** — `ProGate.perform`, `ProUpgradeSheet`, `.proUpgradeSheet()` extension
+- **`SubscriptionManager`** — `fetchOfferings()`, `purchase(package:)`, `package(for:)`, `availablePackages`
+- **`SettingsStore.showLifetimeDeal`** — default `false`; DEBUG toggle in Settings to show Lifetime card
+- **Gated features:** 9:16 format, 3rd/4th window, system/combined audio, PiP camera, captions entry, 1080p/4K export rows
+- Removed `SubscriptionView` placeholder from `PlaceholderScreens.swift`
+
+### RevenueCat Dashboard setup (Test Store — run before purchase testing)
+
+1. **Products** (Product catalog → Test Store):
+   | Product ID | Type | Display |
+   |------------|------|---------|
+   | `frameflow_pro_monthly` | Subscription | ~$19/mo, 7-day trial |
+   | `frameflow_pro_annual` | Subscription | ~$108/yr ($9/mo), 7-day trial |
+   | `frameflow_pro_lifetime` | One-time | ~$79 |
+
+2. **Entitlements** — attach all three products to entitlement **`pro`**
+
+3. **Offerings** — Default (current) offering with packages:
+   | Package | RC identifier (typical) | Maps to product |
+   |---------|-------------------------|-----------------|
+   | Monthly | `$rc_monthly` or custom `monthly` | `frameflow_pro_monthly` |
+   | Annual | `$rc_annual` or custom `annual` | `frameflow_pro_annual` |
+   | Lifetime | custom `lifetime` | `frameflow_pro_lifetime` |
+
+   Code matches by **product id substring** (`monthly` / `annual` / `lifetime`) or `Package.packageType`.
+
+4. **API key** — Test Store public key (`test_...`) in local `Config.swift`
+
+5. **App user ID** — sign in first; RC Customers shows Supabase auth UUID (Day 31 `logIn`)
+
+### Purchase test steps
+1. Sign in → open Subscription from Dashboard Upgrade or Profile
+2. With products configured → tap **Start Free Trial** → RevenueCat Test Store dialog
+3. Complete purchase → returns to Dashboard → Pro features unlock
+4. Without products → friendly setup message, no crash
+5. Settings (DEBUG) → enable **Show Lifetime plan** → Lifetime card appears
+
+### Not in scope
+- Day 33 expiry banner dismiss polish
+- Stripe / web billing (production DMG distribution — future)
+- Mac App Store Connect IAP
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: subscription pricing screen and Pro gate modifier
+```
+
+---
+
+## Blueprint Day 33 — Expiry banner + manage subscription (2026-05-30)
+
+### Completed
+- **`ExpiryBannerView.swift`** — amber HStack; blueprint copy for expired / past_due; **Renew** + dismiss (X)
+- **`SettingsStore.expiryBannerDismissed`** — UserDefaults; cleared on cold launch via `resetExpiryBannerDismissedForLaunch()` in `FrameFlowApp`; cleared when status recovers to active/free
+- **`DashboardView`** — uses `ExpiryBannerView`; Renew → `.subscription`; DEBUG override menu unchanged
+- **`ProfileView`** — Manage Subscription → async `showManageSubscriptions()`; alert + **View Plans** fallback when RC/Test Store has no portal; Past Due / Expired badges when not Pro
+- **`SubscriptionManager`** — inactive `pro` entitlement now maps to `past_due` / `expired` / `cancelled` (not `free`); `syncToAppState` maps inactive `past_due`; `showManageSubscriptions()` returns `Bool`
+
+### Dismiss semantics
+- User taps **Dismiss** → `expiryBannerDismissed = true` → banner hidden for remainder of app session
+- **Cold launch** (`FrameFlowApp.onAppear`) → dismiss flag reset → banner re-appears if still `past_due` or `expired`
+- Status improves to active/free → dismiss flag cleared automatically
+
+### Renew vs Manage Subscription
+| Action | Where | Behavior |
+|--------|-------|----------|
+| **Renew** | Dashboard expiry banner | Navigate to `SubscriptionView` (purchase / re-subscribe) |
+| **Manage Subscription** | Profile | RevenueCat `showManageSubscriptions()` or Apple `managementURL`; fallback alert → View Plans |
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: expiry banner and manage subscription flow
+```
+
+---
+
+## Blueprint Day 34 — Keyboard shortcuts (2026-05-30)
+
+### Completed
+- **`KeyboardShortcutManager.swift`** — global + local `NSEvent` keyDown monitors; `start(handler:)` / `stop()` cleanup; ignores key repeats; Cmd-only shortcuts while `isEnabled`
+- **`RecordingKeyboardShortcutHandling`** protocol — decoupled callbacks to `RecordingViewModel`
+- **`ZoomController`** — manual zoom `1.0…4.0` step `0.25`; `zoomIn` / `zoomOut` / `resetZoom`; final scale = `manualScale × autoClickMultiplier`
+- **`RecordingSessionCoordinator`** — zoom + toggle auto-focus / cursor highlight / PiP (Pro) during recording
+- **`RecordingView`** — starts/stops monitors when recording live; Cmd+Escape discard → dashboard; Cmd+K Pro gate sheet
+- **`HelpView`** — FAQ entry with full shortcut table
+
+### Shortcuts (Section 8F)
+
+| Shortcut | Action |
+|----------|--------|
+| Cmd+R | Stop recording |
+| Cmd+P | Pause / Resume |
+| Cmd+= | Zoom in +0.25× |
+| Cmd+- | Zoom out −0.25× |
+| Cmd+0 | Reset zoom to 1.0× |
+| Cmd+F | Toggle auto-focus |
+| Cmd+H | Toggle cursor highlight |
+| Cmd+K | Toggle PiP camera (Pro) |
+| Cmd+Escape | Discard recording (no save) |
+
+### Accessibility permission
+Global shortcuts when another app is focused require **System Settings → Privacy & Security → Accessibility → FrameFlow** enabled. Local monitors still work when FrameFlow is focused without Accessibility.
+
+### Zoom model
+Manual base scale (`manualScale`) is multiplied by the auto-click animation multiplier. Manual adjustments reset the click animation to avoid conflicting transforms.
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: global keyboard shortcuts for all recording controls
+```
+
+---
+
+## Blueprint Day 35 — Semantic colour system (2026-05-30)
+
+### Completed
+- **Asset Catalog** — 10 Color Sets with light/dark sRGB (`appPrimary`, `appBackground`, `appSurface`, `appBorder`, `appTextPrimary`, `appTextSecondary`, `recRed`, `proGold`, `successGreen`, `pauseYellow`)
+- **`AccentColor.colorset`** — aligned with `appPrimary` light/dark (`.borderedProminent` matches brand)
+- **`App/Utils/AppColors.swift`** — `enum AppColors` with `Color("token")` accessors (avoids conflict with Xcode-generated asset symbol extensions)
+- **View/Component migration** — 25 files in `App/Views` + `App/Components`; replaced hardcoded accent/secondary/orange/green/red with semantic tokens
+- **Dark mode override** — verified existing `SettingsStore.darkModeOverride` + `RootView.preferredColorScheme` (no duplicate UI)
+
+### Color token table
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| appPrimary | #1A56DB | #4B8EF1 | CTAs, selection, Pro badges |
+| appBackground | #FFFFFF | #1C1C1E | (reserved for future shell backgrounds) |
+| appSurface | #F3F4F6 | #2C2C2E | Cards, panels, subtle fills |
+| appBorder | #E5E7EB | #3A3A3C | Dividers, strokes |
+| appTextPrimary | #1F2A37 | #F2F2F7 | Body/headline text |
+| appTextSecondary | #4B5563 | #AEAEB2 | Hints, metadata |
+| recRed | #DC2626 | #FF453A | Recording HUD dot, errors |
+| proGold | #D97706 | #FFD60A | Warnings, Pro accents |
+| successGreen | #0E9F6E | #30D158 | Success states |
+| pauseYellow | #F59E0B | #FFD60A | Paused HUD dot |
+
+### Migration scope (intentionally unchanged)
+- Recording preview `Color.black` canvas
+- Recording HUD dark rgba shell (blueprint 8F)
+- `CompositeEngine` / `ClickEffectRenderer` / CIColor pipeline
+- Caption style preview mock colors on dark thumbnails
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: semantic colour system with dark mode via Asset Catalog
+```

@@ -93,7 +93,7 @@ struct SettingsView: View {
                     Text(viewModel.settings.expandedSaveFolder)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                     Button("Choose…") {
                         viewModel.chooseSaveFolder()
                     }
@@ -103,7 +103,7 @@ struct SettingsView: View {
             if viewModel.saveFolderNeedsReauthorization {
                 Text("Choose… again to allow saving to this folder (required for Desktop and other locations outside the app).")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(AppColors.proGold)
             }
 
             Stepper(
@@ -196,7 +196,7 @@ struct SettingsView: View {
         Section("About") {
             LabeledContent("Version") {
                 Text(viewModel.appVersionString)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
             }
 
             Button("Check for Updates") {
@@ -219,6 +219,10 @@ struct SettingsView: View {
             LabeledContent("Composite FPS") {
                 Text("\(viewModel.capabilities.compositeFrameRate)")
             }
+
+            #if DEBUG
+            Toggle("Show Lifetime plan on Subscription screen", isOn: Bindable(viewModel.settings).showLifetimeDeal)
+            #endif
         }
     }
 
@@ -241,7 +245,7 @@ struct SettingsView: View {
                 Text(title)
                 Spacer()
                 Text(status)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
             }
 
             HStack {

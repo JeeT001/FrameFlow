@@ -33,7 +33,7 @@ struct CaptionSegmentRow: View {
                     .font(.caption.monospacedDigit())
                 Text(CaptionSegmentRow.formatTime(segment.endTime))
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
             }
             .frame(width: 44, alignment: .leading)
 
@@ -47,11 +47,11 @@ struct CaptionSegmentRow: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
+                .fill(isSelected ? AppColors.primary.opacity(0.12) : Color.clear)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(isSelected ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1)
+                .strokeBorder(isSelected ? AppColors.primary.opacity(0.5) : Color.clear, lineWidth: 1)
         )
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)

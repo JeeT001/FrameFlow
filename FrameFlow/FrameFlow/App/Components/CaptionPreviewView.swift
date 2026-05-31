@@ -36,7 +36,7 @@ struct CaptionPreviewView: View {
             HStack(spacing: 12) {
                 Text(formatTime(currentTime))
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .frame(width: 44, alignment: .leading)
 
                 Slider(
@@ -52,7 +52,7 @@ struct CaptionPreviewView: View {
 
                 Text(formatTime(duration))
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .frame(width: 44, alignment: .trailing)
             }
         }
@@ -110,7 +110,7 @@ struct CaptionOverlayView: View {
                 .padding(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                        .stroke(Color.accentColor, lineWidth: 2)
+                        .stroke(AppColors.primary, lineWidth: 2)
                 )
         default:
             Text(text)

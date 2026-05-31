@@ -32,7 +32,7 @@ struct LoginView: View {
             Button {
                 Task {
                     if let user = await viewModel.logIn() {
-                        appState.markAuthenticated(user: user)
+                        await appState.markAuthenticated(user: user)
                         router.selectSidebar(.home)
                     }
                 }

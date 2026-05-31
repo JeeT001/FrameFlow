@@ -59,6 +59,23 @@ All notable changes to FrameFlow are documented in this file.
 - `RecordingDetailView` with rename on disk, thumbnail preview, metadata, Re-export, Delete, and Reveal in Finder
 - `AppState.detailRecordingID`; Dashboard recording cards open Recording Detail (context menu Export unchanged)
 - Day 28: polished free-tier export watermark (`WatermarkCompositor`) on full canvas for 16:9 and 9:16; export no longer replaces recording `filePath`
+- `RecordingStaging` + `RecordingFileCleanup`; Stop stages internally; Export is sole write to user save folder
+- `AppState.pendingRecording`; Dashboard shows recordings only after successful export
+- Supabase migration `supabase/migrations/20260529_users_subscriptions_rls.sql` — `users`, `subscriptions`, RLS, `updated_at` triggers
+- `supabase/README.md` — apply migration and verify RLS in Dashboard
+- `FrameFlowUser` model and `UserService` sync with `public.users` (create, fetch, backfill, display name)
+- `AppState.syncedProfile` populated on bootstrap; DEBUG subscription row logging
+- Edge Function `supabase/functions/revenuecat-webhook` — RevenueCat events → `public.subscriptions` via service role
+- `SubscriptionManager` — RevenueCat Purchases SDK; entitlement `pro` drives `AppState.isPro`; Supabase UUID as `app_user_id`
+- `SubscriptionView` with Free vs Pro feature table, Annual/Monthly/Lifetime plan cards, and Test Store purchase flow
+- `ProGateModifier` / `ProUpgradeSheet` — consistent upgrade sheet on gated Pro features
+- `SettingsStore.showLifetimeDeal` — hides Lifetime card by default; DEBUG toggle in Settings
+- `ExpiryBannerView` on Dashboard — dismissible until next launch; Renew navigates to Subscription screen
+- Profile Manage Subscription — RevenueCat billing portal with graceful fallback alert
+- `KeyboardShortcutManager` — global recording shortcuts (Cmd+R/P/=/−/0/F/H/K, Cmd+Escape discard)
+- Manual zoom controls during recording via `ZoomController` (1.0×–4.0×, 0.25 step)
+- Semantic color tokens in Asset Catalog + `AppColors` enum for Views/Components
+- `AccentColor` aligned with brand `appPrimary` for system accent-driven controls
 
 ### Changed
 - Moved `Services`, `Resources`, and `Utils` stubs into dedicated subfolders under `App/`
@@ -82,11 +99,18 @@ All notable changes to FrameFlow are documented in this file.
 - Save-folder fallback diagnostics now include explicit reasons (`bookmark missing`, `bookmark stale`, `scope access denied`)
 - Layout Picker now supports draggable/resizable camera PiP with preset placement options
 - Recording composite pipeline now applies camera PiP overlay after base/zoom/click/focus stages
+- Free users: Record → Stop → Export screen directly (no saved alert)
 - Pro users with audio after stop navigate to Caption Editor and start background caption generation (free users unchanged)
-- `hasCaptions` on recording metadata is set when user exports from Caption Editor, not when transcription finishes
-- Free users can export after recording via alert **Export** button; Dashboard card tap opens Recording Detail
-- Export success updates `hasCaptions` only; original recording `filePath` preserved for Detail / Re-export
+- `hasCaptions` on recording metadata is set when user exports from Caption Editor or Export screen
+- Free users can export after recording via Export screen; Dashboard card tap opens Recording Detail
+- Export writes one MP4 to save folder (`FrameFlow_<timestamp>_<720p|1080p|4K>.mp4`); Discard removes staging only
 - Free-tier export watermark anchored to full letterboxed canvas bottom-left (16:9 and 9:16)
+- Sign-up inserts `public.users` row; login and session restore backfill profile via `ensureUserProfile`
+- Profile display name updates both `public.users.display_name` and Supabase auth user metadata
+- Pro access driven by RevenueCat entitlement `pro` after sign-in and session restore
+- Pro upgrade sheet on gated features (9:16, multi-window, system audio, PiP, captions, HD export)
+- Inactive RevenueCat entitlement correctly maps to past_due / expired for banner and Pro gates
+- Help FAQ documents recording keyboard shortcuts and Accessibility requirement for global hotkeys
 
 ### Fixed
 - Recording A/V desync from mismatched video frame-counter timestamps vs ~30 Hz writer cadence; video and audio now share a host session clock in `RecordingEngine`

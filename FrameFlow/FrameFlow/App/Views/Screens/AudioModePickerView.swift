@@ -14,7 +14,9 @@ struct AudioModePickerView: View {
     @State private var draftMode: String
     @State private var draftMicVolumePercent: Double
     @State private var draftSystemVolumePercent: Double
-    @State private var showUpgradeSheet = false
+    @State private var showProGate = false
+    @State private var proGateFeature = "Pro Audio"
+    @State private var proGateDescription = "System and combined audio capture require FrameFlow Pro."
     @State private var levelMonitor = AudioLevelMonitor()
 
     init(
@@ -47,7 +49,7 @@ struct AudioModePickerView: View {
 
                 Text("Choose how FrameFlow captures sound for your recording.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
 
                 VStack(spacing: 12) {
                     ForEach(AudioModeOption.allCases) { option in
@@ -66,9 +68,11 @@ struct AudioModePickerView: View {
             .padding(24)
         }
         .frame(minWidth: 420, minHeight: 480)
-        .sheet(isPresented: $showUpgradeSheet) {
-            audioUpgradeSheet
-        }
+        .proUpgradeSheet(
+            isPresented: $showProGate,
+            feature: proGateFeature,
+            description: proGateDescription
+        )
         .onAppear {
             syncDraftVolumesFromStore()
             updateMeterForCurrentMode()
@@ -105,7 +109,7 @@ struct AudioModePickerView: View {
                 Spacer()
                 Text("\(Int(draftMicVolumePercent.rounded()))%")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .monospacedDigit()
             }
 
@@ -114,14 +118,14 @@ struct AudioModePickerView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Input level")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
 
                 AudioLevelBars(level: meterLevelForDisplay)
 
                 if levelMonitor.permissionDenied, let message = levelMonitor.statusMessage {
                     Text(message)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
             }
         }
@@ -135,7 +139,7 @@ struct AudioModePickerView: View {
                 Spacer()
                 Text("\(Int(draftSystemVolumePercent.rounded()))%")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .monospacedDigit()
             }
 
@@ -170,19 +174,19 @@ struct AudioModePickerView: View {
                                 .fontWeight(.semibold)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.accentColor.opacity(0.15), in: Capsule())
+                                .background(AppColors.primary.opacity(0.15), in: Capsule())
                         }
                     }
                     Text(audioModeSubtitle(for: option))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
 
                 Spacer()
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(AppColors.primary)
                 }
             }
             .padding(14)
@@ -190,7 +194,7 @@ struct AudioModePickerView: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(
-                        isSelected ? Color.accentColor : Color.secondary.opacity(0.2),
+                        isSelected ? AppColors.primary : AppColors.border,
                         lineWidth: isSelected ? 2 : 1
                     )
             }
@@ -200,7 +204,7 @@ struct AudioModePickerView: View {
 
     private func selectMode(_ option: AudioModeOption) {
         if option.requiresPro && !isPro {
-            showUpgradeSheet = true
+            showProGate = true
             return
         }
         draftMode = option.rawValue
@@ -238,33 +242,6 @@ struct AudioModePickerView: View {
         case .combined: "Mix microphone and system audio."
         case .none: "Video only, no audio track."
         }
-    }
-
-    private var audioUpgradeSheet: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Pro Audio")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("System and combined audio capture require FrameFlow Pro.")
-                .foregroundStyle(.secondary)
-
-            HStack {
-                Button("Cancel", role: .cancel) {
-                    showUpgradeSheet = false
-                }
-                Spacer()
-                Button("View Plans") {
-                    showUpgradeSheet = false
-                    levelMonitor.stopMonitoring()
-                    onConfirm()
-                    router.navigate(to: .subscription)
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(24)
-        .frame(minWidth: 340)
     }
 }
 

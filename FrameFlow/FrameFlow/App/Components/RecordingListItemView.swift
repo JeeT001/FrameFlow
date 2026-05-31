@@ -15,12 +15,12 @@ struct RecordingListItemView: View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.secondary.opacity(0.12))
+                    .fill(AppColors.surface)
                     .aspectRatio(16 / 9, contentMode: .fit)
 
                 Image(systemName: "play.rectangle")
                     .font(.system(size: 28))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -30,19 +30,19 @@ struct RecordingListItemView: View {
 
                 Text(recording.formattedDate)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
 
                 HStack(spacing: 8) {
                     Text(recording.formattedDuration)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
 
                     Text(recording.resolutionBadge)
                         .font(.caption2)
                         .fontWeight(.semibold)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.accentColor.opacity(0.15), in: Capsule())
+                        .background(AppColors.primary.opacity(0.15), in: Capsule())
                 }
             }
         }
@@ -50,7 +50,7 @@ struct RecordingListItemView: View {
         .background(.background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.secondary.opacity(0.15))
+                .strokeBorder(AppColors.border)
         }
         .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .onTapGesture {

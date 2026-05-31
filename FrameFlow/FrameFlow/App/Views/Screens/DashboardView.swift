@@ -8,6 +8,8 @@ import SwiftUI
 struct DashboardView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
+    @Environment(SubscriptionManager.self) private var subscriptionManager
+    @Environment(SettingsStore.self) private var settingsStore
     @State private var recordingStore = RecordingStore.shared
 
     private let gridColumns = [
@@ -17,8 +19,12 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                if showsSubscriptionBanner {
-                    subscriptionBanner
+                if showsExpiryBanner {
+                    ExpiryBannerView(
+                        status: appState.subscriptionStatus,
+                        onRenew: { router.navigate(to: .subscription) },
+                        onDismiss: { settingsStore.expiryBannerDismissed = true }
+                    )
                 }
 
                 topBar
@@ -44,16 +50,18 @@ struct DashboardView: View {
         }
         #if DEBUG
         .toolbar {
-            ToolbarItem(placement: .automatic) {
-                Menu("Debug") {
-                    Button("Subscription: Free") { appState.subscriptionStatus = .free }
-                    Button("Subscription: Active (Pro)") { appState.subscriptionStatus = .active }
-                    Button("Subscription: Past Due") { appState.subscriptionStatus = .past_due }
-                    Button("Subscription: Expired") { appState.subscriptionStatus = .expired }
-                    Divider()
-                    Button("Test window fetch") {
-                        Task {
-                            await WindowCaptureService.shared.debugLogWindowFetch()
+            if !subscriptionManager.isConfigured {
+                ToolbarItem(placement: .automatic) {
+                    Menu("Debug") {
+                        Button("Subscription: Free") { appState.subscriptionStatus = .free }
+                        Button("Subscription: Active (Pro)") { appState.subscriptionStatus = .active }
+                        Button("Subscription: Past Due") { appState.subscriptionStatus = .past_due }
+                        Button("Subscription: Expired") { appState.subscriptionStatus = .expired }
+                        Divider()
+                        Button("Test window fetch") {
+                            Task {
+                                await WindowCaptureService.shared.debugLogWindowFetch()
+                            }
                         }
                     }
                 }
@@ -62,43 +70,12 @@ struct DashboardView: View {
         #endif
     }
 
-    private var showsSubscriptionBanner: Bool {
+    private var showsExpiryBanner: Bool {
+        needsSubscriptionAttention && !settingsStore.expiryBannerDismissed
+    }
+
+    private var needsSubscriptionAttention: Bool {
         appState.subscriptionStatus == .past_due || appState.subscriptionStatus == .expired
-    }
-
-    private var subscriptionBanner: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Subscription needs attention")
-                    .font(.headline)
-                Text(bannerMessage)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Button("Manage Subscription") {
-                router.navigate(to: .subscription)
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding(14)
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    private var bannerMessage: String {
-        switch appState.subscriptionStatus {
-        case .past_due:
-            "Your payment is past due. Update billing to keep Pro features."
-        case .expired:
-            "Your Pro plan has expired. Renew to restore full access."
-        default:
-            ""
-        }
     }
 
     private var topBar: some View {
@@ -122,7 +99,7 @@ struct DashboardView: View {
 
     private var userAvatar: some View {
         Circle()
-            .fill(Color.accentColor.opacity(0.2))
+            .fill(AppColors.primary.opacity(0.2))
             .frame(width: 36, height: 36)
             .overlay {
                 Text(UserDisplayHelpers.initials(for: appState.currentUser))
@@ -149,7 +126,7 @@ struct DashboardView: View {
         VStack(spacing: 12) {
             Image(systemName: "film.stack")
                 .font(.system(size: 44))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .padding(.bottom, 4)
 
             Text("No recordings yet")
@@ -158,7 +135,7 @@ struct DashboardView: View {
 
             Text("Start your first screen recording to see it here.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
 
             Button {
@@ -209,4 +186,6 @@ struct DashboardView: View {
     DashboardView()
         .environment(AppState())
         .environment(AppRouter())
+        .environment(SubscriptionManager.shared)
+        .environment(SettingsStore.shared)
 }

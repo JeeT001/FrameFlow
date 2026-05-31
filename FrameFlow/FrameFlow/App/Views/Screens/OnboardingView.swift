@@ -68,7 +68,7 @@ struct OnboardingView: View {
 
                 Text(page.subtitle)
                     .font(.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 480)
                     .fixedSize(horizontal: false, vertical: true)
@@ -84,7 +84,7 @@ struct OnboardingView: View {
         HStack(spacing: 8) {
             ForEach(0..<pages.count, id: \.self) { index in
                 Circle()
-                    .fill(index == currentPage ? Color.accentColor : Color.secondary.opacity(0.35))
+                    .fill(index == currentPage ? AppColors.primary : AppColors.border)
                     .frame(width: 8, height: 8)
                     .animation(.easeInOut(duration: 0.2), value: currentPage)
             }

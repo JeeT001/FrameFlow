@@ -9,6 +9,7 @@ struct RootView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
     @Environment(SettingsStore.self) private var settingsStore
+    @Environment(SubscriptionManager.self) private var subscriptionManager
     @State private var hasBootstrapped = false
 
     var body: some View {
@@ -29,6 +30,13 @@ struct RootView: View {
         }
         .frame(minWidth: 900, minHeight: 600)
         .preferredColorScheme(preferredColorScheme)
+        .onChange(of: subscriptionManager.subscriptionStatus) { _, _ in
+            subscriptionManager.syncToAppState(appState)
+            settingsStore.clearExpiryBannerDismissedIfRecovered(from: appState.subscriptionStatus)
+        }
+        .onChange(of: appState.subscriptionStatus) { _, newStatus in
+            settingsStore.clearExpiryBannerDismissedIfRecovered(from: newStatus)
+        }
         .task {
             guard !hasBootstrapped else { return }
             hasBootstrapped = true
@@ -50,4 +58,5 @@ struct RootView: View {
         .environment(AppState())
         .environment(AppRouter())
         .environment(SettingsStore.shared)
+        .environment(SubscriptionManager.shared)
 }

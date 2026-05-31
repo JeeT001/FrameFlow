@@ -10,6 +10,9 @@ struct ExportView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
     @State private var viewModel = ExportViewModel()
+    @State private var showProGate = false
+    @State private var proGateFeature = ""
+    @State private var proGateDescription = ""
 
     var body: some View {
         Group {
@@ -29,7 +32,10 @@ struct ExportView: View {
             }
         }
         .onAppear {
-            viewModel.load(exportRecordingID: appState.exportRecordingID)
+            viewModel.load(
+                exportRecordingID: appState.exportRecordingID,
+                pendingRecording: appState.pendingRecording
+            )
             if !appState.isPro {
                 viewModel.selectedResolution = .p720
             }
@@ -37,16 +43,23 @@ struct ExportView: View {
         .onDisappear {
             viewModel.teardown()
         }
+        .proUpgradeSheet(
+            isPresented: $showProGate,
+            feature: proGateFeature,
+            description: proGateDescription
+        )
         .alert("Export complete", isPresented: $viewModel.showSuccessAlert) {
             Button("Reveal in Finder") {
                 viewModel.revealInFinder()
             }
             Button("Dashboard") {
                 appState.exportRecordingID = nil
+                appState.pendingRecording = nil
                 router.navigate(to: .dashboard)
             }
             Button("OK", role: .cancel) {
                 appState.exportRecordingID = nil
+                appState.pendingRecording = nil
             }
         } message: {
             if let url = viewModel.exportedURL {
@@ -65,7 +78,7 @@ struct ExportView: View {
                     HStack(spacing: 16) {
                         Text(recording.formattedDuration)
                         Text(recording.formattedFileSize)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
                     }
                     .font(.subheadline)
                 }
@@ -84,30 +97,30 @@ struct ExportView: View {
                 if viewModel.showsCaptionsBadge {
                     Label("Captions included", systemImage: "captions.bubble.fill")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(AppColors.successGreen)
                 }
 
                 if !appState.isPro {
                     Label("Free exports include a FrameFlow watermark", systemImage: "info.circle")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
 
                 if let exportError = viewModel.exportError {
                     Text(exportError)
                         .font(.subheadline)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(AppColors.recRed)
                 }
 
                 if viewModel.isExporting {
                     ProgressView(value: viewModel.progress)
                     Text(viewModel.statusMessage)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
 
                 Button {
-                    Task { await viewModel.export(isPro: appState.isPro) }
+                    Task { await viewModel.export(isPro: appState.isPro, appState: appState) }
                 } label: {
                     Label("Export", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
@@ -138,28 +151,33 @@ struct ExportView: View {
         let isSelected = viewModel.selectedResolution == resolution
 
         return Button {
-            guard !isLocked else { return }
-            viewModel.selectedResolution = resolution
+            if isLocked {
+                proGateFeature = resolution == .p4K ? "4K Export" : "1080p Export"
+                proGateDescription = viewModel.lockReason(for: resolution, isPro: appState.isPro)
+                    ?? "HD export requires FrameFlow Pro."
+                showProGate = true
+            } else {
+                viewModel.selectedResolution = resolution
+            }
         } label: {
             HStack {
                 Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                    .foregroundStyle(isSelected ? AppColors.primary : AppColors.textSecondary)
 
                 Text(resolution.displayName)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppColors.textPrimary)
 
                 Spacer()
 
                 if isLocked {
                     Image(systemName: "lock.fill")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
             }
             .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(isLocked)
         .help(viewModel.lockReason(for: resolution, isPro: appState.isPro) ?? "")
     }
 
@@ -179,8 +197,8 @@ struct ExportView: View {
     }
 
     private func discardAndLeave() {
+        viewModel.discardPending(appState: appState)
         viewModel.teardown()
-        appState.exportRecordingID = nil
         router.navigate(to: .dashboard)
     }
 }

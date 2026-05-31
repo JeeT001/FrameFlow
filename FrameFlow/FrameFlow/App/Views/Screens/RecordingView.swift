@@ -9,7 +9,7 @@ struct RecordingView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
     @State private var viewModel = RecordingViewModel()
-    @State private var lastSavedMetadata: RecordingMetadata?
+    @State private var showProGate = false
 
     var body: some View {
         ZStack {
@@ -60,11 +60,28 @@ struct RecordingView: View {
         }
         .navigationTitle("Recording")
         .task {
+            configureShortcutHandlers()
             await viewModel.runRecordingFlow(appState: appState)
         }
+        .onChange(of: viewModel.phase) { _, phase in
+            updateKeyboardShortcuts(for: phase)
+        }
+        .onChange(of: viewModel.coordinator.isRecording) { _, isRecording in
+            if isRecording, viewModel.phase == .recording {
+                startKeyboardShortcuts()
+            } else if !isRecording {
+                KeyboardShortcutManager.shared.stop()
+            }
+        }
         .onDisappear {
+            KeyboardShortcutManager.shared.stop()
             Task { await viewModel.stopWithoutSaving() }
         }
+        .proUpgradeSheet(
+            isPresented: $showProGate,
+            feature: "Camera PiP",
+            description: "Overlay your webcam in the recording with a draggable picture-in-picture window."
+        )
         .onContinuousHover { phase in
             switch phase {
             case .active, .ended:
@@ -72,19 +89,6 @@ struct RecordingView: View {
             default:
                 break
             }
-        }
-        .alert("Saved Recording", isPresented: $viewModel.showSavedAlert) {
-            Button("Export") {
-                if let lastSavedMetadata {
-                    appState.exportRecordingID = lastSavedMetadata.id
-                    router.navigate(to: .export)
-                }
-            }
-            Button("Dashboard", role: .cancel) {
-                router.navigate(to: .dashboard)
-            }
-        } message: {
-            Text(viewModel.savedPathForAlert)
         }
     }
 
@@ -123,11 +127,38 @@ struct RecordingView: View {
         .transition(.opacity)
     }
 
+    private func configureShortcutHandlers() {
+        viewModel.isPro = appState.isPro
+        viewModel.onStopRecording = { stopRecording() }
+        viewModel.onDiscardRecording = { discardRecording() }
+        viewModel.onPiPUpgradeRequired = { showProGate = true }
+    }
+
+    private func updateKeyboardShortcuts(for phase: RecordingScreenPhase) {
+        if phase == .recording, viewModel.coordinator.isRecording {
+            startKeyboardShortcuts()
+        } else {
+            KeyboardShortcutManager.shared.stop()
+        }
+    }
+
+    private func startKeyboardShortcuts() {
+        KeyboardShortcutManager.shared.start(handler: viewModel)
+    }
+
+    private func discardRecording() {
+        Task {
+            await viewModel.stopWithoutSaving()
+            router.navigate(to: .dashboard)
+        }
+    }
+
     private func stopRecording() {
         Task {
             do {
-                let metadata = try await viewModel.stopAndSave(appState: appState)
-                try? RecordingStore.shared.add(metadata)
+                let metadata = try await viewModel.stopAndStage(appState: appState)
+                appState.pendingRecording = metadata
+                appState.exportRecordingID = metadata.id
 
                 if await shouldStartCaptionFlow(for: metadata) {
                     CaptionGenerationState.shared.begin(with: metadata)
@@ -135,9 +166,7 @@ struct RecordingView: View {
                     return
                 }
 
-                lastSavedMetadata = metadata
-                viewModel.savedPathForAlert = metadata.filePath
-                viewModel.showSavedAlert = true
+                router.navigate(to: .export)
             } catch {
                 viewModel.coordinator.errorMessage = error.localizedDescription
             }

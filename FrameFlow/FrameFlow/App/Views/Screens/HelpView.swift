@@ -71,6 +71,23 @@ struct HelpView: View {
             """
         ),
         HelpFAQItem(
+            title: "What keyboard shortcuts work while recording?",
+            answer: """
+            Global shortcuts work during an active recording session (FrameFlow must be allowed in \
+            System Settings → Privacy & Security → Accessibility for shortcuts when another app is focused):
+
+            • Cmd+R — Stop recording
+            • Cmd+P — Pause / Resume
+            • Cmd+= — Zoom in (+0.25×)
+            • Cmd+- — Zoom out (−0.25×)
+            • Cmd+0 — Reset zoom to 1.0×
+            • Cmd+F — Toggle auto-focus on active window
+            • Cmd+H — Toggle cursor highlight
+            • Cmd+K — Toggle camera PiP (Pro)
+            • Cmd+Escape — Discard recording without saving
+            """
+        ),
+        HelpFAQItem(
             title: "How do I contact support?",
             answer: """
             Tap Email Support below to open your mail app, or write to support@frameflow.app. \
@@ -89,13 +106,13 @@ struct HelpView: View {
 
                 Text("Answers to common questions about permissions, recording, and exports.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
 
                 ForEach(faqItems) { item in
                     DisclosureGroup(item.title) {
                         Text(item.answer)
                             .font(.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, 4)
                     }
@@ -109,7 +126,7 @@ struct HelpView: View {
 
                     LabeledContent("App version") {
                         Text(appVersionString)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
                     }
                 }
                 .padding(.top, 8)

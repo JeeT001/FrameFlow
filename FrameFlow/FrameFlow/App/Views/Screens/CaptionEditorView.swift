@@ -11,6 +11,7 @@ struct CaptionEditorView: View {
     @Environment(AppRouter.self) private var router
     @State private var captionState = CaptionGenerationState.shared
     @State private var viewModel = CaptionEditorViewModel()
+    @State private var showProGate = false
 
     var body: some View {
         Group {
@@ -47,6 +48,11 @@ struct CaptionEditorView: View {
         .onDisappear {
             viewModel.teardown()
         }
+        .proUpgradeSheet(
+            isPresented: $showProGate,
+            feature: "Auto Captions",
+            description: "WhisperKit transcription and the caption editor require FrameFlow Pro."
+        )
         .onChange(of: captionState.segments) { _, newSegments in
             guard viewModel.segments.isEmpty, !newSegments.isEmpty else { return }
             viewModel.segments = newSegments
@@ -165,7 +171,7 @@ struct CaptionEditorView: View {
             if let exportError = viewModel.exportError {
                 Text(exportError)
                     .font(.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(AppColors.recRed)
             }
 
             HStack(spacing: 16) {
@@ -189,7 +195,7 @@ struct CaptionEditorView: View {
                 ProgressView(value: viewModel.exportProgress)
                 Text(viewModel.exportStatusMessage)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
             }
 
             Button {
@@ -228,7 +234,7 @@ struct CaptionEditorView: View {
                 .progressViewStyle(.linear)
 
             Text(captionState.statusMessage)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
 
             Text("First run may download the on-device Whisper model.")
                 .font(.caption)
@@ -242,10 +248,10 @@ struct CaptionEditorView: View {
         VStack(alignment: .leading, spacing: 16) {
             Label("Transcription failed", systemImage: "exclamationmark.triangle")
                 .font(.headline)
-                .foregroundStyle(.orange)
+                .foregroundStyle(AppColors.proGold)
 
             Text(error)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .textSelection(.enabled)
 
             Button("Retry") {
@@ -263,10 +269,14 @@ struct CaptionEditorView: View {
         } description: {
             Text("Auto captions and the caption editor require FrameFlow Pro.")
         } actions: {
-            Button("Skip to Dashboard") {
-                skipCaptions()
+            Button("Upgrade") {
+                showProGate = true
             }
             .buttonStyle(.borderedProminent)
+
+            Button("Skip to Export") {
+                skipCaptions()
+            }
         }
         .padding()
     }
@@ -286,7 +296,10 @@ struct CaptionEditorView: View {
     private func skipCaptions() {
         viewModel.teardown()
         captionState.reset()
-        router.navigate(to: .dashboard)
+        if let id = appState.pendingRecording?.id ?? captionState.recordingID {
+            appState.exportRecordingID = id
+        }
+        router.navigate(to: .export)
     }
 
     private func openExportScreen() {
