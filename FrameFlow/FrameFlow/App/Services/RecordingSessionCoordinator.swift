@@ -29,8 +29,13 @@ final class RecordingSessionCoordinator {
     private let activeWindowMonitor = ActiveWindowMonitor()
     private let pipController = PiPController.shared
     private let cameraCapture = CameraCapture()
-    /// ~30 Hz writer cadence for compositing + video append (independent of SCStream capture FPS).
+    /// Recording composite + writer cadence (24 Hz — reduces CPU vs 30 Hz during PiP).
+    static let recordFrameRate: Double = 24
+    /// Live preview refresh (decoupled from writer — reuses last composite CIImage).
+    private static let previewFrameRate: Double = 10
     private var displayTimer: Timer?
+    private var previewTimer: Timer?
+    private var lastCompositeCIImage: CIImage?
 
     private var windowOrder: [CGWindowID] = []
     private var format: RecordingFormat = .sixteenByNine
@@ -39,7 +44,6 @@ final class RecordingSessionCoordinator {
     private var outputURL: URL?
     private var lastHandledClickID: UUID?
     private var autoFocusEnabled = false
-    private var lastSaveFolderAccessIssue: String?
 
     func startRecording(
         windowIDs: Set<CGWindowID>,
@@ -89,6 +93,7 @@ final class RecordingSessionCoordinator {
             activeWindowMonitor.startMonitoring(selectedWindowIDs: windowIDs)
         }
         lastHandledClickID = nil
+        lastCompositeCIImage = nil
 
         do {
             streamManager.onSystemAudioSampleBuffer = { [weak self] sampleBuffer in
@@ -100,6 +105,7 @@ final class RecordingSessionCoordinator {
             if shouldCaptureSystemAudio {
                 try await streamManager.startSystemAudioCapture()
             }
+            AudioCaptureDiagnostics.resetForRecording()
             try engine.start(outputURL: outputURL, outputSize: outputSize)
             if pipController.isCameraEnabled {
                 await cameraCapture.start(preferredCameraID: pipController.selectedCameraID)
@@ -107,17 +113,16 @@ final class RecordingSessionCoordinator {
                     errorMessage = cameraStatus
                 }
             } else {
-                cameraCapture.stop()
+                await cameraCapture.stop()
             }
             await audioCaptureService.start(
                 mode: writerAudioMode,
                 micVolume: SettingsStore.shared.defaultMicVolume,
                 systemVolume: SettingsStore.shared.defaultSystemVolume,
                 preferredMicDeviceUniqueID: SettingsStore.shared.defaultMicDevice
-            ) { [weak self] sampleBuffer in
-                guard let self else { return }
+            ) { sampleBuffer, captureHostTime in
                 do {
-                    try self.engine.appendAudioSampleBuffer(sampleBuffer)
+                    try self.engine.appendAudioSampleBuffer(sampleBuffer, captureHostTime: captureHostTime)
                 } catch {
                     self.errorMessage = error.localizedDescription
                 }
@@ -180,7 +185,7 @@ final class RecordingSessionCoordinator {
 
         if pipController.isCameraEnabled {
             pipController.applyPreset(.noCamera)
-            cameraCapture.stop()
+            await cameraCapture.stop()
         } else {
             pipController.isCameraEnabled = true
             if pipController.selectedPreset == .noCamera {
@@ -212,10 +217,13 @@ final class RecordingSessionCoordinator {
     func stopAll() async {
         displayTimer?.invalidate()
         displayTimer = nil
+        previewTimer?.invalidate()
+        previewTimer = nil
+        lastCompositeCIImage = nil
         previewImage = nil
         cursorTracker.stopTracking()
         activeWindowMonitor.stopMonitoring()
-        cameraCapture.stop()
+        await cameraCapture.stop()
         audioCaptureService.stop()
         await streamManager.stopSystemAudioCapture()
         streamManager.onSystemAudioSampleBuffer = nil
@@ -238,7 +246,7 @@ final class RecordingSessionCoordinator {
         try await engine.stop()
         cursorTracker.stopTracking()
         activeWindowMonitor.stopMonitoring()
-        cameraCapture.stop()
+        await cameraCapture.stop()
         audioCaptureService.stop()
         await streamManager.stopSystemAudioCapture()
         isRecording = false
@@ -246,6 +254,9 @@ final class RecordingSessionCoordinator {
         await streamManager.stopAllVideoStreams()
         displayTimer?.invalidate()
         displayTimer = nil
+        previewTimer?.invalidate()
+        previewTimer = nil
+        lastCompositeCIImage = nil
 
         let fileManager = FileManager.default
         return try moveRecording(
@@ -258,13 +269,31 @@ final class RecordingSessionCoordinator {
 
     private func startTimer() {
         displayTimer?.invalidate()
-        // Writer tick: composite once and append one video frame; session clock anchors on first video append (audio gated until then).
-        displayTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+        previewTimer?.invalidate()
+
+        previewTimer = Timer.scheduledTimer(
+            withTimeInterval: 1.0 / Self.previewFrameRate,
+            repeats: true
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.refreshPreviewIfNeeded()
+            }
+        }
+
+        displayTimer = Timer.scheduledTimer(
+            withTimeInterval: 1.0 / Self.recordFrameRate,
+            repeats: true
+        ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.tick()
             }
         }
         tick()
+    }
+
+    private func refreshPreviewIfNeeded() {
+        guard isRecording, let ci = lastCompositeCIImage else { return }
+        previewImage = compositeEngine.createCGImage(from: ci, canvasSize: outputSize)
     }
 
     private func tick() {
@@ -297,20 +326,7 @@ final class RecordingSessionCoordinator {
             return
         }
 
-        previewImage = compositeEngine.renderComposite(
-            frames: streamManager.latestFrames,
-            windowOrder: windowOrder,
-            preset: layoutPreset,
-            canvasSize: outputSize,
-            zoomScale: zoomScale,
-            zoomFocalPointNormalized: zoomController.focalPointNormalized,
-            clickOverlay: clickOverlay,
-            activeWindowID: focusedWindowID,
-            autoFocusEnabled: autoFocusEnabled,
-            cameraFrame: cameraFrame,
-            pipConfig: pipConfig,
-            pipEnabled: pipEnabled
-        )
+        lastCompositeCIImage = ci
 
         do {
             try engine.appendFrame(ciImage: ci, outputSize: outputSize)
@@ -367,45 +383,6 @@ final class RecordingSessionCoordinator {
         guard requestedMode.requiresPro, !isPro else { return requestedMode }
         errorMessage = "System audio capture requires Pro. Continuing with microphone audio."
         return .mic
-    }
-
-    private func resolvedSecurityScopedSaveFolderURL() -> URL? {
-        guard let bookmarkData = SettingsStore.shared.defaultSaveFolderBookmarkData else {
-            lastSaveFolderAccessIssue = "bookmark missing"
-            return nil
-        }
-
-        var isStale = false
-        guard let url = try? URL(
-            resolvingBookmarkData: bookmarkData,
-            options: [.withSecurityScope],
-            relativeTo: nil,
-            bookmarkDataIsStale: &isStale
-        ) else {
-            lastSaveFolderAccessIssue = "bookmark resolve failed"
-            return nil
-        }
-
-        guard !isStale else {
-            lastSaveFolderAccessIssue = "bookmark stale"
-            return nil
-        }
-
-        guard url.startAccessingSecurityScopedResource() else {
-            lastSaveFolderAccessIssue = "scope access denied"
-            return nil
-        }
-
-        lastSaveFolderAccessIssue = nil
-        return url
-    }
-
-    private func fallbackDestinationURL(filename: String) -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return appSupport
-            .appendingPathComponent("FrameFlow", isDirectory: true)
-            .appendingPathComponent("Recordings", isDirectory: true)
-            .appendingPathComponent(filename)
     }
 
     private func moveRecording(

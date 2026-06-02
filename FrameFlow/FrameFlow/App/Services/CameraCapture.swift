@@ -17,59 +17,35 @@ final class CameraCapture {
 
     private let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
+    /// All AVCaptureSession mutations (configure, start/stop, delegate wiring).
+    private let sessionQueue = DispatchQueue(label: "com.Simranjit.FrameFlow.camera.session", qos: .userInitiated)
+    /// Sample-buffer delivery only — never start/stop or reconfigure the session here.
     private let outputQueue = DispatchQueue(label: "com.Simranjit.FrameFlow.camera.capture", qos: .userInitiated)
     private var currentInput: AVCaptureDeviceInput?
     private var outputDelegate: CameraVideoOutputDelegate?
+    /// Serializes start/stop so rapid PiP toggles cannot overlap session mutations.
+    private var sessionOperation: Task<Void, Never>?
 
     func start(preferredCameraID: String?) async {
-        stop()
+        await enqueueSessionOperation { [self] in
+            await performStopOnSessionQueue()
 
-        let status = PermissionManager.shared.checkCameraPermission()
-        if status == .notDetermined {
-            let granted = await PermissionManager.shared.requestCameraPermission()
-            guard granted else {
+            let status = PermissionManager.shared.checkCameraPermission()
+            if status == .notDetermined {
+                let granted = await PermissionManager.shared.requestCameraPermission()
+                guard granted else {
+                    statusMessage = "Camera access denied. Recording continues without PiP."
+                    return
+                }
+            } else if status != .authorized {
                 statusMessage = "Camera access denied. Recording continues without PiP."
                 return
             }
-        } else if status != .authorized {
-            statusMessage = "Camera access denied. Recording continues without PiP."
-            return
-        }
 
-        session.beginConfiguration()
-        session.sessionPreset = .high
-        session.inputs.forEach { session.removeInput($0) }
-        session.outputs.forEach { session.removeOutput($0) }
-
-        let device = preferredDevice(for: preferredCameraID) ?? AVCaptureDevice.default(for: .video)
-        guard let device else {
-            session.commitConfiguration()
-            statusMessage = "No camera available. Recording continues without PiP."
-            return
-        }
-
-        do {
-            let input = try AVCaptureDeviceInput(device: device)
-            guard session.canAddInput(input) else {
-                session.commitConfiguration()
-                statusMessage = "Could not configure camera input. Recording continues without PiP."
+            let device = preferredDevice(for: preferredCameraID) ?? AVCaptureDevice.default(for: .video)
+            guard let device else {
+                statusMessage = "No camera available. Recording continues without PiP."
                 return
-            }
-            session.addInput(input)
-            currentInput = input
-
-            output.videoSettings = [
-                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
-            ]
-            output.alwaysDiscardsLateVideoFrames = true
-            guard session.canAddOutput(output) else {
-                session.commitConfiguration()
-                statusMessage = "Could not configure camera output. Recording continues without PiP."
-                return
-            }
-            session.addOutput(output)
-            if let connection = output.connection(with: .video), connection.isVideoMirroringSupported {
-                connection.isVideoMirrored = true
             }
 
             let delegate = CameraVideoOutputDelegate { [weak self] image in
@@ -77,28 +53,105 @@ final class CameraCapture {
                     self?.latestFrame = image
                 }
             }
-            output.setSampleBufferDelegate(delegate, queue: outputQueue)
-            outputDelegate = delegate
-            session.commitConfiguration()
 
-            outputQueue.async { [session] in
-                session.startRunning()
+            let startResult: SessionStartResult = await withCheckedContinuation { continuation in
+                sessionQueue.async { [session, output, outputQueue] in
+                    session.beginConfiguration()
+                    session.sessionPreset = .high
+
+                    do {
+                        let input = try AVCaptureDeviceInput(device: device)
+                        guard session.canAddInput(input) else {
+                            session.commitConfiguration()
+                            continuation.resume(returning: .configurationFailed(
+                                "Could not configure camera input. Recording continues without PiP."
+                            ))
+                            return
+                        }
+                        session.addInput(input)
+
+                        output.videoSettings = [
+                            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+                        ]
+                        output.alwaysDiscardsLateVideoFrames = true
+                        guard session.canAddOutput(output) else {
+                            session.commitConfiguration()
+                            continuation.resume(returning: .configurationFailed(
+                                "Could not configure camera output. Recording continues without PiP."
+                            ))
+                            return
+                        }
+                        session.addOutput(output)
+
+                        if let connection = output.connection(with: .video),
+                           connection.isVideoMirroringSupported {
+                            connection.isVideoMirrored = true
+                        }
+
+                        output.setSampleBufferDelegate(delegate, queue: outputQueue)
+                        session.commitConfiguration()
+                        session.startRunning()
+                        continuation.resume(returning: .started(input))
+                    } catch {
+                        session.commitConfiguration()
+                        continuation.resume(returning: .configurationFailed(
+                            "Could not start camera capture. Recording continues without PiP."
+                        ))
+                    }
+                }
             }
-            isRunning = true
-            statusMessage = nil
-        } catch {
-            session.commitConfiguration()
-            statusMessage = "Could not start camera capture. Recording continues without PiP."
+
+            switch startResult {
+            case .started(let input):
+                outputDelegate = delegate
+                currentInput = input
+                isRunning = true
+                statusMessage = nil
+            case .configurationFailed(let message):
+                outputDelegate = nil
+                currentInput = nil
+                isRunning = false
+                statusMessage = message
+            }
         }
     }
 
-    func stop() {
-        if session.isRunning {
-            outputQueue.async { [session] in
-                session.stopRunning()
+    func stop() async {
+        await enqueueSessionOperation { [self] in
+            await performStopOnSessionQueue()
+        }
+    }
+
+    // MARK: - Session lifecycle (serialized)
+
+    private func enqueueSessionOperation(_ operation: @escaping () async -> Void) async {
+        let previous = sessionOperation
+        let task = Task { @MainActor in
+            await previous?.value
+            await operation()
+        }
+        sessionOperation = task
+        await task.value
+    }
+
+    private func performStopOnSessionQueue() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            sessionQueue.async { [session, output] in
+                output.setSampleBufferDelegate(nil, queue: nil)
+
+                if session.isRunning {
+                    session.stopRunning()
+                }
+
+                session.beginConfiguration()
+                session.inputs.forEach { session.removeInput($0) }
+                session.outputs.forEach { session.removeOutput($0) }
+                session.commitConfiguration()
+
+                continuation.resume()
             }
         }
-        output.setSampleBufferDelegate(nil, queue: nil)
+
         outputDelegate = nil
         currentInput = nil
         latestFrame = nil
@@ -106,16 +159,21 @@ final class CameraCapture {
     }
 
     private func preferredDevice(for cameraID: String?) -> AVCaptureDevice? {
-        let session = AVCaptureDevice.DiscoverySession(
+        let discovery = AVCaptureDevice.DiscoverySession(
             deviceTypes: [.builtInWideAngleCamera, .external],
             mediaType: .video,
             position: .unspecified
         )
         if let cameraID,
-           let matching = session.devices.first(where: { $0.uniqueID == cameraID }) {
+           let matching = discovery.devices.first(where: { $0.uniqueID == cameraID }) {
             return matching
         }
-        return session.devices.first
+        return discovery.devices.first
+    }
+
+    private enum SessionStartResult {
+        case started(AVCaptureDeviceInput)
+        case configurationFailed(String)
     }
 }
 

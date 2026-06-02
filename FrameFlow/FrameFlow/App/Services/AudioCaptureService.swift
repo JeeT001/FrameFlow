@@ -18,27 +18,33 @@ final class AudioCaptureService {
     private var audioMode: AudioModeOption = .none
     private var micVolume: Float = 1.0
     private var systemVolume: Float = 1.0
-    private var appendSampleBuffer: ((CMSampleBuffer) -> Void)?
-    private var nextAudioFrame: Int64 = 0
+    private var appendSampleBuffer: ((CMSampleBuffer, CMTime) -> Void)?
     private var systemBufferCount = 0
 
+    /// Tap callbacks run off MainActor — use this flag instead of `isRunning` on mixQueue.
+    private nonisolated(unsafe) var isCaptureActive = false
+
     private let sampleRate: Double = 48_000
-    private let mixQueue = DispatchQueue(label: "com.Simranjit.FrameFlow.audio.capture", qos: .userInitiated)
+    /// Larger buffer reduces HAL cycle pressure during PiP + composite recording.
+    private static let tapBufferSize: AVAudioFrameCount = 4096
+    private let mixQueue = DispatchQueue(
+        label: "com.Simranjit.FrameFlow.audio.capture",
+        qos: .userInteractive
+    )
 
     func start(
         mode: AudioModeOption,
         micVolume: Float,
         systemVolume: Float,
         preferredMicDeviceUniqueID: String?,
-        appendSampleBuffer: @escaping (CMSampleBuffer) -> Void
+        appendSampleBuffer: @escaping (CMSampleBuffer, CMTime) -> Void
     ) async {
         stop()
 
         self.audioMode = mode
-        self.micVolume = max(0, micVolume)
-        self.systemVolume = max(0, systemVolume)
+        self.micVolume = max(0, min(1, micVolume))
+        self.systemVolume = max(0, min(1, systemVolume))
         self.appendSampleBuffer = appendSampleBuffer
-        self.nextAudioFrame = 0
         self.systemBufferCount = 0
         self.statusMessage = nil
         self.liveLevel = 0
@@ -52,11 +58,11 @@ final class AudioCaptureService {
             await startMicrophoneCapture(preferredMicDeviceUniqueID: preferredMicDeviceUniqueID)
         }
 
-        // System audio arrives from ScreenCaptureKit through `ingestSystemAudioSampleBuffer`.
         isRunning = true
     }
 
     func stop() {
+        isCaptureActive = false
         if let audioEngine {
             audioEngine.inputNode.removeTap(onBus: 0)
             audioEngine.stop()
@@ -65,6 +71,7 @@ final class AudioCaptureService {
         appendSampleBuffer = nil
         isRunning = false
         liveLevel = 0
+        AudioCaptureDiagnostics.logStopSummaryIfNeeded()
     }
 
     func ingestSystemAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
@@ -75,14 +82,15 @@ final class AudioCaptureService {
             statusMessage = "System audio stream detected."
         }
 
-        // Best-effort live level from raw system sample buffer.
         if let level = AudioMixerEngine.levelFromSampleBuffer(sampleBuffer) {
             Task { @MainActor in
                 self.liveLevel = max(self.liveLevel * 0.7, min(1, level * max(0.05, self.systemVolume)))
             }
         }
 
-        appendSampleBuffer?(sampleBuffer)
+        let captureHostTime = CMClockGetTime(CMClockGetHostTimeClock())
+        AudioCaptureDiagnostics.recordAppend()
+        appendSampleBuffer?(sampleBuffer, captureHostTime)
     }
 
     private var includesMic: Bool {
@@ -108,43 +116,55 @@ final class AudioCaptureService {
 
         if preferredMicDeviceUniqueID != nil {
             // Device selection support remains tied to system default input for now.
-            // Avoid changing global default input during active recording.
         }
 
         let engine = AVAudioEngine()
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
         let canonicalFormat = AudioMixerEngine.canonicalPCMFormat(sampleRate: sampleRate)
+        let gain = micVolume
 
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
+        isCaptureActive = true
+
+        inputNode.installTap(
+            onBus: 0,
+            bufferSize: Self.tapBufferSize,
+            format: inputFormat
+        ) { [weak self] buffer, time in
             guard let self else { return }
+            AudioCaptureDiagnostics.recordTap()
+            let captureHostTime = AudioMixerEngine.hostTime(from: time)
+
             self.mixQueue.async {
-                guard self.isRunning else { return }
+                guard self.isCaptureActive else {
+                    AudioCaptureDiagnostics.recordSkippedNotRunning()
+                    return
+                }
                 guard let converted = AudioMixerEngine.convert(
                     buffer: buffer,
                     to: canonicalFormat
                 ) else {
+                    AudioCaptureDiagnostics.recordConvertFail()
                     return
                 }
 
-                let level = AudioMixerEngine.levelFromPCMBuffer(converted) * max(0.05, self.micVolume)
+                let level = AudioMixerEngine.levelFromPCMBuffer(converted) * max(0.05, gain)
                 Task { @MainActor in
                     self.liveLevel = self.liveLevel * 0.65 + min(1, level) * 0.35
                 }
 
                 guard let sampleBuffer = AudioMixerEngine.makeSampleBuffer(
                     from: converted,
-                    presentationFrame: self.nextAudioFrame,
                     sampleRate: self.sampleRate,
-                    gain: self.micVolume
+                    gain: gain
                 ) else {
+                    AudioCaptureDiagnostics.recordMakeBufferFail()
                     return
                 }
 
-                self.nextAudioFrame += Int64(converted.frameLength)
-                Task { @MainActor in
-                    self.appendSampleBuffer?(sampleBuffer)
-                }
+                AudioCaptureDiagnostics.recordAppend()
+                AudioCaptureDiagnostics.logPeriodicIfNeeded()
+                self.appendSampleBuffer?(sampleBuffer, captureHostTime)
             }
         }
 
@@ -153,6 +173,7 @@ final class AudioCaptureService {
             try engine.start()
             self.audioEngine = engine
         } catch {
+            isCaptureActive = false
             statusMessage = "Could not start microphone capture. Recording will continue with available audio sources."
         }
     }
@@ -166,6 +187,13 @@ enum AudioMixerEngine {
             channels: 2,
             interleaved: true
         )!
+    }
+
+    static func hostTime(from audioTime: AVAudioTime) -> CMTime {
+        if audioTime.isHostTimeValid {
+            return CMClockMakeHostTimeFromSystemUnits(audioTime.hostTime)
+        }
+        return CMClockGetTime(CMClockGetHostTimeClock())
     }
 
     static func convert(buffer: AVAudioPCMBuffer, to outputFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
@@ -204,7 +232,6 @@ enum AudioMixerEngine {
 
     static func makeSampleBuffer(
         from pcmBuffer: AVAudioPCMBuffer,
-        presentationFrame: Int64,
         sampleRate: Double,
         gain: Float
     ) -> CMSampleBuffer? {
@@ -215,7 +242,8 @@ enum AudioMixerEngine {
         var scaled = data
         if gain != 1 {
             for i in 0..<scaled.count {
-                scaled[i] *= gain
+                let sample = scaled[i] * gain
+                scaled[i] = max(-1, min(1, sample))
             }
         }
 
@@ -267,15 +295,11 @@ enum AudioMixerEngine {
 
         let frameLength = pcmBuffer.frameLength
         var timing = CMSampleTimingInfo(
-            // IMPORTANT: duration must match `frameLength/sampleRate` so RecordingEngine can retime accurately.
             duration: CMTime(
                 value: CMTimeValue(frameLength),
                 timescale: CMTimeScale(sampleRate)
             ),
-            presentationTimeStamp: CMTime(
-                value: presentationFrame,
-                timescale: CMTimeScale(sampleRate)
-            ),
+            presentationTimeStamp: .invalid,
             decodeTimeStamp: .invalid
         )
 

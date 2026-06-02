@@ -70,7 +70,7 @@ final class ExportService: @unchecked Sendable {
         options: ExportOptions,
         progress: @Sendable (Double, String) -> Void
     ) async throws -> URL {
-        return try await withSourceReadAccess(options.sourceVideoURL) {
+        return try await SecurityScopedFileAccess.withAccess(to: options.sourceVideoURL) {
             progress(0.05, "Preparing export…")
 
             var sourceURL = options.sourceVideoURL
@@ -220,7 +220,9 @@ final class ExportService: @unchecked Sendable {
 
         progress(0.55, "Writing file…")
 
-        return try await withSecurityScopedSaveFolder { folderURL in
+        return try await SecurityScopedFileAccess.withSaveFolderAccess(
+            fallbackURL: fallbackRecordingsDirectory()
+        ) { folderURL in
             let outputURL = folderURL.appendingPathComponent(outputFilename)
 
             if fileManager.fileExists(atPath: outputURL.path) {
@@ -252,64 +254,6 @@ final class ExportService: @unchecked Sendable {
     }
 
     // MARK: - Save folder
-
-    private func withSourceReadAccess<T>(
-        _ sourceURL: URL,
-        _ work: () async throws -> T
-    ) async throws -> T {
-        if RecordingStaging.isAppContainerPath(sourceURL) {
-            return try await work()
-        }
-
-        if sourceURL.startAccessingSecurityScopedResource() {
-            defer { sourceURL.stopAccessingSecurityScopedResource() }
-            return try await work()
-        }
-
-        if let scopedFolderURL = resolvedSecurityScopedSaveFolderURL() {
-            defer { scopedFolderURL.stopAccessingSecurityScopedResource() }
-            return try await work()
-        }
-
-        throw ExportServiceError.exportFailed(
-            "No permission to read source file. Re-select save folder in Settings."
-        )
-    }
-
-    private func withSecurityScopedSaveFolder<T>(
-        _ work: (URL) async throws -> T
-    ) async throws -> T {
-        if let scopedFolderURL = resolvedSecurityScopedSaveFolderURL() {
-            defer { scopedFolderURL.stopAccessingSecurityScopedResource() }
-            return try await work(scopedFolderURL)
-        }
-
-        let fallback = fallbackRecordingsDirectory()
-        try fileManager.createDirectory(at: fallback, withIntermediateDirectories: true)
-        return try await work(fallback)
-    }
-
-    private func resolvedSecurityScopedSaveFolderURL() -> URL? {
-        guard let bookmarkData = SettingsStore.shared.defaultSaveFolderBookmarkData else {
-            return nil
-        }
-
-        var isStale = false
-        guard let url = try? URL(
-            resolvingBookmarkData: bookmarkData,
-            options: [.withSecurityScope],
-            relativeTo: nil,
-            bookmarkDataIsStale: &isStale
-        ), !isStale else {
-            return nil
-        }
-
-        guard url.startAccessingSecurityScopedResource() else {
-            return nil
-        }
-
-        return url
-    }
 
     private func fallbackRecordingsDirectory() -> URL {
         fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]

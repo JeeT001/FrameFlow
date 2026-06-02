@@ -1456,3 +1456,315 @@ com.simranjit.frameflow://auth/callback
 ```
 fix: password reset deep link and ResetPasswordView
 ```
+
+---
+
+## Blueprint Day 40 — PiP camera crash fix (2026-05-30)
+
+### Problem (P0)
+- Layout Picker → enable PiP camera crashed with:
+  `stopRunning may not be called between calls to beginConfiguration and commitConfiguration`
+- `CameraCapture.start()` called sync `stop()` then immediately `beginConfiguration()` while `stop()` had async-dispatched `stopRunning()` on `outputQueue` → race
+
+### Root cause
+Session lifecycle mutations were split across MainActor and `outputQueue`. `stop()` did not wait for `stopRunning()` to finish before `start()` reconfigured the session.
+
+### Completed
+- **`CameraCapture.swift`** — dedicated serial `sessionQueue` for all session mutations:
+  - `beginConfiguration` / `commitConfiguration`
+  - `addInput` / `removeInput` / `addOutput` / `removeOutput`
+  - `startRunning` / `stopRunning`
+  - `setSampleBufferDelegate` (sample delivery still on `outputQueue`)
+- **`stop()` → async** — fully tears down on `sessionQueue` before returning (continuation bridge from `@MainActor`)
+- **`start()`** — awaits serialized stop via `enqueueSessionOperation` before configure; rapid toggles cannot overlap
+- **`LayoutPickerViewModel`** — `await cameraCapture.stop()` in `stopLivePreview` / `startCameraPreviewIfNeeded`; removed duplicate sync stop from `setCameraEnabled`
+- **`RecordingSessionCoordinator`** — `await cameraCapture.stop()` on record stop, toggle-off, and disabled-camera path
+
+### Manual verification
+1. Pro user → Layout Picker → enable camera → preview shows
+2. Toggle camera on/off repeatedly → no crash
+3. Navigate away (onDisappear) → no crash
+4. Start Recording with PiP enabled → no crash
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: serialize AVCaptureSession lifecycle to prevent PiP crash
+```
+
+---
+
+## Blueprint Day 40 — Mic A/V sync fix (2026-06-01)
+
+### Problem (P1)
+- Mic-only exports: audio/video out of sync (audio sounded fast or video looked slow)
+- Mic noise/clipping on some recordings
+- Root cause: `retimedAudioSampleBuffer` **discarded capture timestamps** and packed audio contiguously via `nextAudioTimelinePTS`; silent drops when `!audioInput.isReadyForMoreMediaData` while video PTS advanced on host clock → timeline drift
+- Secondary: mic tap dispatched `Task { @MainActor }` for append, competing with 30 Hz composite tick
+
+### Timeline strategy (Option A)
+- **Single shared host-clock anchor** (`recordingStartHostTime`) for video and mic audio
+- **Audio PTS** = `presentationTimeForCaptureHostTime(AVAudioTime.hostTime)` minus `totalPausedDuration` (same pause math as video)
+- **Dedicated `writerQueue`** serializes `appendFrame` + `appendAudioSampleBuffer` (callable from mic tap thread)
+- **Pending audio queue** (max 256) drained when writer ready; no silent discard without accounting
+- Removed `nextAudioFrame` counter and contiguous packing
+
+### Noise reduction (minimal)
+- Mic gain clamped to 0…1 in `AudioCaptureService`
+- Soft clip samples to ±1.0 after gain in `makeSampleBuffer`
+
+### DEBUG logging
+- First 20 appends log video/audio PTS, wall elapsed, frame count, pending queue depth
+- End-of-recording summary: queued count + not-ready stall count
+
+### Files changed
+- `RecordingEngine.swift` — writerQueue, host-time audio PTS, pending queue, pause on writer queue
+- `AudioCaptureService.swift` — pass `AVAudioTime` host time; append on mixQueue (no MainActor hop); updated callback signature
+- `RecordingSessionCoordinator.swift` — pass `captureHostTime` to engine
+
+### Manual verification
+1. Settings → Mic only → record 30–60s with speech + clap/visual cue
+2. Export → QuickTime → lip sync / clap within ~100ms; video duration ≈ audio duration
+3. PiP enabled during record (CameraCapture regression)
+4. Pro: system-only path uses host time at ingest
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: align microphone audio timestamps with video host clock
+```
+
+---
+
+## Blueprint Day 40 — A/V sync regression fix (2026-06-01)
+
+### Problem
+- After host-time audio PTS fix: first ~3s in sync, then audio led video on 15s PiP recordings
+- Heavier composite load (PiP) correlated with drift
+
+### Root cause confirmed
+**`AVAudioTime.hostTime` uses `mach_absolute_time` units, not nanoseconds.**
+
+Before (wrong):
+```swift
+CMTime(value: CMTimeValue(audioTime.hostTime), timescale: 1_000_000_000)
+```
+
+After (correct — same domain as `CMClockGetHostTimeClock()`):
+```swift
+CMClockMakeHostTimeFromSystemUnits(audioTime.hostTime)
+```
+
+Treating mach ticks as nanoseconds made audio PTS advance at a different rate than video wall clock → cumulative drift (audio ahead after ~3s).
+
+### Additional hardening
+- **`recordingStartHostTime`** set at `engine.start()` (not first video frame) — shared anchor for both tracks; audio still gated until first video append
+- **DEBUG sync telemetry** every 1s: videoPTS, audioPTS, Δ ms, pendingAudio, videoSkips
+- **Stop summary**: videoSkips, audioNotReady, maxPendingAudio, final Δ ms
+- Video skip count when `!videoInput.isReadyForMoreMediaData` (PiP back-pressure visibility)
+
+### Files changed
+- `AudioCaptureService.swift` — `AudioMixerEngine.hostTime(from:)` uses `CMClockMakeHostTimeFromSystemUnits`
+- `RecordingEngine.swift` — anchor at start, periodic DEBUG logs, video skip metrics
+
+### Manual verification
+1. Mic only, 30s clap → sync ±100ms end-to-end; DEBUG Δ stays near 0
+2. Mic + PiP, 15–30s clap → sync ±100ms (previously failed)
+3. QuickTime: audio duration ≈ video duration
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: correct AVAudio host time conversion for stable A/V sync
+```
+
+---
+
+## Blueprint Day 40 — Sample-accurate timeline + mic dropout fix (2026-06-01)
+
+### Evidence (19s Mic + PiP)
+- Only 174 audio buffers (~80% missing vs expected ~880 at 1024/48kHz)
+- `HALC_ProxyIOContext: skipping cycle due to overload`
+- videoSkips=0 but videoPTS wall-clock ran ahead of sparse audio capture
+
+### Root causes
+1. **Host-time audio PTS** with HAL dropouts → audio timestamps spanned wall clock but sample content did not
+2. **Wall-clock video PTS** at 30 Hz while composite under PiP load couldn't keep pace with real time perception
+3. **Double composite render** in `tick()` (CIImage + full CGImage pass)
+4. **Small tap buffer (1024)** + `.userInitiated` mixQueue under CPU pressure
+
+### Fixes
+**A. Mic capture reliability**
+- Tap `bufferSize` 1024 → **4096**
+- `mixQueue` QoS → **`.userInteractive`**
+- Thread-safe `isCaptureActive` for tap path (not MainActor `isRunning`)
+- **`AudioCaptureDiagnostics`** — tap/append/convertFail counts + 1 Hz logs
+
+**B. Video timeline**
+- **Frame-index PTS**: `CMTime(value: frameIndex, timescale: 24)` — only advances on successful append
+- Recording composite **24 fps** (was 30 Hz)
+- **Single composite pass** — `renderCompositeCIImage` + `createCGImage(from:)` (no duplicate render)
+
+**C. Audio timeline**
+- **Sample-count packing** — each buffer PTS += `frameLength/48000` from anchor at first video frame
+- Removed host-time mapping for mic writer PTS (HAL gaps no longer stretch timeline)
+
+**D. Pause/resume**
+- Frame index and sample PTS freeze naturally (`isPaused` skips appends); removed host-clock pause offset (not needed for index timelines)
+
+### DEBUG telemetry
+Every 1s: `frameIndex`, videoPTS, audioPTS, Δ, pendingAudio, videoSkips, micTaps, micAppends  
+Stop: frames, micTaps, micAppends, maxPendingAudio, final Δ
+
+### Expected after fix
+- 19s @ 4096 → ~220+ tap buffers; micTaps ≈ duration × 48000/4096
+- Δ within ±50ms for full Mic+PiP clip when taps keep up
+- video duration ≈ frameIndex/24; audio duration ≈ sum(buffer durations)
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: sample-accurate A/V timeline and reduce mic dropouts during recording
+```
+
+---
+
+## Blueprint Day 40 — Audio-master video gate (2026-06-01)
+
+### Evidence (15s Mic+PiP, post sample-count fix)
+- `frameIndex=370` → videoPTS=15.375s but audio only 13.397s (158 taps × 4096/48000)
+- Δ grew from -24ms → -1978ms; video timer ran at 24fps while HAL dropped ~86% of mic taps
+- `videoSkips=0` — problem was timeline divergence, not writer queue
+
+### Approach A: Audio-master video gate
+- Video appends **only when audio sample timeline advanced** since last video frame
+- `videoPTS = frameIndex / 24` capped at `audioEndPTS + 50ms`
+- Skip video append (do **not** increment `frameIndex`) when gate fails
+- Audio starts timeline on first buffer; video waits for `audioEndPTS > 0`
+- Drain audio **before** video each tick
+
+### Mic / performance
+- `AudioCaptureDiagnostics.resetForRecording()` at recording start (coordinator)
+- Stop summary skipped when `taps=0` (layout picker teardown)
+- Preview CGImage refresh every 6 ticks (~4 Hz) during recording
+
+### Expected stop summary after fix
+- `lastVideoPTS ≈ lastAudioPTS` (within 100ms)
+- `frames ≈ audioDuration × 24`
+- `videoAudioGateSkips` > 0 under PiP load (video timer throttled to audio)
+- Δ stable ±50ms entire clip
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: lock video timeline to audio sample progress during recording
+```
+
+---
+
+## Blueprint Day 40 — Audio-master PTS + frame duplication (2026-06-01)
+
+### Regression (skip-gate)
+- ~3s Mic+PiP: `frames=33` `lastVideoPTS=1.333s` `lastAudioPTS=2.901s` Δ=+1568ms
+- `videoAudioGateSkips=44` — skipping appends compressed motion → fast playback; preview laggy
+
+### Fix: audio-end PTS (always append)
+- **Removed** skip-gate that withheld video appends when audio hadn't advanced
+- Every tick (~24 Hz): drain audio → **always append** video when writer ready (after first audio)
+- `videoPTS = audioEndPTS`; when audio flat, duplicate with `lastVideoPTS + 1/24` (monotonic)
+- Cap `videoPTS ≤ audioEnd + 50ms`; `duplicateFrameCount` in DEBUG stop summary
+- `frameIndex` counts appends only (diagnostics)
+
+### Preview decoupling
+- Writer tick: composite → `appendFrame` only (no CGImage)
+- Separate **10 Hz** preview timer reuses cached `lastCompositeCIImage`
+
+### Expected after fix
+- `lastVideoPTS ≈ lastAudioPTS` (±100ms); Δ stable ±50ms
+- `frames ≈ lastVideoPTS × 24`; normal QuickTime speed; clap sync start+end
+- `duplicateFrames > 0` under HAL load; no `videoAudioGateSkips`
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: use audio-end video PTS with frame duplication for A/V sync
+```
+
+---
+
+## Window picker UI — Loom-style cards (2026-06-01)
+
+### Problem
+- Tiny 20×20 icon badge; black Desktop/Wallpaper thumbnails dominated grid
+- 3 flexible columns stretched cards; only window title shown (no app name)
+
+### Changes
+- **`WindowPickerCard`** — header (48px icon + app name), 16:10 preview, footer (window title)
+- Blank/black thumbnails → gradient + centered icon + "Preview unavailable" (`ImageDisplayHelpers.isLikelyBlankThumbnail`)
+- Adaptive grid `220–280px`; subtitle under title
+- **`WindowCaptureService`** — exclude bare `Desktop` (nil bundle), `Wallpaper-*`; `excludingDesktopWindows(true)`
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: redesign window picker with prominent app icons and Loom-style cards
+```
+
+---
+
+## Security-scoped file access for exported recordings (2026-06-02)
+
+### Problem
+- Exported MP4s live in user save folder (Desktop, etc.) via bookmark
+- `RecordingDetailViewModel.playInSystemPlayer()` called `NSWorkspace.open` without scoped access → sandbox denial
+- Same for thumbnails, Finder reveal, rename, delete, AVPlayer in Export/Caption editors
+
+### Fix
+- **`SecurityScopedFileAccess`** — shared bookmark resolve + `withAccess(to:)` / `withSaveFolderAccess`
+- App-container staging paths skip bookmark; external paths use save-folder bookmark
+- Wrapped all external file ops in Recording Detail, Export, Caption view models
+- Refactored `ExportService`; removed duplicate bookmark helpers from `RecordingSessionCoordinator`
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: security-scoped access for recording playback and file operations
+```
+
+---
+
+## Recording Detail preview layout (2026-06-02)
+
+### Problem
+- 9:16 recordings rendered giant portrait preview (unbounded `scaledToFill` + hardcoded 16:9)
+- User scrolled to reach Name, Details, Actions
+
+### Fix
+- `RecordingMetadata.previewAspectRatio` — 9:16 vs 16:9 from `format`
+- Capped preview: `aspectRatio` + `maxWidth: 480` + `maxHeight: 300` on container
+- Wide layout (≥700px): two-column HStack; narrow: stacked VStack with capped thumbnail
+- `ExportView` VideoPlayer uses same format-aware aspect ratio
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: cap recording detail preview size and use format-aware aspect ratio
+```

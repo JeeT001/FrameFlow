@@ -3,6 +3,7 @@
 //  FrameFlow
 //
 
+import CoreGraphics
 import Foundation
 
 struct RecordingMetadata: Codable, Identifiable, Hashable {
@@ -58,6 +59,10 @@ struct RecordingMetadata: Codable, Identifiable, Hashable {
             return "1080p"
         }
         return "720p"
+    }
+
+    var previewAspectRatio: CGFloat {
+        format == "9:16" ? 9.0 / 16.0 : 16.0 / 9.0
     }
 
     private static let displayDateFormatter: DateFormatter = {

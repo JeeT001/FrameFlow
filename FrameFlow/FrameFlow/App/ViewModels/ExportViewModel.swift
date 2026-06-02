@@ -29,8 +29,10 @@ final class ExportViewModel {
         guard let recording else { return false }
         if recording.hasCaptions { return true }
         let url = URL(fileURLWithPath: recording.filePath)
-        let segments = (try? CaptionEngine.shared.loadCaptions(for: url, recordingID: recording.id)) ?? []
-        return !segments.isEmpty
+        return (try? SecurityScopedFileAccess.withAccess(to: url) {
+            let segments = (try? CaptionEngine.shared.loadCaptions(for: url, recordingID: recording.id)) ?? []
+            return !segments.isEmpty
+        }) ?? false
     }
 
     var showsCaptionsBadge: Bool {
@@ -56,7 +58,19 @@ final class ExportViewModel {
 
         if let recording {
             let url = URL(fileURLWithPath: recording.filePath)
-            player.replaceCurrentItem(with: AVPlayerItem(url: url))
+            Task {
+                do {
+                    try await SecurityScopedFileAccess.withAccess(to: url) {
+                        player.replaceCurrentItem(with: AVPlayerItem(url: url))
+                    }
+                } catch SecurityScopedFileAccess.AccessError.denied {
+                    exportError = SecurityScopedFileAccess.accessDeniedMessage
+                    player.replaceCurrentItem(with: nil)
+                } catch {
+                    exportError = error.localizedDescription
+                    player.replaceCurrentItem(with: nil)
+                }
+            }
             applyDefaultResolution(isPro: isPro)
         } else {
             player.replaceCurrentItem(with: nil)
@@ -126,8 +140,8 @@ final class ExportViewModel {
         }
 
         let sourceURL = URL(fileURLWithPath: recording.filePath)
-        guard FileManager.default.fileExists(atPath: sourceURL.path) else {
-            exportError = "Recording file was not found on disk."
+        guard SecurityScopedFileAccess.canAccess(sourceURL) else {
+            exportError = SecurityScopedFileAccess.accessDeniedMessage
             return
         }
 
@@ -139,7 +153,9 @@ final class ExportViewModel {
         defer { isExporting = false }
 
         let previousPath = recording.filePath
-        let style = ExportService.captionStyle(for: sourceURL, recordingID: recording.id)
+        let style = (try? SecurityScopedFileAccess.withAccess(to: sourceURL) {
+            ExportService.captionStyle(for: sourceURL, recordingID: recording.id)
+        }) ?? CaptionStyleConfig.fromSettings()
         let outputFilename = Self.exportFilename(
             for: recording,
             resolution: selectedResolution,
@@ -177,6 +193,8 @@ final class ExportViewModel {
                 )
             }
             showSuccessAlert = true
+        } catch SecurityScopedFileAccess.AccessError.denied {
+            exportError = SecurityScopedFileAccess.accessDeniedMessage
         } catch {
             let rawMessage = error.localizedDescription.lowercased()
             if rawMessage.contains("permission")
@@ -200,7 +218,15 @@ final class ExportViewModel {
 
     func revealInFinder() {
         guard let exportedURL else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([exportedURL])
+        do {
+            try SecurityScopedFileAccess.withAccess(to: exportedURL) {
+                NSWorkspace.shared.activateFileViewerSelecting([exportedURL])
+            }
+        } catch SecurityScopedFileAccess.AccessError.denied {
+            exportError = SecurityScopedFileAccess.accessDeniedMessage
+        } catch {
+            exportError = error.localizedDescription
+        }
     }
 
     func teardown() {

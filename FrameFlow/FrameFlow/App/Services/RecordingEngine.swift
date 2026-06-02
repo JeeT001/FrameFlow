@@ -38,11 +38,20 @@ enum RecordingEngineError: LocalizedError {
 
 @MainActor
 @Observable
-final class RecordingEngine {
+final class RecordingEngine: @unchecked Sendable {
+    /// Must match `RecordingSessionCoordinator.recordFrameRate`.
+    static let videoFrameRate: Int32 = 24
+    static let audioSampleRate: Int32 = 48_000
+    /// Max video lead over audio sample timeline when duplicating frames.
+    private static let audioMasterLead = CMTime(value: 50, timescale: 1000)
+
     private(set) var isRecording = false
     private(set) var isPaused = false
     private(set) var formattedDuration = "00:00"
     private(set) var lastRecordedDurationSeconds = 0
+
+    /// Serializes all writer appends and timeline mutations (safe from mic tap thread).
+    private let writerQueue = DispatchQueue(label: "com.Simranjit.FrameFlow.recording.writer", qos: .userInitiated)
 
     private var writer: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
@@ -51,22 +60,26 @@ final class RecordingEngine {
     private var durationTimer: Timer?
     private var startDate: Date?
 
-    /// Shared writer timeline (600 = common video timescale; audio retimed into same session).
-    private let writerTimescale: CMTimeScale = 600
-    private var recordingStartHostTime: CMTime = .invalid
-    private var pauseStartHostTime: CMTime?
-    private var totalPausedDuration: CMTime = .zero
-    private var hasStartedVideoTimeline = false
+    /// Video PTS follows audio sample timeline; frameIndex counts appends for diagnostics.
+    private var videoFrameIndex: Int64 = 0
+    private var hasStartedMediaTimeline = false
     private var lastVideoPTS: CMTime = .invalid
     private var lastAudioPTS: CMTime = .invalid
-    private var nextAudioTimelinePTS: CMTime?
+    private var nextAudioSamplePTS: CMTime?
+    private var pendingAudioBuffers: [CMSampleBuffer] = []
 
     #if DEBUG
-    private var debugTimestampLogCount = 0
-    private var didLogAudioGatedUntilVideo = false
+    private var didLogWaitingForFirstAudio = false
+    private var audioDropNotReadyCount = 0
+    private var audioQueuedCount = 0
+    private var videoSkipNotReadyCount = 0
+    private var duplicateFrameCount = 0
+    private var maxPendingAudioDepth = 0
+    private var lastPeriodicLogDate = Date.distantPast
     #endif
 
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+    private static let maxPendingAudioBuffers = 256
 
     func start(outputURL: URL, outputSize: CGSize) throws {
         guard !isRecording else { throw RecordingEngineError.alreadyRecording }
@@ -91,7 +104,7 @@ final class RecordingEngine {
 
             let audioSettings: [String: Any] = [
                 AVFormatIDKey: kAudioFormatMPEG4AAC,
-                AVSampleRateKey: 48_000,
+                AVSampleRateKey: Self.audioSampleRate,
                 AVNumberOfChannelsKey: 2,
                 AVEncoderBitRateKey: 128_000,
             ]
@@ -124,19 +137,22 @@ final class RecordingEngine {
             self.audioInput = audioInput
             self.pixelBufferAdaptor = adaptor
 
-            // Video-led session clock: host time anchors on first appended video frame; audio is gated until then.
-            recordingStartHostTime = .invalid
-            pauseStartHostTime = nil
-            totalPausedDuration = .zero
             isPaused = false
-            hasStartedVideoTimeline = false
+            hasStartedMediaTimeline = false
+            videoFrameIndex = 0
             lastVideoPTS = .invalid
             lastAudioPTS = .invalid
-            nextAudioTimelinePTS = nil
+            nextAudioSamplePTS = nil
+            pendingAudioBuffers.removeAll()
 
             #if DEBUG
-            debugTimestampLogCount = 0
-            didLogAudioGatedUntilVideo = false
+            didLogWaitingForFirstAudio = false
+            audioDropNotReadyCount = 0
+            audioQueuedCount = 0
+            videoSkipNotReadyCount = 0
+            duplicateFrameCount = 0
+            maxPendingAudioDepth = 0
+            lastPeriodicLogDate = Date.distantPast
             #endif
 
             guard writer.startWriting() else {
@@ -156,22 +172,117 @@ final class RecordingEngine {
     }
 
     func pauseRecording() {
-        guard isRecording, !isPaused else { return }
-        isPaused = true
-        pauseStartHostTime = CMClockGetTime(CMClockGetHostTimeClock())
+        writerQueue.sync {
+            guard isRecording, !isPaused else { return }
+            isPaused = true
+        }
     }
 
     func resumeRecording() {
-        guard isRecording, isPaused, let pauseStart = pauseStartHostTime, pauseStart.isValid else { return }
-        let now = CMClockGetTime(CMClockGetHostTimeClock())
-        var pauseDuration = CMTimeSubtract(now, pauseStart)
-        pauseDuration = CMTimeConvertScale(pauseDuration, timescale: writerTimescale, method: .default)
-        totalPausedDuration = CMTimeAdd(totalPausedDuration, pauseDuration)
-        pauseStartHostTime = nil
-        isPaused = false
+        writerQueue.sync {
+            guard isRecording, isPaused else { return }
+            isPaused = false
+        }
     }
 
     func appendFrame(ciImage: CIImage, outputSize: CGSize) throws {
+        try performOnWriterQueue {
+            try self.drainPendingAudioBuffersOnWriterQueue()
+            try self.appendFrameOnWriterQueue(ciImage: ciImage, outputSize: outputSize)
+        }
+    }
+
+    func appendAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer, captureHostTime: CMTime) throws {
+        try performOnWriterQueue {
+            try self.enqueueOrAppendAudioOnWriterQueue(sampleBuffer: sampleBuffer)
+        }
+    }
+
+    func stop() async throws {
+        guard isRecording else { throw RecordingEngineError.notRecording }
+
+        let finalize: (AVAssetWriter, AVAssetWriterInput, CMTime?) = try performOnWriterQueue {
+            isRecording = false
+
+            #if DEBUG
+            let audioSnap = AudioCaptureDiagnostics.snapshot()
+            let videoSeconds = self.lastVideoPTS.isValid ? self.lastVideoPTS.seconds : 0
+            let audioSeconds = self.currentAudioEndPTSOnWriterQueue().seconds
+            let recordingDuration = self.startDate.map { Date().timeIntervalSince($0) } ?? 0
+            let tapsPerSec = recordingDuration > 0 ? Double(audioSnap.tapCount) / recordingDuration : 0
+            print(
+                "[RecordingEngine] stop summary: frames=\(self.videoFrameIndex) " +
+                "videoSkips=\(self.videoSkipNotReadyCount) duplicateFrames=\(self.duplicateFrameCount) " +
+                "audioNotReady=\(self.audioDropNotReadyCount) audioEnqueued=\(self.audioQueuedCount) " +
+                "maxPendingAudio=\(self.maxPendingAudioDepth) " +
+                "lastVideoPTS=\(String(format: "%.3f", videoSeconds))s " +
+                "lastAudioPTS=\(String(format: "%.3f", audioSeconds))s " +
+                "Δ=\(String(format: "%+.0f", (audioSeconds - videoSeconds) * 1000))ms " +
+                "micTaps=\(audioSnap.tapCount) micAppends=\(audioSnap.appendCount) " +
+                "tapsPerSec=\(String(format: "%.1f", tapsPerSec))"
+            )
+            #endif
+
+            pendingAudioBuffers.removeAll()
+
+            guard let writer = self.writer, let input = self.videoInput else {
+                throw RecordingEngineError.notRecording
+            }
+
+            input.markAsFinished()
+            self.audioInput?.markAsFinished()
+
+            let lastPTS = self.lastVideoPTS.isValid ? self.lastVideoPTS : nil
+            return (writer, input, lastPTS)
+        }
+
+        stopDurationTimer()
+
+        await withCheckedContinuation { continuation in
+            finalize.0.finishWriting {
+                continuation.resume()
+            }
+        }
+
+        if finalize.0.status == .failed {
+            throw RecordingEngineError.finalizeFailed(
+                finalize.0.error?.localizedDescription ?? "Writer failed."
+            )
+        }
+
+        if let lastPTS = finalize.2 {
+            lastRecordedDurationSeconds = max(0, Int(lastPTS.seconds.rounded()))
+        } else {
+            lastRecordedDurationSeconds = currentDurationSeconds()
+        }
+
+        writer = nil
+        videoInput = nil
+        audioInput = nil
+        pixelBufferAdaptor = nil
+        startDate = nil
+
+        writerQueue.sync {
+            isPaused = false
+            hasStartedMediaTimeline = false
+            videoFrameIndex = 0
+            lastVideoPTS = .invalid
+            lastAudioPTS = .invalid
+            nextAudioSamplePTS = nil
+        }
+    }
+
+    // MARK: - Writer queue
+
+    private func performOnWriterQueue<T>(_ work: () throws -> T) throws -> T {
+        var outcome: Result<T, Error>?
+        writerQueue.sync {
+            outcome = Result { try work() }
+        }
+        return try outcome!.get()
+    }
+
+    private func appendFrameOnWriterQueue(ciImage: CIImage, outputSize: CGSize) throws {
         guard isRecording,
               let writer,
               let input = videoInput,
@@ -182,10 +293,29 @@ final class RecordingEngine {
         guard writer.status == .writing else {
             throw RecordingEngineError.appendFailed
         }
-        guard input.isReadyForMoreMediaData else { return }
+        guard input.isReadyForMoreMediaData else {
+            #if DEBUG
+            videoSkipNotReadyCount += 1
+            logPeriodicSyncDiagnosticsIfNeeded()
+            #endif
+            return
+        }
         guard let pool = adaptor.pixelBufferPool else {
             throw RecordingEngineError.appendFailed
         }
+
+        let audioEnd = currentAudioEndPTSOnWriterQueue()
+        guard CMTimeCompare(audioEnd, .zero) > 0 else {
+            #if DEBUG
+            if !didLogWaitingForFirstAudio {
+                didLogWaitingForFirstAudio = true
+                print("[RecordingEngine] Waiting for first audio buffer before video append.")
+            }
+            #endif
+            return
+        }
+
+        let pts = videoPresentationTimeOnWriterQueue(audioEnd: audioEnd)
 
         var pixelBuffer: CVPixelBuffer?
         let status = CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pixelBuffer)
@@ -202,144 +332,84 @@ final class RecordingEngine {
         )
         CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
 
-        if !recordingStartHostTime.isValid {
-            recordingStartHostTime = CMClockGetTime(CMClockGetHostTimeClock())
-            hasStartedVideoTimeline = true
-        }
-
-        let pts = monotonicPresentationTime(sessionElapsedTime(), last: lastVideoPTS)
-        lastVideoPTS = pts
-        logTimestampDiagnosticsIfNeeded(videoPTS: pts, audioPTS: nil, audioFrameLength: nil, audioDuration: nil)
-
         if !adaptor.append(pixelBuffer, withPresentationTime: pts) {
             throw RecordingEngineError.appendFailed
         }
+
+        videoFrameIndex += 1
+        lastVideoPTS = pts
+        hasStartedMediaTimeline = true
+
+        #if DEBUG
+        logPeriodicSyncDiagnosticsIfNeeded()
+        #endif
     }
 
-    func appendAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) throws {
+    private func enqueueOrAppendAudioOnWriterQueue(sampleBuffer: CMSampleBuffer) throws {
         guard isRecording,
               let writer,
-              let audioInput else {
+              audioInput != nil else {
             throw RecordingEngineError.notRecording
         }
         guard !isPaused else { return }
         guard writer.status == .writing else {
             throw RecordingEngineError.appendFailed
         }
-        guard audioInput.isReadyForMoreMediaData else { return }
 
-        guard hasStartedVideoTimeline else {
+        pendingAudioBuffers.append(sampleBuffer)
+        #if DEBUG
+        maxPendingAudioDepth = max(maxPendingAudioDepth, pendingAudioBuffers.count)
+        audioQueuedCount += 1
+        #endif
+        if pendingAudioBuffers.count > Self.maxPendingAudioBuffers {
+            pendingAudioBuffers.removeFirst()
             #if DEBUG
-            if !didLogAudioGatedUntilVideo {
-                didLogAudioGatedUntilVideo = true
-                print("[RecordingEngine] Dropping audio until first video frame is appended.")
-            }
+            audioDropNotReadyCount += 1
             #endif
-            return
         }
-
-        guard let retimedBuffer = retimedAudioSampleBuffer(sampleBuffer) else { return }
-        guard audioInput.append(retimedBuffer) else {
-            throw RecordingEngineError.appendFailed
-        }
+        try drainPendingAudioBuffersOnWriterQueue()
+        #if DEBUG
+        logPeriodicSyncDiagnosticsIfNeeded()
+        #endif
     }
 
-    func stop() async throws {
-        guard isRecording else { throw RecordingEngineError.notRecording }
-        isRecording = false
-        stopDurationTimer()
+    private func drainPendingAudioBuffersOnWriterQueue() throws {
+        guard let audioInput else { return }
 
-        guard let writer, let input = videoInput else { return }
+        while !pendingAudioBuffers.isEmpty {
+            guard audioInput.isReadyForMoreMediaData else {
+                #if DEBUG
+                audioDropNotReadyCount += 1
+                #endif
+                break
+            }
 
-        input.markAsFinished()
-        audioInput?.markAsFinished()
-
-        await withCheckedContinuation { continuation in
-            writer.finishWriting {
-                continuation.resume()
+            let sampleBuffer = pendingAudioBuffers.removeFirst()
+            guard let retimedBuffer = retimedAudioSampleBuffer(sampleBuffer) else {
+                continue
+            }
+            guard audioInput.append(retimedBuffer) else {
+                throw RecordingEngineError.appendFailed
             }
         }
-
-        if writer.status == .failed {
-            throw RecordingEngineError.finalizeFailed(
-                writer.error?.localizedDescription ?? "Writer failed."
-            )
-        }
-
-        if lastVideoPTS.isValid {
-            lastRecordedDurationSeconds = max(0, Int(lastVideoPTS.seconds.rounded()))
-        } else {
-            lastRecordedDurationSeconds = currentDurationSeconds()
-        }
-
-        self.writer = nil
-        self.videoInput = nil
-        self.audioInput = nil
-        self.pixelBufferAdaptor = nil
-        self.startDate = nil
-
-        recordingStartHostTime = .invalid
-        pauseStartHostTime = nil
-        totalPausedDuration = .zero
-        isPaused = false
-        hasStartedVideoTimeline = false
-        lastVideoPTS = .invalid
-        lastAudioPTS = .invalid
-        nextAudioTimelinePTS = nil
     }
 
-    /// Writer timeline position: host elapsed minus accumulated pause (and active pause while paused).
-    private func activeRecordingElapsedTime() -> CMTime {
-        guard recordingStartHostTime.isValid else { return .zero }
-        let now = CMClockGetTime(CMClockGetHostTimeClock())
-        var elapsed = CMTimeSubtract(now, recordingStartHostTime)
-        elapsed = CMTimeConvertScale(elapsed, timescale: writerTimescale, method: .default)
-
-        var effective = CMTimeSubtract(elapsed, totalPausedDuration)
-
-        if isPaused, let pauseStart = pauseStartHostTime, pauseStart.isValid {
-            var currentPause = CMTimeSubtract(now, pauseStart)
-            currentPause = CMTimeConvertScale(currentPause, timescale: writerTimescale, method: .default)
-            effective = CMTimeSubtract(effective, currentPause)
-        }
-
-        if CMTimeCompare(effective, .zero) < 0 { return .zero }
-        return effective
-    }
-
-    /// Presentation timeline for appends (excludes paused intervals).
-    private func sessionElapsedTime() -> CMTime {
-        activeRecordingElapsedTime()
-    }
-
-    private func monotonicPresentationTime(_ pts: CMTime, last: CMTime) -> CMTime {
-        guard last.isValid else { return pts }
-        if CMTimeCompare(pts, last) > 0 { return pts }
-        return CMTimeAdd(last, CMTime(value: 1, timescale: writerTimescale))
-    }
-
+    /// Sample-count audio timeline: each buffer follows the previous by its duration (handles HAL dropouts).
     private func retimedAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) -> CMSampleBuffer? {
         let duration = audioBufferDuration(sampleBuffer)
 
-        if nextAudioTimelinePTS == nil {
-            nextAudioTimelinePTS = monotonicPresentationTime(sessionElapsedTime(), last: lastAudioPTS)
+        if nextAudioSamplePTS == nil {
+            nextAudioSamplePTS = .zero
+            hasStartedMediaTimeline = true
         }
-        guard var pts = nextAudioTimelinePTS else { return nil }
+        guard var pts = nextAudioSamplePTS else { return nil }
 
         pts = monotonicPresentationTime(pts, last: lastAudioPTS)
         lastAudioPTS = pts
-        nextAudioTimelinePTS = CMTimeAdd(pts, duration)
-
-        let frameLength = CMSampleBufferGetNumSamples(sampleBuffer)
-        logTimestampDiagnosticsIfNeeded(
-            videoPTS: nil,
-            audioPTS: pts,
-            audioFrameLength: Int(frameLength),
-            audioDuration: duration
-        )
+        nextAudioSamplePTS = CMTimeAdd(pts, duration)
 
         var timing = CMSampleTimingInfo(
-            duration: CMTimeConvertScale(duration, timescale: writerTimescale, method: .default),
+            duration: duration,
             presentationTimeStamp: pts,
             decodeTimeStamp: .invalid
         )
@@ -357,64 +427,93 @@ final class RecordingEngine {
     }
 
     private func audioBufferDuration(_ sampleBuffer: CMSampleBuffer) -> CMTime {
-        // Sometimes CMSampleBufferGetDuration() can be suspiciously small (e.g. 1/sampleRate),
-        // which collapses the timeline and causes drift. Prefer frame-count derived duration.
-        let duration = CMSampleBufferGetDuration(sampleBuffer)
-        if duration.isValid, duration.value > 0, duration.seconds >= 0.001 {
-            return duration
-        }
-
         let sampleCount = CMSampleBufferGetNumSamples(sampleBuffer)
         if sampleCount > 0 {
-            return CMTime(value: CMTimeValue(sampleCount), timescale: 48_000)
+            return CMTime(value: CMTimeValue(sampleCount), timescale: Self.audioSampleRate)
         }
 
+        let duration = CMSampleBufferGetDuration(sampleBuffer)
         if duration.isValid, duration.value > 0 {
             return duration
         }
 
-        return CMTime(value: 1, timescale: 48_000)
+        return CMTime(value: 1, timescale: Self.audioSampleRate)
+    }
+
+    private func monotonicPresentationTime(_ pts: CMTime, last: CMTime) -> CMTime {
+        guard last.isValid else { return pts }
+        if CMTimeCompare(pts, last) > 0 { return pts }
+        return CMTimeAdd(last, CMTime(value: 1, timescale: Self.audioSampleRate))
+    }
+
+    private func currentAudioEndPTSOnWriterQueue() -> CMTime {
+        if let next = nextAudioSamplePTS, next.isValid {
+            return next
+        }
+        if lastAudioPTS.isValid {
+            return lastAudioPTS
+        }
+        return .zero
+    }
+
+    /// Audio-master PTS: follow `audioEnd`, duplicate with +1/frame when audio hasn't advanced.
+    private func videoPresentationTimeOnWriterQueue(audioEnd: CMTime) -> CMTime {
+        let frameStep = CMTime(value: 1, timescale: Self.videoFrameRate)
+        let maxPTS = CMTimeAdd(audioEnd, Self.audioMasterLead)
+
+        var pts = audioEnd
+        if lastVideoPTS.isValid, CMTimeCompare(pts, lastVideoPTS) <= 0 {
+            pts = CMTimeAdd(lastVideoPTS, frameStep)
+            #if DEBUG
+            duplicateFrameCount += 1
+            #endif
+        }
+
+        if CMTimeCompare(pts, maxPTS) > 0 {
+            pts = maxPTS
+            if lastVideoPTS.isValid, CMTimeCompare(pts, lastVideoPTS) <= 0 {
+                pts = CMTimeAdd(lastVideoPTS, frameStep)
+                #if DEBUG
+                duplicateFrameCount += 1
+                #endif
+            }
+        }
+
+        return pts
     }
 
     #if DEBUG
-    private func logTimestampDiagnosticsIfNeeded(
-        videoPTS: CMTime?,
-        audioPTS: CMTime?,
-        audioFrameLength: Int?,
-        audioDuration: CMTime?
-    ) {
-        guard debugTimestampLogCount < 10 else { return }
-        debugTimestampLogCount += 1
+    private func logPeriodicSyncDiagnosticsIfNeeded() {
+        let now = Date()
+        guard now.timeIntervalSince(lastPeriodicLogDate) >= 1.0 else { return }
+        lastPeriodicLogDate = now
 
-        let wallSeconds = sessionElapsedTime().seconds
+        let videoSeconds = lastVideoPTS.isValid ? lastVideoPTS.seconds : 0
+        let audioSeconds = currentAudioEndPTSOnWriterQueue().seconds
+        let avDeltaMs = (audioSeconds - videoSeconds) * 1000
+        let audioSnap = AudioCaptureDiagnostics.snapshot()
 
-        if let videoPTS, videoPTS.isValid {
-            print(
-                "[RecordingEngine] video PTS=\(String(format: "%.3f", videoPTS.seconds))s wall=\(String(format: "%.3f", wallSeconds))s"
-            )
-        }
-
-        if let audioPTS, audioPTS.isValid {
-            let durSeconds = (audioDuration?.seconds) ?? 0
-            print(
-                "[RecordingEngine] audio PTS=\(String(format: "%.3f", audioPTS.seconds))s wall=\(String(format: "%.3f", wallSeconds))s duration=\(String(format: "%.6f", durSeconds))s frames=\(audioFrameLength ?? 0)"
-            )
-        }
-    }
-    #else
-    private func logTimestampDiagnosticsIfNeeded(
-        videoPTS: CMTime?,
-        audioPTS: CMTime?,
-        audioFrameLength: Int?,
-        audioDuration: CMTime?
-    ) {
+        print(
+            "[RecordingEngine] sync @ \(String(format: "%.1f", videoSeconds))s " +
+            "frameIndex=\(videoFrameIndex) videoPTS=\(String(format: "%.3f", videoSeconds))s " +
+            "audioEnd=\(String(format: "%.3f", audioSeconds))s " +
+            "Δ=\(String(format: "%+.0f", avDeltaMs))ms " +
+            "pendingAudio=\(pendingAudioBuffers.count) videoSkips=\(videoSkipNotReadyCount) " +
+            "duplicateFrames=\(duplicateFrameCount) " +
+            "micTaps=\(audioSnap.tapCount) micAppends=\(audioSnap.appendCount)"
+        )
     }
     #endif
 
     func currentDurationSeconds() -> Int {
         guard isRecording else { return lastRecordedDurationSeconds }
-        if recordingStartHostTime.isValid {
-            return max(0, Int(activeRecordingElapsedTime().seconds.rounded()))
+        let elapsed = writerQueue.sync {
+            let videoSec = lastVideoPTS.isValid ? lastVideoPTS.seconds : 0
+            let audioSec = currentAudioEndPTSOnWriterQueue().seconds
+            return min(videoSec, audioSec > 0 ? audioSec : videoSec)
+        }
+        if elapsed > 0 {
+            return max(0, Int(elapsed.rounded()))
         }
         guard let startDate else { return lastRecordedDurationSeconds }
         return max(0, Int(Date().timeIntervalSince(startDate).rounded()))
@@ -442,7 +541,6 @@ final class RecordingEngine {
     }
 
     private func suggestedBitrate(for size: CGSize) -> Int {
-        // Conservative defaults to keep file sizes reasonable for MVP.
         let pixels = size.width * size.height
         if pixels >= 3840 * 2160 { return 28_000_000 }
         if pixels >= 1920 * 1080 { return 12_000_000 }
@@ -450,3 +548,8 @@ final class RecordingEngine {
     }
 }
 
+extension RecordingEngine {
+    func appendAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) throws {
+        try appendAudioSampleBuffer(sampleBuffer, captureHostTime: .invalid)
+    }
+}

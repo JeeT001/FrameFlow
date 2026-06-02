@@ -81,8 +81,11 @@ struct ExportView: View {
                     .font(.subheadline)
                 }
 
+                let previewAspect = viewModel.recording?.previewAspectRatio ?? (16.0 / 9.0)
+
                 VideoPlayer(player: viewModel.player)
-                    .aspectRatio(16 / 9, contentMode: .fit)
+                    .aspectRatio(previewAspect, contentMode: .fit)
+                    .frame(maxWidth: 480, maxHeight: 300)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .background(Color.black, in: RoundedRectangle(cornerRadius: 10))
 

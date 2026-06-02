@@ -10,6 +10,8 @@ struct RecordingDetailView: View {
     @Environment(AppRouter.self) private var router
     @State private var viewModel = RecordingDetailViewModel()
 
+    private let wideLayoutMinWidth: CGFloat = 700
+
     var body: some View {
         Group {
             if viewModel.recording == nil {
@@ -48,55 +50,89 @@ struct RecordingDetailView: View {
     }
 
     private var detailContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                thumbnailSection
-
-                renameSection
-
-                if let error = viewModel.errorMessage {
-                    Text(error)
-                        .font(.subheadline)
-                        .foregroundStyle(AppColors.recRed)
+        GeometryReader { geometry in
+            if geometry.size.width >= wideLayoutMinWidth {
+                wideLayout
+            } else {
+                ScrollView {
+                    narrowLayout
                 }
-
-                metadataSection
-
-                actionsSection
             }
-            .padding(24)
-            .frame(maxWidth: 720, alignment: .leading)
-            .frame(maxWidth: .infinity)
         }
     }
 
+    private var wideLayout: some View {
+        HStack(alignment: .top, spacing: 32) {
+            thumbnailSection
+                .frame(maxWidth: 480)
+
+            VStack(alignment: .leading, spacing: 24) {
+                detailSections
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(24)
+        .frame(maxWidth: 900)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private var narrowLayout: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            thumbnailSection
+            detailSections
+        }
+        .padding(24)
+        .frame(maxWidth: 720, alignment: .leading)
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var detailSections: some View {
+        renameSection
+
+        if let error = viewModel.errorMessage {
+            Text(error)
+                .font(.subheadline)
+                .foregroundStyle(AppColors.recRed)
+        }
+
+        metadataSection
+        actionsSection
+    }
+
     private var thumbnailSection: some View {
-        Button {
+        let aspect = viewModel.recording?.previewAspectRatio ?? (16.0 / 9.0)
+
+        return Button {
             viewModel.playInSystemPlayer()
         } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(AppColors.border)
-                    .aspectRatio(16 / 9, contentMode: .fit)
 
                 if let thumbnail = viewModel.thumbnail {
                     Image(nsImage: thumbnail)
                         .resizable()
                         .scaledToFill()
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 } else {
                     Image(systemName: "play.rectangle.fill")
-                        .font(.system(size: 48))
+                        .font(.system(size: 40))
                         .foregroundStyle(AppColors.textSecondary)
                 }
 
                 if viewModel.fileExistsOnDisk {
                     Image(systemName: "play.circle.fill")
-                        .font(.system(size: 52))
+                        .font(.system(size: 44))
                         .symbolRenderingMode(.palette)
                         .foregroundStyle(.white, .black.opacity(0.35))
-                        .shadow(radius: 4)
                 }
+            }
+            .aspectRatio(aspect, contentMode: .fit)
+            .frame(maxWidth: 480, maxHeight: 300)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(AppColors.border, lineWidth: 1)
             }
         }
         .buttonStyle(.plain)

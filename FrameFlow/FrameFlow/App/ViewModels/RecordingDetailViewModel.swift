@@ -27,7 +27,7 @@ final class RecordingDetailViewModel {
 
     var fileExistsOnDisk: Bool {
         guard let url = videoURL else { return false }
-        return FileManager.default.fileExists(atPath: url.path)
+        return SecurityScopedFileAccess.canAccess(url)
     }
 
     func load(recordingID: UUID?) {
@@ -84,22 +84,29 @@ final class RecordingDetailViewModel {
         let directory = sourceURL.deletingLastPathComponent()
         let destinationURL = directory.appendingPathComponent("\(sanitized).mp4")
 
-        if FileManager.default.fileExists(atPath: destinationURL.path),
-           destinationURL.path != sourceURL.path {
-            errorMessage = "A file named \"\(sanitized).mp4\" already exists."
-            return
-        }
-
         do {
-            if destinationURL.path != sourceURL.path {
-                try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+            try SecurityScopedFileAccess.withAccess(to: sourceURL) {
+                if FileManager.default.fileExists(atPath: destinationURL.path),
+                   destinationURL.path != sourceURL.path {
+                    throw RenameError.nameConflict(sanitized)
+                }
+
+                if destinationURL.path != sourceURL.path {
+                    try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+                }
             }
+
             metadata.name = sanitized
             metadata.filePath = destinationURL.path
             try RecordingStore.shared.update(metadata)
             recording = metadata
             draftName = sanitized
             await loadThumbnailIfNeeded(force: true)
+        } catch SecurityScopedFileAccess.AccessError.denied {
+            errorMessage = SecurityScopedFileAccess.accessDeniedMessage
+            draftName = metadata.name
+        } catch RenameError.nameConflict(let name) {
+            errorMessage = "A file named \"\(name).mp4\" already exists."
         } catch {
             errorMessage = "Rename failed: \(error.localizedDescription)"
             draftName = metadata.name
@@ -131,7 +138,16 @@ final class RecordingDetailViewModel {
             errorMessage = "Video file is not available."
             return
         }
-        NSWorkspace.shared.open(url)
+
+        do {
+            try SecurityScopedFileAccess.withAccess(to: url) {
+                NSWorkspace.shared.open(url)
+            }
+        } catch SecurityScopedFileAccess.AccessError.denied {
+            errorMessage = SecurityScopedFileAccess.accessDeniedMessage
+        } catch {
+            errorMessage = "Could not open video: \(error.localizedDescription)"
+        }
     }
 
     func revealInFinder() {
@@ -139,7 +155,16 @@ final class RecordingDetailViewModel {
             errorMessage = "Video file is not available."
             return
         }
-        NSWorkspace.shared.activateFileViewerSelecting([url])
+
+        do {
+            try SecurityScopedFileAccess.withAccess(to: url) {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+        } catch SecurityScopedFileAccess.AccessError.denied {
+            errorMessage = SecurityScopedFileAccess.accessDeniedMessage
+        } catch {
+            errorMessage = "Could not reveal file: \(error.localizedDescription)"
+        }
     }
 
     private func loadThumbnailIfNeeded(force: Bool = false) async {
@@ -157,7 +182,14 @@ final class RecordingDetailViewModel {
     }
 
     private func deleteRelatedFiles(for metadata: RecordingMetadata) {
-        RecordingFileCleanup.deleteExportedRecordingFiles(for: metadata)
+        let url = URL(fileURLWithPath: metadata.filePath)
+        try? SecurityScopedFileAccess.withAccess(to: url) {
+            RecordingFileCleanup.deleteExportedRecordingFiles(for: metadata)
+        }
+    }
+
+    private enum RenameError: Error {
+        case nameConflict(String)
     }
 
     private static func sanitizedFilename(from name: String) -> String {
@@ -170,24 +202,30 @@ final class RecordingDetailViewModel {
     }
 
     private static func generateThumbnail(for url: URL) async -> NSImage? {
-        let asset = AVURLAsset(url: url)
+        do {
+            return try await SecurityScopedFileAccess.withAccess(to: url) {
+                let asset = AVURLAsset(url: url)
 
-        guard let duration = try? await asset.load(.duration) else { return nil }
-        let seconds = min(1.0, max(0, CMTimeGetSeconds(duration) * 0.05))
-        let time = CMTime(seconds: seconds, preferredTimescale: 600)
+                guard let duration = try? await asset.load(.duration) else { return nil }
+                let seconds = min(1.0, max(0, CMTimeGetSeconds(duration) * 0.05))
+                let time = CMTime(seconds: seconds, preferredTimescale: 600)
 
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-        generator.maximumSize = CGSize(width: 640, height: 360)
+                let generator = AVAssetImageGenerator(asset: asset)
+                generator.appliesPreferredTrackTransform = true
+                generator.maximumSize = CGSize(width: 640, height: 360)
 
-        return await withCheckedContinuation { continuation in
-            generator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, image, _, _, _ in
-                if let image {
-                    continuation.resume(returning: NSImage(cgImage: image, size: .zero))
-                } else {
-                    continuation.resume(returning: nil)
+                return await withCheckedContinuation { continuation in
+                    generator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, image, _, _, _ in
+                        if let image {
+                            continuation.resume(returning: NSImage(cgImage: image, size: .zero))
+                        } else {
+                            continuation.resume(returning: nil)
+                        }
+                    }
                 }
             }
+        } catch {
+            return nil
         }
     }
 }

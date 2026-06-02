@@ -9,6 +9,7 @@ struct LoginView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
     @State private var viewModel = LoginViewModel()
+    @State private var successMessage: String?
 
     var body: some View {
         AuthFormLayout(
@@ -27,6 +28,10 @@ struct LoginView: View {
 
             if let errorMessage = viewModel.errorMessage {
                 AuthErrorBanner(message: errorMessage)
+            }
+
+            if let successMessage {
+                AuthSuccessBanner(message: successMessage)
             }
 
             Button {
@@ -63,6 +68,11 @@ struct LoginView: View {
             }
             .font(.callout)
             .frame(maxWidth: 380)
+        }
+        .onAppear {
+            if let message = appState.consumePendingLoginMessage() {
+                successMessage = message
+            }
         }
     }
 }

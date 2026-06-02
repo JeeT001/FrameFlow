@@ -49,7 +49,7 @@ final class WindowCaptureService {
         let content: SCShareableContent
         do {
             content = try await SCShareableContent.excludingDesktopWindows(
-                false,
+                true,
                 onScreenWindowsOnly: true
             )
         } catch {
@@ -137,6 +137,14 @@ final class WindowCaptureService {
 
         if let owningApp = window.owningApplication,
            owningApp.processID == ProcessInfo.processInfo.processIdentifier {
+            return false
+        }
+
+        if rawTitle == "Desktop", window.owningApplication?.bundleIdentifier == nil {
+            return false
+        }
+
+        if rawTitle.hasPrefix("Wallpaper-") {
             return false
         }
 

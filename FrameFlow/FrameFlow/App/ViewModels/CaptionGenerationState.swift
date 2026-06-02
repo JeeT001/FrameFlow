@@ -89,16 +89,18 @@ final class CaptionGenerationState {
         burnedInVideoURL = engine.burnedInURL(for: videoURL)
 
         do {
-            let generated = try await engine.generateCaptions(
-                for: videoURL,
-                recordingID: recordingID,
-                progress: { [weak self] value, message in
-                    Task { @MainActor in
-                        self?.progress = value
-                        self?.statusMessage = message
+            let generated = try await SecurityScopedFileAccess.withAccess(to: videoURL) {
+                try await engine.generateCaptions(
+                    for: videoURL,
+                    recordingID: recordingID,
+                    progress: { [weak self] value, message in
+                        Task { @MainActor in
+                            self?.progress = value
+                            self?.statusMessage = message
+                        }
                     }
-                }
-            )
+                )
+            }
 
             guard !Task.isCancelled else { return }
 
@@ -106,6 +108,11 @@ final class CaptionGenerationState {
             isTranscribing = false
             progress = 1
             statusMessage = "Captions ready (\(generated.count) segments)"
+        } catch SecurityScopedFileAccess.AccessError.denied {
+            guard !Task.isCancelled else { return }
+            isTranscribing = false
+            errorMessage = SecurityScopedFileAccess.accessDeniedMessage
+            statusMessage = ""
         } catch {
             guard !Task.isCancelled else { return }
             isTranscribing = false

@@ -80,6 +80,17 @@ final class CompositeEngine {
         return cgImage
     }
 
+    /// Creates a preview CGImage from an already-composited CIImage (avoids duplicate composite pass).
+    func createCGImage(from ciImage: CIImage, canvasSize: CGSize) -> CGImage? {
+        let canvasRect = CGRect(origin: .zero, size: canvasSize)
+        guard let cgImage = context.createCGImage(ciImage, from: canvasRect) else {
+            return nil
+        }
+        latestCompositeImage = cgImage
+        latestCompositeCIImage = ciImage
+        return cgImage
+    }
+
     func outputSize(for format: RecordingFormat) -> CGSize {
         switch format {
         case .sixteenByNine:

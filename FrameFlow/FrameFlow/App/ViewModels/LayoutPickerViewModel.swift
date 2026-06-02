@@ -101,7 +101,7 @@ final class LayoutPickerViewModel {
 
     func stopLivePreview() async {
         await previewCoordinator.stop()
-        cameraCapture.stop()
+        await cameraCapture.stop()
     }
 
     func refreshLivePreview(appState: AppState) async {
@@ -122,7 +122,6 @@ final class LayoutPickerViewModel {
         pipController.isCameraEnabled = enabled
         if !enabled {
             pipController.applyPreset(.noCamera)
-            cameraCapture.stop()
         } else if pipController.selectedPreset == .noCamera {
             pipController.applyPreset(.bottomRight)
         }
@@ -145,7 +144,7 @@ final class LayoutPickerViewModel {
 
     func startCameraPreviewIfNeeded() async {
         guard cameraEnabled else {
-            cameraCapture.stop()
+            await cameraCapture.stop()
             return
         }
         await cameraCapture.start(preferredCameraID: selectedCameraID)

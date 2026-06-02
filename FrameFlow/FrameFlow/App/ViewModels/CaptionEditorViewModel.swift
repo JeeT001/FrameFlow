@@ -67,11 +67,23 @@ final class CaptionEditorViewModel {
         if !state.segments.isEmpty {
             segments = state.segments
         } else if segments.isEmpty, let url = state.videoURL, let id = state.recordingID {
-            segments = (try? CaptionEngine.shared.loadCaptions(for: url, recordingID: id)) ?? []
+            segments = (try? SecurityScopedFileAccess.withAccess(to: url) {
+                try CaptionEngine.shared.loadCaptions(for: url, recordingID: id)
+            }) ?? []
         }
 
         if let url = state.videoURL, player.currentItem == nil {
-            configurePlayer(url: url)
+            Task {
+                do {
+                    try await SecurityScopedFileAccess.withAccess(to: url) {
+                        configurePlayer(url: url)
+                    }
+                } catch SecurityScopedFileAccess.AccessError.denied {
+                    exportError = SecurityScopedFileAccess.accessDeniedMessage
+                } catch {
+                    exportError = error.localizedDescription
+                }
+            }
         }
     }
 
@@ -136,69 +148,73 @@ final class CaptionEditorViewModel {
         defer { isExporting = false }
 
         do {
-            try CaptionEngine.shared.saveCaptions(
-                segments,
-                for: videoURL,
-                recordingID: recordingID,
-                style: selectedStyle
-            )
-            exportProgress = 0.15
-
-            let engine = CaptionEngine.shared
-            let srtURL = engine.srtURL(for: videoURL)
-            let burnedURL = engine.burnedInURL(for: videoURL)
-            var paths: [URL] = []
-
-            switch exportFormat {
-            case .srt:
-                try CaptionRenderer.shared.writeSRT(segments: segments, to: srtURL)
-                paths = [srtURL]
-                exportProgress = 1
-            case .burnedIn:
-                exportStatusMessage = "Rendering captions into video…"
-                exportProgress = 0.35
-                try await CaptionRenderer.shared.burnInCaptions(
-                    videoURL: videoURL,
-                    segments: segments,
-                    style: selectedStyle,
-                    outputURL: burnedURL
+            try await SecurityScopedFileAccess.withAccess(to: videoURL) {
+                try CaptionEngine.shared.saveCaptions(
+                    segments,
+                    for: videoURL,
+                    recordingID: recordingID,
+                    style: selectedStyle
                 )
-                paths = [burnedURL]
-                exportProgress = 1
-            case .both:
-                try CaptionRenderer.shared.writeSRT(segments: segments, to: srtURL)
-                exportProgress = 0.35
-                exportStatusMessage = "Rendering captions into video…"
-                try await CaptionRenderer.shared.burnInCaptions(
-                    videoURL: videoURL,
-                    segments: segments,
-                    style: selectedStyle,
-                    outputURL: burnedURL
-                )
-                paths = [srtURL, burnedURL]
-                exportProgress = 1
-            }
+                exportProgress = 0.15
 
-            exportedPaths = paths
-            exportStatusMessage = "Export complete."
+                let engine = CaptionEngine.shared
+                let srtURL = engine.srtURL(for: videoURL)
+                let burnedURL = engine.burnedInURL(for: videoURL)
+                var paths: [URL] = []
 
-            if var metadata = recordingMetadata {
-                metadata.hasCaptions = true
-                recordingMetadata = metadata
-                try? RecordingStore.shared.update(metadata)
-                CaptionGenerationState.shared.recordingMetadata = metadata
-            }
+                switch exportFormat {
+                case .srt:
+                    try CaptionRenderer.shared.writeSRT(segments: segments, to: srtURL)
+                    paths = [srtURL]
+                    exportProgress = 1
+                case .burnedIn:
+                    exportStatusMessage = "Rendering captions into video…"
+                    exportProgress = 0.35
+                    try await CaptionRenderer.shared.burnInCaptions(
+                        videoURL: videoURL,
+                        segments: segments,
+                        style: selectedStyle,
+                        outputURL: burnedURL
+                    )
+                    paths = [burnedURL]
+                    exportProgress = 1
+                case .both:
+                    try CaptionRenderer.shared.writeSRT(segments: segments, to: srtURL)
+                    exportProgress = 0.35
+                    exportStatusMessage = "Rendering captions into video…"
+                    try await CaptionRenderer.shared.burnInCaptions(
+                        videoURL: videoURL,
+                        segments: segments,
+                        style: selectedStyle,
+                        outputURL: burnedURL
+                    )
+                    paths = [srtURL, burnedURL]
+                    exportProgress = 1
+                }
 
-            let captionState = CaptionGenerationState.shared
-            captionState.applySegments(segments)
-            if exportFormat != .burnedIn {
-                captionState.srtURL = srtURL
-            }
-            if exportFormat != .srt {
-                captionState.burnedInVideoURL = burnedURL
+                exportedPaths = paths
+                exportStatusMessage = "Export complete."
+
+                if var metadata = recordingMetadata {
+                    metadata.hasCaptions = true
+                    recordingMetadata = metadata
+                    try? RecordingStore.shared.update(metadata)
+                    CaptionGenerationState.shared.recordingMetadata = metadata
+                }
+
+                let captionState = CaptionGenerationState.shared
+                captionState.applySegments(segments)
+                if exportFormat != .burnedIn {
+                    captionState.srtURL = srtURL
+                }
+                if exportFormat != .srt {
+                    captionState.burnedInVideoURL = burnedURL
+                }
             }
 
             showExportSuccessAlert = true
+        } catch SecurityScopedFileAccess.AccessError.denied {
+            exportError = SecurityScopedFileAccess.accessDeniedMessage
         } catch {
             exportError = error.localizedDescription
         }
@@ -206,7 +222,17 @@ final class CaptionEditorViewModel {
 
     func revealExportedFiles() {
         for url in exportedPaths {
-            NSWorkspace.shared.activateFileViewerSelecting([url])
+            do {
+                try SecurityScopedFileAccess.withAccess(to: url) {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                }
+            } catch SecurityScopedFileAccess.AccessError.denied {
+                exportError = SecurityScopedFileAccess.accessDeniedMessage
+                return
+            } catch {
+                exportError = error.localizedDescription
+                return
+            }
         }
     }
 
