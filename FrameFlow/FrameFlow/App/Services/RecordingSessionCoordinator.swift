@@ -6,6 +6,7 @@
 import CoreGraphics
 import CoreImage
 import Foundation
+import ScreenCaptureKit
 
 @MainActor
 @Observable
@@ -40,6 +41,8 @@ final class RecordingSessionCoordinator {
     private var windowOrder: [CGWindowID] = []
     private var format: RecordingFormat = .sixteenByNine
     private var layoutPreset: LayoutPreset = .stacked
+    private var customPlacements: [CGWindowID: WindowPlacement] = [:]
+    private var windowAspects: [CGWindowID: CGFloat] = [:]
     private var outputSize: CGSize = CGSize(width: 1280, height: 720)
     private var outputURL: URL?
     private var lastHandledClickID: UUID?
@@ -49,6 +52,8 @@ final class RecordingSessionCoordinator {
         windowIDs: Set<CGWindowID>,
         format: RecordingFormat,
         preset: LayoutPreset,
+        customPlacements: [CGWindowID: WindowPlacement] = [:],
+        windowAspects: [CGWindowID: CGFloat] = [:],
         outputURL: URL,
         isPro: Bool
     ) async {
@@ -65,9 +70,12 @@ final class RecordingSessionCoordinator {
         self.windowOrder = windowIDs.sorted()
         self.format = format
         self.layoutPreset = preset
+        self.customPlacements = customPlacements
+        self.windowAspects = windowAspects
         self.outputURL = outputURL
 
         outputSize = recordingOutputSize(format: format)
+        pipController.normalizePositionForCanvas(format: format)
 
         let requestedMode = AudioModeOption(rawValue: SettingsStore.shared.defaultAudioMode) ?? .none
         let effectiveMode = effectiveAudioMode(requestedMode, isPro: isPro)
@@ -305,9 +313,13 @@ final class RecordingSessionCoordinator {
         let zoomScale = currentZoomScale()
         let clickOverlay = currentClickOverlay()
         let focusedWindowID = autoFocusEnabled ? activeWindowMonitor.activeWindowID : nil
+        let cursorWindowID = cursorTargetWindowID(focusedWindowID: focusedWindowID)
         let cameraFrame = cameraCapture.latestFrame
         let pipEnabled = pipController.isCameraEnabled
         let pipConfig = pipController.config
+        let placements = layoutPreset == .freeForm ? customPlacements : nil
+
+        let pipAllowsOverflow = layoutPreset == .freeForm
 
         guard let ci = compositeEngine.renderCompositeCIImage(
             frames: streamManager.latestFrames,
@@ -317,11 +329,15 @@ final class RecordingSessionCoordinator {
             zoomScale: zoomScale,
             zoomFocalPointNormalized: zoomController.focalPointNormalized,
             clickOverlay: clickOverlay,
-            activeWindowID: focusedWindowID,
+            mouseLocation: cursorTracker.currentCursorPoint,
+            activeWindowID: cursorWindowID,
             autoFocusEnabled: autoFocusEnabled,
+            customPlacements: placements,
+            windowAspects: windowAspects,
             cameraFrame: cameraFrame,
             pipConfig: pipConfig,
-            pipEnabled: pipEnabled
+            pipEnabled: pipEnabled,
+            pipAllowsOverflow: pipAllowsOverflow
         ) else {
             return
         }
@@ -346,6 +362,18 @@ final class RecordingSessionCoordinator {
         let scale = zoomController.currentScale
         displayZoomScale = scale
         return scale
+    }
+
+    private func cursorTargetWindowID(focusedWindowID: CGWindowID?) -> CGWindowID? {
+        let mouseLocation = cursorTracker.currentCursorPoint
+        for windowID in windowOrder.reversed() {
+            guard let scWindow = WindowCaptureService.shared.scWindow(for: windowID),
+                  scWindow.frame.contains(mouseLocation) else {
+                continue
+            }
+            return windowID
+        }
+        return focusedWindowID
     }
 
     private func currentClickOverlay() -> CIImage? {

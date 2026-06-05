@@ -51,11 +51,13 @@ struct LayoutPickerView: View {
         }
         .onChange(of: viewModel.format) { _, _ in
             viewModel.syncSessionState(to: appState)
-            viewModel.updateLivePreviewLayout()
+            viewModel.updateLivePreviewLayout(appState: appState)
         }
-        .onChange(of: viewModel.layoutPreset) { _, _ in
-            viewModel.syncSessionState(to: appState)
-            viewModel.updateLivePreviewLayout()
+        .onChange(of: viewModel.layoutPreset) { old, new in
+            viewModel.handleLayoutPresetChange(from: old, to: new, appState: appState)
+        }
+        .onChange(of: viewModel.settings.autoFocusEnabled) { _, _ in
+            viewModel.updateLivePreviewLayout(appState: appState)
         }
         .onChange(of: appState.selectedWindowIDs) { _, _ in
             Task { await viewModel.refreshLivePreview(appState: appState) }
@@ -152,7 +154,7 @@ struct LayoutPickerView: View {
                     action: {
                         viewModel.format = newValue
                         viewModel.syncSessionState(to: appState)
-                        viewModel.updateLivePreviewLayout()
+                        viewModel.updateLivePreviewLayout(appState: appState)
                     }
                 )
             }
@@ -170,9 +172,8 @@ struct LayoutPickerView: View {
                         preset: preset,
                         isSelected: viewModel.layoutPreset == preset
                     ) {
-                        viewModel.layoutPreset = preset
-                        viewModel.syncSessionState(to: appState)
-                        viewModel.updateLivePreviewLayout()
+                        let old = viewModel.layoutPreset
+                        viewModel.handleLayoutPresetChange(from: old, to: preset, appState: appState)
                     }
                 }
             }
@@ -309,9 +310,18 @@ struct LayoutPickerView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if viewModel.isLivePreviewActive, let previewImage = viewModel.previewImage {
-                    CompositePreviewView(
+                    LayoutLivePreviewStack(
                         image: previewImage,
-                        aspectRatio: viewModel.format.aspectRatio
+                        aspectRatio: viewModel.format.aspectRatio,
+                        layoutPreset: viewModel.layoutPreset,
+                        windowIDs: appState.selectedWindowIDs.sorted(),
+                        pipController: viewModel.pipController,
+                        windowPlacementController: viewModel.windowPlacementController,
+                        cameraFrame: viewModel.latestCameraFrame,
+                        showPiPOverlay: viewModel.cameraEnabled,
+                        onPlacementsChanged: {
+                            viewModel.syncWindowPlacements(to: appState)
+                        }
                     )
                 } else {
                     VStack(spacing: 10) {
@@ -331,11 +341,6 @@ struct LayoutPickerView: View {
                         }
                     }
                 }
-
-                PiPOverlayView(
-                    controller: viewModel.pipController,
-                    cameraFrame: viewModel.latestCameraFrame
-                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

@@ -65,6 +65,8 @@ struct LayoutPreviewCanvas: View {
             pipBottomRightPreview(size: size)
         case .pipFaceTop:
             pipFaceTopPreview(size: size)
+        case .freeForm:
+            freeFormPreview(size: size)
         }
     }
 
@@ -105,6 +107,26 @@ struct LayoutPreviewCanvas: View {
                 cameraBadge
                     .padding(12)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
+        }
+    }
+
+    private func freeFormPreview(size: CGSize) -> some View {
+        ZStack {
+            ForEach(Array(windowLabels.prefix(4).enumerated()), id: \.offset) { index, label in
+                let offsets: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+                    (-0.12, 0.1, 0.55, 0.38),
+                    (0.14, -0.12, 0.42, 0.3),
+                    (-0.2, -0.08, 0.34, 0.24),
+                    (0.18, 0.14, 0.3, 0.2),
+                ]
+                let slot = offsets[min(index, offsets.count - 1)]
+                windowPlaceholder(
+                    label: label,
+                    width: size.width * slot.2,
+                    height: size.height * slot.3
+                )
+                .offset(x: size.width * slot.0, y: size.height * slot.1)
             }
         }
     }

@@ -15,6 +15,7 @@ final class LayoutPickerViewModel {
     let settings = SettingsStore.shared
     let pipController = PiPController.shared
     let cameraCapture = CameraCapture()
+    let windowPlacementController = WindowPlacementController()
 
     var format: RecordingFormat = .sixteenByNine
     var layoutPreset: LayoutPreset = .stacked
@@ -27,6 +28,7 @@ final class LayoutPickerViewModel {
     var showNoWindowsAlert = false
 
     private let previewCoordinator = CompositePreviewCoordinator()
+    private var previousLayoutPreset: LayoutPreset = .stacked
 
     var previewImage: CGImage? { previewCoordinator.previewImage }
     var previewErrorMessage: String? { previewCoordinator.errorMessage }
@@ -34,6 +36,12 @@ final class LayoutPickerViewModel {
     var isStartingLivePreview: Bool { previewCoordinator.isStarting }
     var latestCameraFrame: CIImage? { cameraCapture.latestFrame }
     var pipPresets: [PiPPreset] { PiPPreset.allCases }
+
+    var windowOrder: [CGWindowID] {
+        previewWindowOrder
+    }
+
+    private var previewWindowOrder: [CGWindowID] = []
 
     var audioModeLabel: String {
         AudioModeOption(rawValue: settings.defaultAudioMode)?.title
@@ -80,22 +88,39 @@ final class LayoutPickerViewModel {
         if !appState.selectedWindowIDs.isEmpty {
             format = appState.selectedFormat
             layoutPreset = appState.selectedLayoutPreset
+            previousLayoutPreset = layoutPreset
+            previewWindowOrder = appState.selectedWindowIDs.sorted()
+            if layoutPreset == .freeForm, !appState.windowPlacements.isEmpty {
+                windowPlacementController.placements = appState.windowPlacements
+            }
         }
         cameraEnabled = pipController.isCameraEnabled
         selectedCameraID = pipController.selectedCameraID
+        syncFreeFormOverflowState()
     }
 
     func syncSessionState(to appState: AppState) {
         appState.selectedFormat = format
         appState.selectedLayoutPreset = layoutPreset
+        if layoutPreset == .freeForm {
+            appState.windowPlacements = windowPlacementController.placements
+        } else {
+            appState.windowPlacements = [:]
+        }
     }
 
     func startLivePreview(appState: AppState) async {
         syncSessionState(to: appState)
+        previewWindowOrder = appState.selectedWindowIDs.sorted()
+        ensureFreeFormPlacementsIfNeeded(appState: appState)
+        syncFreeFormOverflowState()
         await previewCoordinator.start(
             windowIDs: appState.selectedWindowIDs,
             format: format,
-            layoutPreset: layoutPreset
+            layoutPreset: layoutPreset,
+            placementsResolver: placementsResolver,
+            windowAspects: currentWindowAspects(for: appState),
+            autoFocusEnabled: settings.autoFocusEnabled
         )
     }
 
@@ -106,15 +131,58 @@ final class LayoutPickerViewModel {
 
     func refreshLivePreview(appState: AppState) async {
         syncSessionState(to: appState)
+        previewWindowOrder = appState.selectedWindowIDs.sorted()
+        ensureFreeFormPlacementsIfNeeded(appState: appState)
+        normalizePiPForCurrentFormat()
         await previewCoordinator.updateWindowIDs(
             appState.selectedWindowIDs,
             format: format,
-            layoutPreset: layoutPreset
+            layoutPreset: layoutPreset,
+            placementsResolver: placementsResolver,
+            windowAspects: currentWindowAspects(for: appState),
+            autoFocusEnabled: settings.autoFocusEnabled
         )
     }
 
-    func updateLivePreviewLayout() {
-        previewCoordinator.updateLayout(format: format, layoutPreset: layoutPreset)
+    func updateLivePreviewLayout(appState: AppState) {
+        syncSessionState(to: appState)
+        previewCoordinator.updateLayout(
+            format: format,
+            layoutPreset: layoutPreset,
+            placementsResolver: placementsResolver,
+            windowAspects: currentWindowAspects(for: appState),
+            autoFocusEnabled: settings.autoFocusEnabled
+        )
+        normalizePiPForCurrentFormat()
+    }
+
+    func handleLayoutPresetChange(from oldPreset: LayoutPreset, to newPreset: LayoutPreset, appState: AppState) {
+        let canvasSize = CompositeEngine.shared.outputSize(for: format)
+        let windowIDs = appState.selectedWindowIDs.sorted()
+
+        if newPreset == .freeForm {
+            if oldPreset == .freeForm, !windowPlacementController.placements.isEmpty {
+                // Keep existing free-form placements.
+            } else if !appState.windowPlacements.isEmpty {
+                windowPlacementController.placements = appState.windowPlacements
+            } else {
+                windowPlacementController.seedFreeFormDefault(
+                    windowIDs: windowIDs,
+                    canvasSize: canvasSize
+                )
+            }
+        }
+
+        previousLayoutPreset = oldPreset
+        layoutPreset = newPreset
+        syncFreeFormOverflowState()
+        syncSessionState(to: appState)
+        updateLivePreviewLayout(appState: appState)
+    }
+
+    func syncWindowPlacements(to appState: AppState) {
+        syncSessionState(to: appState)
+        updateLivePreviewLayout(appState: appState)
     }
 
     func setCameraEnabled(_ enabled: Bool) {
@@ -135,6 +203,7 @@ final class LayoutPickerViewModel {
     func applyPiPPreset(_ preset: PiPPreset) {
         pipController.applyPreset(preset)
         cameraEnabled = pipController.isCameraEnabled
+        normalizePiPForCurrentFormat()
     }
 
     func syncPiPState() {
@@ -156,5 +225,53 @@ final class LayoutPickerViewModel {
             return false
         }
         return true
+    }
+
+    private func ensureFreeFormPlacementsIfNeeded(appState: AppState) {
+        guard layoutPreset == .freeForm else { return }
+
+        let windowIDs = appState.selectedWindowIDs.sorted()
+        guard !windowIDs.isEmpty else { return }
+
+        let missingWindow = windowIDs.contains { windowPlacementController.placements[$0] == nil }
+        if windowPlacementController.placements.isEmpty || missingWindow {
+            if !appState.windowPlacements.isEmpty, !missingWindow {
+                windowPlacementController.placements = appState.windowPlacements
+            } else {
+                windowPlacementController.seedFreeFormDefault(
+                    windowIDs: windowIDs,
+                    canvasSize: CompositeEngine.shared.outputSize(for: format)
+                )
+            }
+        }
+    }
+
+    private var placementsResolver: () -> [CGWindowID: WindowPlacement] {
+        { [windowPlacementController] in
+            windowPlacementController.placements
+        }
+    }
+
+    private func currentWindowAspects(for appState: AppState) -> [CGWindowID: CGFloat] {
+        var aspects: [CGWindowID: CGFloat] = [:]
+        for windowID in appState.selectedWindowIDs {
+            aspects[windowID] = windowPlacementController.aspectRatio(for: windowID)
+        }
+        return aspects
+    }
+
+    private func normalizePiPForCurrentFormat() {
+        guard !pipController.allowsOverflow else { return }
+        pipController.normalizePositionForCanvas(format: format)
+    }
+
+    private func syncFreeFormOverflowState() {
+        let isFreeForm = layoutPreset == .freeForm
+        windowPlacementController.allowsOverflow = isFreeForm
+        pipController.allowsOverflow = isFreeForm
+        if isFreeForm {
+            return
+        }
+        pipController.normalizePositionForCanvas(format: format)
     }
 }

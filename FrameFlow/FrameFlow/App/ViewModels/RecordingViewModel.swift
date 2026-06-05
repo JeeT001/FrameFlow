@@ -5,6 +5,7 @@
 
 import CoreGraphics
 import Foundation
+import ScreenCaptureKit
 
 enum RecordingScreenPhase: Equatable {
     case countdown
@@ -72,10 +73,22 @@ final class RecordingViewModel {
         }
 
         let tempURL = makeTempOutputURL()
+        var windowAspects: [CGWindowID: CGFloat] = [:]
+        for windowID in appState.selectedWindowIDs {
+            if let window = WindowCaptureService.shared.scWindow(for: windowID),
+               window.frame.width > 0 {
+                windowAspects[windowID] = window.frame.height / window.frame.width
+            }
+        }
+
         await coordinator.startRecording(
             windowIDs: appState.selectedWindowIDs,
             format: appState.selectedFormat,
             preset: appState.selectedLayoutPreset,
+            customPlacements: appState.selectedLayoutPreset == .freeForm
+                ? appState.windowPlacements
+                : [:],
+            windowAspects: windowAspects,
             outputURL: tempURL,
             isPro: appState.isPro
         )

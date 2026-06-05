@@ -27,6 +27,7 @@ enum LayoutPreset: String, CaseIterable, Identifiable {
     case sideBySide
     case pipBottomRight
     case pipFaceTop
+    case freeForm
 
     var id: String { rawValue }
 
@@ -36,6 +37,7 @@ enum LayoutPreset: String, CaseIterable, Identifiable {
         case .sideBySide: "Side-by-Side"
         case .pipBottomRight: "PiP Bottom-Right"
         case .pipFaceTop: "PiP Face-Top"
+        case .freeForm: "Free"
         }
     }
 }

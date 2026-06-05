@@ -1768,3 +1768,160 @@ fix: security-scoped access for recording playback and file operations
 ```
 fix: cap recording detail preview size and use format-aware aspect ratio
 ```
+
+---
+
+## Dashboard recording card thumbnails (2026-06-02)
+
+### Problem
+- `RecordingListItemView` showed static SF Symbol placeholder — never loaded frames from `filePath`
+
+### Fix
+- **`RecordingThumbnailService`** — shared AVAssetImageGenerator + `SecurityScopedFileAccess`, path-keyed cache
+- **`RecordingListItemView`** — async `.task(id: filePath)` load, format-aware aspect, `maxHeight: 140`
+- **`RecordingDetailViewModel`** — delegates to service (640×360 detail size)
+- **`DashboardView.deleteRecording`** — deletes files via `RecordingFileCleanup` + scoped access; clears cache
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: load video thumbnails on dashboard recording cards
+```
+
+---
+
+## Layout Picker PiP preview bounds (2026-06-02)
+
+### Problem
+- `PiPOverlayView` used full panel `GeometryReader` while composite preview was smaller/centered
+- Facecam rendered outside preview canvas, overlapping left settings panel
+
+### Fix
+- **`PreviewCanvasFitting`** — shared fitted canvas size helper
+- **`LayoutLivePreviewStack`** — single clipped ZStack for composite + PiP at same canvas size
+- **`PiPOverlayView`** — fixed frame to parent geometry (no expand-to-panel)
+- Re-clamp PiP on format/layout/preset change via logical canvas size
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: constrain PiP overlay to layout picker preview canvas bounds
+```
+
+---
+
+## PiP canvas clamp + WYSIWYG live preview (2026-06-02)
+
+### Problem
+- Stale normalized PiP position from pre-fix panel geometry → facecam top-left bleed
+- `CompositeEngine` did not clamp/crop PiP to canvas → same overflow in exports
+- Layout picker preview used SwiftUI PiP overlay only; recording used composite engine (not WYSIWYG)
+
+### Fix
+- **`PiPLayoutMath`** — single pip rect/center/clamp for SwiftUI + CoreImage coordinate spaces
+- **`CompositeEngine`** — clamp pip rect + crop composite to canvas
+- **`CompositePreviewCoordinator`** — bakes camera via same composite path as recording
+- **`PiPOverlayView`** — offset layout (no `.position` bleed); `interactionOnly` mode for drag handles
+- **`PiPController.normalizePositionForCanvas`** on layout picker + recording start
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: clamp PiP to canvas bounds and bake camera into live composite preview
+```
+
+---
+
+## PiP interaction chrome alignment (2026-06-02)
+
+### Problem
+- Baked facecam inside canvas but blue drag/resize chrome detached (Face-Top → chrome bottom-right)
+- CI bottom-left compositing vs SwiftUI top-left overlay coords
+
+### Fix
+- `CompositePreviewNSView.isFlipped = true` for AppKit preview paths
+- `LayoutLivePreviewStack` uses SwiftUI `Image` (top-left coords match overlay)
+- `PiPOverlayView` — single framed interaction group; resize handle inside pip bounds
+- `PiPLayoutMath` coordinate comments + DEBUG rect logging
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: align PiP interaction chrome with baked preview using shared coordinates
+```
+
+---
+
+## Layout preview PiP regression fix (2026-06-02)
+
+### Problem
+- `scaleEffect(y:-1)` on baked composite flipped image only — chrome stayed put, face upside down
+- Bottom-Right preset showed face top-left, chrome bottom-left
+
+### Fix
+- Revert layout preview to **windows-only composite** + **SwiftUI PiP overlay** (camera + chrome one view)
+- Remove composite `scaleEffect`; remove `pipStateProvider` bake wiring
+- `orientedCameraFrame` in `CompositeEngine` + camera-only `scaleEffect(y:-1)` in `PiPOverlayView`
+- Removed noisy `[PiPOverlay]` debug logging
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: restore SwiftUI PiP overlay for layout preview and correct camera orientation
+```
+
+---
+
+## Webcam orientation — single normalize at capture (2026-06-02)
+
+### Problem
+- Face upside down in layout preview + recording
+- Duplicate flips: `PiPOverlayView.scaleEffect(y:-1)` + `CompositeEngine.orientedCameraFrame`
+
+### Fix
+- **`CameraFrameOrientation.normalize`** at capture in `CameraCapture` (`flipVertical = false`)
+- Removed overlay `scaleEffect` and engine `orientedCameraFrame`
+- One toggle (`flipVertical`) if still wrong after testing
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: correct webcam orientation with single normalize at capture
+```
+
+---
+
+## Single cursor + free-form window layout (2026-06-02)
+
+### Part A — Single cursor
+- `WindowStreamManager`: `showsCursor = false` on per-window SCK streams
+- **`CursorCompositor`**: maps `NSEvent` mouse position → active window placement → draws `NSCursor.arrow` once in composite
+- Wired into `CompositeEngine`, `CompositePreviewCoordinator`, `RecordingSessionCoordinator`
+- Layout preview starts `CursorTracker` + `ActiveWindowMonitor`
+
+### Part B — Free-float windows
+- **`WindowPlacement`** model + **`WindowPlacementMath`** + **`WindowPlacementController`**
+- **`LayoutPreset.freeForm`** (“Free”) + 5th layout card
+- **`WindowPlacementsOverlayView`**: drag/resize chrome per window (like PiP)
+- `CompositeEngine` uses custom placements when `freeForm`; persisted via `AppState.windowPlacements`
+- Recording reads placements from `AppState` on start
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: free-form window layout and single-cursor composite rendering
+```

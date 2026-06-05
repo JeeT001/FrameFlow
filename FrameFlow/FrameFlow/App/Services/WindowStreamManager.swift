@@ -141,7 +141,7 @@ private final class WindowStreamSession {
     ) async throws -> WindowStreamSession {
         let filter = SCContentFilter(desktopIndependentWindow: window)
         let configuration = SCStreamConfiguration()
-        configuration.showsCursor = true
+        configuration.showsCursor = false
         configuration.capturesAudio = false
         configuration.pixelFormat = kCVPixelFormatType_32BGRA
 

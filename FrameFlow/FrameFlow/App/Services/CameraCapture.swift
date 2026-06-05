@@ -191,6 +191,8 @@ private final class CameraVideoOutputDelegate: NSObject, AVCaptureVideoDataOutpu
         from connection: AVCaptureConnection
     ) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        onFrame(CIImage(cvPixelBuffer: pixelBuffer))
+        let raw = CIImage(cvPixelBuffer: pixelBuffer)
+        let normalized = CameraFrameOrientation.normalize(raw, mirrored: false)
+        onFrame(normalized)
     }
 }

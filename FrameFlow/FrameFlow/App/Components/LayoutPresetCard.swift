@@ -55,6 +55,8 @@ struct LayoutPresetDiagram: View {
                 pipBottomRightDiagram(in: size)
             case .pipFaceTop:
                 pipFaceTopDiagram(in: size)
+            case .freeForm:
+                freeFormDiagram(in: size)
             }
         }
     }
@@ -80,6 +82,16 @@ struct LayoutPresetDiagram: View {
             rect(width: size.width * 0.9, height: size.height * 0.85)
             rect(width: size.width * 0.32, height: size.height * 0.28)
                 .offset(x: -4, y: -4)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func freeFormDiagram(in size: CGSize) -> some View {
+        ZStack {
+            rect(width: size.width * 0.55, height: size.height * 0.38)
+                .offset(x: -size.width * 0.12, y: size.height * 0.1)
+            rect(width: size.width * 0.42, height: size.height * 0.3)
+                .offset(x: size.width * 0.14, y: -size.height * 0.12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

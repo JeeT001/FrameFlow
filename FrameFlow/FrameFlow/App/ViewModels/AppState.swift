@@ -31,6 +31,7 @@ final class AppState {
     var selectedWindowIDs: Set<CGWindowID> = []
     var selectedFormat: RecordingFormat = .sixteenByNine
     var selectedLayoutPreset: LayoutPreset = .stacked
+    var windowPlacements: [CGWindowID: WindowPlacement] = [:]
     /// Staged recording between Stop and Export/Discard (not yet in RecordingStore).
     var pendingRecording: RecordingMetadata?
     /// Recording queued for the Export screen (pending or Dashboard re-export).

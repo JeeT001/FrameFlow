@@ -18,22 +18,36 @@ struct PiPOverlayView: View {
     var body: some View {
         GeometryReader { geometry in
             if controller.isCameraEnabled {
-                let rect = pipRect(in: geometry.size)
-                ZStack(alignment: .bottomTrailing) {
-                    cameraContent(in: rect)
-                        .overlay {
-                            shapeStroke
-                        }
-                        .clipShape(shapePath(in: rect))
-                        .frame(width: rect.width, height: rect.height)
-                        .position(x: rect.midX, y: rect.midY)
-                        .gesture(dragGesture(in: geometry.size))
+                let rect = controller.allowsOverflow
+                    ? PiPLayoutMath.pipRectUnclamped(
+                        config: controller.config,
+                        canvasSize: geometry.size,
+                        coordinateSpace: .swiftUI
+                    )
+                    : PiPLayoutMath.pipRect(
+                        config: controller.config,
+                        canvasSize: geometry.size,
+                        coordinateSpace: .swiftUI
+                    )
 
-                    resizeHandle
-                        .position(x: rect.maxX - 10, y: rect.maxY - 10)
-                        .gesture(resizeGesture(in: geometry.size))
+                ZStack(alignment: .topLeading) {
+                    Color.clear
+
+                    ZStack(alignment: .bottomTrailing) {
+                        cameraContent(in: rect)
+                            .overlay { shapeStroke }
+                            .clipShape(shapePath(in: rect))
+
+                        resizeHandle
+                            .padding(4)
+                            .gesture(resizeGesture(in: geometry.size))
+                    }
+                    .frame(width: rect.width, height: rect.height)
+                    .offset(x: rect.minX, y: rect.minY)
+                    .gesture(dragGesture(in: geometry.size))
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .modifier(PiPOverlayClipModifier(allowsOverflow: controller.allowsOverflow))
             }
         }
         .allowsHitTesting(controller.isCameraEnabled)
@@ -98,21 +112,6 @@ struct PiPOverlayView: View {
         }
     }
 
-    private func pipRect(in size: CGSize) -> CGRect {
-        let width = size.width * controller.config.size
-        let height = width * 9.0 / 16.0
-        let center = CGPoint(
-            x: controller.config.position.x * size.width,
-            y: (1 - controller.config.position.y) * size.height
-        )
-        return CGRect(
-            x: center.x - width / 2,
-            y: center.y - height / 2,
-            width: width,
-            height: height
-        )
-    }
-
     private func dragGesture(in canvasSize: CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
@@ -143,6 +142,18 @@ struct PiPOverlayView: View {
             .onEnded { _ in
                 resizeStartSize = nil
             }
+    }
+}
+
+private struct PiPOverlayClipModifier: ViewModifier {
+    let allowsOverflow: Bool
+
+    func body(content: Content) -> some View {
+        if allowsOverflow {
+            content
+        } else {
+            content.clipped()
+        }
     }
 }
 

@@ -13,7 +13,10 @@ struct CompositePreviewView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let size = fittedSize(in: geometry.size)
+            let size = PreviewCanvasFitting.fittedSize(
+                in: geometry.size,
+                aspectRatio: aspectRatio
+            )
 
             CompositePreviewRepresentable(image: image)
                 .frame(width: size.width, height: size.height)
@@ -31,19 +34,9 @@ struct CompositePreviewView: View {
     private var cornerRadius: CGFloat {
         fillsWindow ? 0 : 12
     }
-
-    private func fittedSize(in available: CGSize) -> CGSize {
-        var width = available.width
-        var height = width / aspectRatio
-        if height > available.height {
-            height = available.height
-            width = height * aspectRatio
-        }
-        return CGSize(width: width, height: height)
-    }
 }
 
-private struct CompositePreviewRepresentable: NSViewRepresentable {
+struct CompositePreviewRepresentable: NSViewRepresentable {
     let image: CGImage?
 
     func makeNSView(context: Context) -> CompositePreviewNSView {
@@ -55,7 +48,10 @@ private struct CompositePreviewRepresentable: NSViewRepresentable {
     }
 }
 
-private final class CompositePreviewNSView: NSView {
+final class CompositePreviewNSView: NSView {
+    /// Match SwiftUI top-left coordinates with CIImage-backed layer contents.
+    override var isFlipped: Bool { true }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true

@@ -6,6 +6,7 @@
 import CoreGraphics
 import CoreImage
 import Foundation
+import ScreenCaptureKit
 
 @MainActor
 final class CompositeEngine {
@@ -45,11 +46,15 @@ final class CompositeEngine {
         zoomScale: CGFloat = 1.0,
         zoomFocalPointNormalized: CGPoint = CGPoint(x: 0.5, y: 0.5),
         clickOverlay: CIImage? = nil,
+        mouseLocation: CGPoint? = nil,
         activeWindowID: CGWindowID? = nil,
         autoFocusEnabled: Bool = false,
+        customPlacements: [CGWindowID: WindowPlacement]? = nil,
+        windowAspects: [CGWindowID: CGFloat] = [:],
         cameraFrame: CIImage? = nil,
         pipConfig: PiPConfig? = nil,
-        pipEnabled: Bool = false
+        pipEnabled: Bool = false,
+        pipAllowsOverflow: Bool = false
     ) -> CGImage? {
         guard let ciImage = renderCompositeCIImage(
             frames: frames,
@@ -59,11 +64,15 @@ final class CompositeEngine {
             zoomScale: zoomScale,
             zoomFocalPointNormalized: zoomFocalPointNormalized,
             clickOverlay: clickOverlay,
+            mouseLocation: mouseLocation,
             activeWindowID: activeWindowID,
             autoFocusEnabled: autoFocusEnabled,
+            customPlacements: customPlacements,
+            windowAspects: windowAspects,
             cameraFrame: cameraFrame,
             pipConfig: pipConfig,
-            pipEnabled: pipEnabled
+            pipEnabled: pipEnabled,
+            pipAllowsOverflow: pipAllowsOverflow
         ) else {
             latestCompositeImage = nil
             latestCompositeCIImage = nil
@@ -122,11 +131,15 @@ final class CompositeEngine {
         zoomScale: CGFloat = 1.0,
         zoomFocalPointNormalized: CGPoint = CGPoint(x: 0.5, y: 0.5),
         clickOverlay: CIImage? = nil,
+        mouseLocation: CGPoint? = nil,
         activeWindowID: CGWindowID? = nil,
         autoFocusEnabled: Bool = false,
+        customPlacements: [CGWindowID: WindowPlacement]? = nil,
+        windowAspects: [CGWindowID: CGFloat] = [:],
         cameraFrame: CIImage? = nil,
         pipConfig: PiPConfig? = nil,
-        pipEnabled: Bool = false
+        pipEnabled: Bool = false,
+        pipAllowsOverflow: Bool = false
     ) -> CIImage? {
         let orderedImages = windowOrder.compactMap { frames[$0] }
         guard !orderedImages.isEmpty else {
@@ -135,18 +148,40 @@ final class CompositeEngine {
         }
 
         let canvasRect = CGRect(origin: .zero, size: canvasSize)
-        let placements = layoutRects(
-            count: orderedImages.count,
-            canvasSize: canvasSize,
-            preset: preset
+        let isFreeForm = preset == .freeForm
+        let aspects = resolvedWindowAspects(
+            windowOrder: windowOrder,
+            windowAspects: windowAspects
         )
+        let placements = WindowPlacementMath.layoutRects(
+            windowOrder: windowOrder,
+            canvasSize: canvasSize,
+            preset: preset,
+            customPlacements: customPlacements,
+            windowAspects: aspects
+        )
+        guard placements.count == orderedImages.count else {
+            latestCompositeCIImage = nil
+            return nil
+        }
 
         var composite = CIImage(color: CIColor(red: 0.05, green: 0.05, blue: 0.06))
             .cropped(to: canvasRect)
 
         for (image, targetRect) in zip(orderedImages, placements) {
-            let placed = fit(image: image, in: targetRect)
+            let placed = isFreeForm ? fill(image: image, in: targetRect) : fit(image: image, in: targetRect)
             composite = placed.composited(over: composite)
+        }
+
+        if let mouseLocation,
+           let cursorOverlay = CursorCompositor.cursorOverlay(
+               mouseLocation: mouseLocation,
+               activeWindowID: activeWindowID,
+               windowOrder: windowOrder,
+               placements: placements,
+               canvasRect: canvasRect
+           ) {
+            composite = cursorOverlay.composited(over: composite)
         }
 
         composite = applyZoom(
@@ -180,24 +215,39 @@ final class CompositeEngine {
                 to: composite,
                 cameraFrame: cameraFrame,
                 config: pipConfig,
-                canvasRect: canvasRect
+                canvasRect: canvasRect,
+                allowsOverflow: pipAllowsOverflow || pipConfig.size > 1.0
             )
         }
 
-        latestCompositeCIImage = composite
-        return composite
+        latestCompositeCIImage = composite.cropped(to: canvasRect)
+        return latestCompositeCIImage
     }
 
     private func applyPiPOverlay(
         to base: CIImage,
         cameraFrame: CIImage,
         config: PiPConfig,
-        canvasRect: CGRect
+        canvasRect: CGRect,
+        allowsOverflow: Bool = false
     ) -> CIImage {
-        let pipRect = pipRect(for: config, canvasRect: canvasRect)
-        guard pipRect.width > 4, pipRect.height > 4 else { return base }
+        let pipRect: CGRect
+        if allowsOverflow {
+            pipRect = PiPLayoutMath.pipRectUnclamped(
+                config: config,
+                canvasSize: canvasRect.size,
+                coordinateSpace: .coreImage
+            )
+        } else {
+            pipRect = PiPLayoutMath.pipRect(
+                config: config,
+                canvasSize: canvasRect.size,
+                coordinateSpace: .coreImage
+            )
+        }
+        guard pipRect.width > 4, pipRect.height > 4 else { return base.cropped(to: canvasRect) }
 
-        let pipImage = fit(image: cameraFrame, in: pipRect)
+        let pipImage = allowsOverflow ? fill(image: cameraFrame, in: pipRect) : fit(image: cameraFrame, in: pipRect)
         let pipContent: CIImage
         switch config.shape {
         case .roundedRect:
@@ -217,22 +267,7 @@ final class CompositeEngine {
             )
             result = border.composited(over: result)
         }
-        return result
-    }
-
-    private func pipRect(for config: PiPConfig, canvasRect: CGRect) -> CGRect {
-        let width = canvasRect.width * config.size
-        let height = width * 9.0 / 16.0
-        let center = CGPoint(
-            x: canvasRect.minX + min(max(config.position.x, 0), 1) * canvasRect.width,
-            y: canvasRect.minY + min(max(config.position.y, 0), 1) * canvasRect.height
-        )
-        return CGRect(
-            x: center.x - width / 2,
-            y: center.y - height / 2,
-            width: width,
-            height: height
-        )
+        return result.cropped(to: canvasRect)
     }
 
     private func circularCrop(image: CIImage, in rect: CGRect) -> CIImage {
@@ -394,61 +429,20 @@ final class CompositeEngine {
             .cropped(to: canvasRect)
     }
 
-    private func layoutRects(
-        count: Int,
-        canvasSize: CGSize,
-        preset: LayoutPreset
-    ) -> [CGRect] {
-        let width = canvasSize.width
-        let height = canvasSize.height
-        let n = max(1, min(count, 4))
-
-        switch preset {
-        case .stacked:
-            let sliceHeight = height / CGFloat(n)
-            return (0..<n).map { index in
-                let y = height - sliceHeight * CGFloat(index + 1)
-                return CGRect(x: 0, y: y, width: width, height: sliceHeight)
+    private func resolvedWindowAspects(
+        windowOrder: [CGWindowID],
+        windowAspects: [CGWindowID: CGFloat]
+    ) -> [CGWindowID: CGFloat] {
+        var aspects = windowAspects
+        for windowID in windowOrder where aspects[windowID] == nil {
+            if let window = WindowCaptureService.shared.scWindow(for: windowID),
+               window.frame.width > 0 {
+                aspects[windowID] = window.frame.height / window.frame.width
+            } else {
+                aspects[windowID] = 9.0 / 16.0
             }
-
-        case .sideBySide:
-            let sliceWidth = width / CGFloat(n)
-            return (0..<n).map { index in
-                CGRect(x: sliceWidth * CGFloat(index), y: 0, width: sliceWidth, height: height)
-            }
-
-        case .pipBottomRight:
-            guard n >= 2 else {
-                return [CGRect(origin: .zero, size: canvasSize)]
-            }
-            let pipWidth = width * 0.28
-            let pipHeight = height * 0.24
-            return [
-                CGRect(origin: .zero, size: canvasSize),
-                CGRect(
-                    x: width - pipWidth - 24,
-                    y: 24,
-                    width: pipWidth,
-                    height: pipHeight
-                ),
-            ]
-
-        case .pipFaceTop:
-            guard n >= 2 else {
-                return [CGRect(origin: .zero, size: canvasSize)]
-            }
-            let faceWidth = width * 0.36
-            let faceHeight = height * 0.26
-            return [
-                CGRect(
-                    x: (width - faceWidth) / 2,
-                    y: height - faceHeight - 20,
-                    width: faceWidth,
-                    height: faceHeight
-                ),
-                CGRect(origin: .zero, size: canvasSize),
-            ]
         }
+        return aspects
     }
 
     private func fit(image: CIImage, in targetRect: CGRect) -> CIImage {
@@ -456,6 +450,21 @@ final class CompositeEngine {
         guard source.width > 0, source.height > 0 else { return image }
 
         let scale = min(targetRect.width / source.width, targetRect.height / source.height)
+        let scaledWidth = source.width * scale
+        let scaledHeight = source.height * scale
+        let x = targetRect.minX + (targetRect.width - scaledWidth) / 2
+        let y = targetRect.minY + (targetRect.height - scaledHeight) / 2
+
+        return image
+            .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            .transformed(by: CGAffineTransform(translationX: x - source.minX * scale, y: y - source.minY * scale))
+    }
+
+    private func fill(image: CIImage, in targetRect: CGRect) -> CIImage {
+        let source = image.extent
+        guard source.width > 0, source.height > 0 else { return image }
+
+        let scale = max(targetRect.width / source.width, targetRect.height / source.height)
         let scaledWidth = source.width * scale
         let scaledHeight = source.height * scale
         let x = targetRect.minX + (targetRect.width - scaledWidth) / 2

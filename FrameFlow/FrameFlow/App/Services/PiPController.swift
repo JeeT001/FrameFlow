@@ -18,7 +18,7 @@ enum PiPBorderStyle: String, CaseIterable {
 }
 
 struct PiPConfig: Equatable {
-    var position: CGPoint // normalized center point
+    var position: CGPoint // normalized center: x 0=left 1=right; y 0=bottom 1=top
     var size: CGFloat // normalized width fraction
     var shape: PiPShape
     var borderColor: PiPBorderStyle
@@ -56,6 +56,7 @@ final class PiPController {
     var selectedCameraID: String?
     var selectedPreset: PiPPreset = .bottomRight
     var config: PiPConfig = PiPController.config(for: .bottomRight)
+    var allowsOverflow: Bool = false
 
     private init() {}
 
@@ -70,15 +71,28 @@ final class PiPController {
     }
 
     func updatePosition(_ centerPoint: CGPoint, canvasSize: CGSize) {
-        let clamped = clampedPosition(centerPoint, canvasSize: canvasSize, size: config.size)
-        config.position = snapped(position: clamped, canvasSize: canvasSize)
+        if allowsOverflow {
+            config.position = centerPoint
+        } else {
+            let clamped = PiPLayoutMath.clampedPosition(centerPoint, size: config.size, canvasSize: canvasSize)
+            config.position = snapped(position: clamped, canvasSize: canvasSize)
+        }
     }
 
     func updateSize(_ normalizedWidth: CGFloat, canvasSize: CGSize) {
         let minSize: CGFloat = 0.12
-        let maxSize: CGFloat = 0.5
+        let maxSize: CGFloat = allowsOverflow ? 2.5 : 0.5
         config.size = min(max(normalizedWidth, minSize), maxSize)
-        config.position = clampedPosition(config.position, canvasSize: canvasSize, size: config.size)
+        if !allowsOverflow {
+            config.position = PiPLayoutMath.clampedPosition(config.position, size: config.size, canvasSize: canvasSize)
+            config.position = snapped(position: config.position, canvasSize: canvasSize)
+        }
+    }
+
+    func normalizePositionForCanvas(format: RecordingFormat) {
+        guard isCameraEnabled, !allowsOverflow else { return }
+        let refSize = CompositeEngine.shared.outputSize(for: format)
+        config.position = PiPLayoutMath.clampedPosition(config.position, size: config.size, canvasSize: refSize)
     }
 
     private func snapped(position: CGPoint, canvasSize: CGSize) -> CGPoint {
@@ -96,15 +110,6 @@ final class PiPController {
         if abs(position.y - (1 - halfHeight)) < thresholdY { y = 1 - halfHeight }
 
         return CGPoint(x: x, y: y)
-    }
-
-    private func clampedPosition(_ center: CGPoint, canvasSize: CGSize, size: CGFloat) -> CGPoint {
-        let halfWidth = size / 2
-        let halfHeight = (size * 9.0 / 16.0) / 2
-        return CGPoint(
-            x: min(max(center.x, halfWidth), 1 - halfWidth),
-            y: min(max(center.y, halfHeight), 1 - halfHeight)
-        )
     }
 
     static func config(for preset: PiPPreset) -> PiPConfig {

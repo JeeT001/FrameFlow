@@ -4,7 +4,6 @@
 //
 
 import AppKit
-import AVFoundation
 import Foundation
 
 @MainActor
@@ -178,7 +177,10 @@ final class RecordingDetailViewModel {
         }
 
         thumbnailSourcePath = url.path
-        thumbnail = await Self.generateThumbnail(for: url)
+        thumbnail = await RecordingThumbnailService.thumbnail(
+            for: url,
+            maxSize: RecordingThumbnailService.detailMaximumSize
+        )
     }
 
     private func deleteRelatedFiles(for metadata: RecordingMetadata) {
@@ -199,33 +201,5 @@ final class RecordingDetailViewModel {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let withoutExtension = (cleaned as NSString).deletingPathExtension
         return withoutExtension.isEmpty ? "Recording" : withoutExtension
-    }
-
-    private static func generateThumbnail(for url: URL) async -> NSImage? {
-        do {
-            return try await SecurityScopedFileAccess.withAccess(to: url) {
-                let asset = AVURLAsset(url: url)
-
-                guard let duration = try? await asset.load(.duration) else { return nil }
-                let seconds = min(1.0, max(0, CMTimeGetSeconds(duration) * 0.05))
-                let time = CMTime(seconds: seconds, preferredTimescale: 600)
-
-                let generator = AVAssetImageGenerator(asset: asset)
-                generator.appliesPreferredTrackTransform = true
-                generator.maximumSize = CGSize(width: 640, height: 360)
-
-                return await withCheckedContinuation { continuation in
-                    generator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, image, _, _, _ in
-                        if let image {
-                            continuation.resume(returning: NSImage(cgImage: image, size: .zero))
-                        } else {
-                            continuation.resume(returning: nil)
-                        }
-                    }
-                }
-            }
-        } catch {
-            return nil
-        }
     }
 }

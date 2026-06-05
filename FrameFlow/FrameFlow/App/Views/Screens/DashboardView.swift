@@ -178,6 +178,12 @@ struct DashboardView: View {
     }
 
     private func deleteRecording(_ recording: RecordingMetadata) {
+        let url = URL(fileURLWithPath: recording.filePath)
+        try? SecurityScopedFileAccess.withAccess(to: url) {
+            RecordingFileCleanup.deleteExportedRecordingFiles(for: recording)
+        }
+        RecordingThumbnailService.removeCached(forFilePath: recording.filePath)
+
         do {
             try recordingStore.remove(id: recording.id)
         } catch {
