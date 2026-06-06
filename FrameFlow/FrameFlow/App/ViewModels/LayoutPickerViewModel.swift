@@ -64,15 +64,8 @@ final class LayoutPickerViewModel {
     }
 
     func loadCameras() {
-        let session = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.builtInWideAngleCamera, .external],
-            mediaType: .video,
-            position: .unspecified
-        )
-        availableCameras = session.devices.sorted { $0.localizedName < $1.localizedName }
-        if selectedCameraID == nil {
-            selectedCameraID = availableCameras.first?.uniqueID
-        }
+        refreshAvailableCameras()
+        ensureValidCameraSelection()
     }
 
     func selectFormat(_ newFormat: RecordingFormat, isPro: Bool) {
@@ -118,6 +111,7 @@ final class LayoutPickerViewModel {
         }
         cameraEnabled = pipController.isCameraEnabled
         selectedCameraID = pipController.selectedCameraID
+        ensureValidCameraSelection()
         syncFreeFormOverflowState()
     }
 
@@ -216,8 +210,11 @@ final class LayoutPickerViewModel {
         pipController.isCameraEnabled = enabled
         if !enabled {
             pipController.applyPreset(.noCamera)
-        } else if pipController.selectedPreset == .noCamera {
-            pipController.applyPreset(.bottomRight)
+        } else {
+            if pipController.selectedPreset == .noCamera {
+                pipController.applyPreset(.bottomRight)
+            }
+            ensureValidCameraSelection()
         }
     }
 
@@ -251,6 +248,28 @@ final class LayoutPickerViewModel {
             return false
         }
         return true
+    }
+
+    private func refreshAvailableCameras() {
+        let session = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInWideAngleCamera, .external],
+            mediaType: .video,
+            position: .unspecified
+        )
+        availableCameras = session.devices.sorted { $0.localizedName < $1.localizedName }
+    }
+
+    private func ensureValidCameraSelection() {
+        if availableCameras.isEmpty {
+            refreshAvailableCameras()
+        }
+        let isValid = selectedCameraID.flatMap { id in
+            availableCameras.contains(where: { $0.uniqueID == id })
+        } ?? false
+        if !isValid {
+            selectedCameraID = availableCameras.first?.uniqueID
+        }
+        pipController.selectedCameraID = selectedCameraID
     }
 
     private func ensureFreeFormPlacementsIfNeeded(appState: AppState) {

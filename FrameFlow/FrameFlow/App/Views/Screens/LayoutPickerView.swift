@@ -186,6 +186,9 @@ struct LayoutPickerView: View {
 
             if viewModel.cameraEnabled {
                 Picker("Camera source", selection: cameraSelection) {
+                    if viewModel.availableCameras.isEmpty {
+                        Text("No camera found").tag(Optional<String>.none)
+                    }
                     ForEach(viewModel.availableCameras, id: \.uniqueID) { device in
                         Text(device.localizedName).tag(Optional(device.uniqueID))
                     }
@@ -228,7 +231,7 @@ struct LayoutPickerView: View {
     private var cameraSelection: Binding<String?> {
         Binding(
             get: { viewModel.selectedCameraID },
-            set: { viewModel.selectedCameraID = $0 }
+            set: { viewModel.setSelectedCameraID($0) }
         )
     }
 
