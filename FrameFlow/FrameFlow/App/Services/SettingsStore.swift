@@ -113,9 +113,9 @@ final class SettingsStore {
         defaultMicDevice = defaults.string(forKey: Keys.defaultMicDevice)
         defaultMicVolume = defaults.object(forKey: Keys.defaultMicVolume) as? Float ?? 1.0
         defaultSystemVolume = defaults.object(forKey: Keys.defaultSystemVolume) as? Float ?? 0.8
-        autoFocusEnabled = defaults.object(forKey: Keys.autoFocusEnabled) as? Bool ?? true
-        cursorHighlightEnabled = defaults.object(forKey: Keys.cursorHighlightEnabled) as? Bool ?? true
-        autoZoomOnClick = defaults.object(forKey: Keys.autoZoomOnClick) as? Bool ?? true
+        autoFocusEnabled = defaults.object(forKey: Keys.autoFocusEnabled) as? Bool ?? false
+        cursorHighlightEnabled = defaults.object(forKey: Keys.cursorHighlightEnabled) as? Bool ?? false
+        autoZoomOnClick = defaults.object(forKey: Keys.autoZoomOnClick) as? Bool ?? false
         zoomStrength = defaults.object(forKey: Keys.zoomStrength) as? Float ?? 0.75
         zoomHoldDuration = defaults.object(forKey: Keys.zoomHoldDuration) as? Double ?? 1.0
         cursorHighlightColor = defaults.string(forKey: Keys.cursorHighlightColor) ?? "white"
