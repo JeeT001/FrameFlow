@@ -127,12 +127,21 @@ final class WindowStreamManager {
         await stopAllVideoStreams()
         await stopSystemAudioCapture()
     }
+
+    func updateCursorVisibility(activeWindowID: CGWindowID?) async {
+        for (windowID, session) in sessions {
+            let shouldShow = activeWindowID.map { windowID == $0 } ?? false
+            await session.setShowsCursor(shouldShow)
+        }
+    }
 }
 
 private final class WindowStreamSession {
     private let stream: SCStream
     private let output: WindowStreamOutput
     private let handlerQueue: DispatchQueue
+    private var configuration: SCStreamConfiguration
+    private var showsCursorEnabled = false
 
     static func make(
         window: SCWindow,
@@ -165,13 +174,37 @@ private final class WindowStreamSession {
         try stream.addStreamOutput(output, type: .screen, sampleHandlerQueue: handlerQueue)
         try await stream.startCapture()
 
-        return WindowStreamSession(stream: stream, output: output, handlerQueue: handlerQueue)
+        return WindowStreamSession(
+            stream: stream,
+            output: output,
+            handlerQueue: handlerQueue,
+            configuration: configuration
+        )
     }
 
-    private init(stream: SCStream, output: WindowStreamOutput, handlerQueue: DispatchQueue) {
+    private init(
+        stream: SCStream,
+        output: WindowStreamOutput,
+        handlerQueue: DispatchQueue,
+        configuration: SCStreamConfiguration
+    ) {
         self.stream = stream
         self.output = output
         self.handlerQueue = handlerQueue
+        self.configuration = configuration
+        self.showsCursorEnabled = configuration.showsCursor
+    }
+
+    func setShowsCursor(_ enabled: Bool) async {
+        guard enabled != showsCursorEnabled else { return }
+        showsCursorEnabled = enabled
+        configuration.showsCursor = enabled
+        do {
+            try await stream.updateConfiguration(configuration)
+        } catch {
+            showsCursorEnabled = !enabled
+            configuration.showsCursor = !enabled
+        }
     }
 
     func stop() async {

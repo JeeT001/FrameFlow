@@ -39,40 +39,40 @@ final class CursorTracker {
 
         globalMoveMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged]
-        ) { [weak self] event in
+        ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.updateCursorPoint(event.locationInWindow)
+                self?.updateCursorPoint(NSEvent.mouseLocation)
             }
         }
         localMoveMonitor = NSEvent.addLocalMonitorForEvents(
             matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged]
         ) { [weak self] event in
             Task { @MainActor [weak self] in
-                self?.updateCursorPoint(event.locationInWindow)
+                self?.updateCursorPoint(NSEvent.mouseLocation)
             }
             return event
         }
 
-        globalLeftClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+        globalLeftClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.registerClick(type: .left, at: event.locationInWindow)
+                self?.registerClick(type: .left, at: NSEvent.mouseLocation)
             }
         }
         localLeftClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
             Task { @MainActor [weak self] in
-                self?.registerClick(type: .left, at: event.locationInWindow)
+                self?.registerClick(type: .left, at: NSEvent.mouseLocation)
             }
             return event
         }
 
-        globalRightClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: .rightMouseDown) { [weak self] event in
+        globalRightClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: .rightMouseDown) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.registerClick(type: .right, at: event.locationInWindow)
+                self?.registerClick(type: .right, at: NSEvent.mouseLocation)
             }
         }
         localRightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] event in
             Task { @MainActor [weak self] in
-                self?.registerClick(type: .right, at: event.locationInWindow)
+                self?.registerClick(type: .right, at: NSEvent.mouseLocation)
             }
             return event
         }

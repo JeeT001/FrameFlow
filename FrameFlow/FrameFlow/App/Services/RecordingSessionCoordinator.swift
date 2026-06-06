@@ -293,10 +293,10 @@ final class RecordingSessionCoordinator {
             repeats: true
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.tick()
+                await self?.tick()
             }
         }
-        tick()
+        Task { await tick() }
     }
 
     private func refreshPreviewIfNeeded() {
@@ -304,7 +304,7 @@ final class RecordingSessionCoordinator {
         previewImage = compositeEngine.createCGImage(from: ci, canvasSize: outputSize)
     }
 
-    private func tick() {
+    private func tick() async {
         guard isRecording else { return }
 
         syncAutoFocusFromSettings()
@@ -321,6 +321,8 @@ final class RecordingSessionCoordinator {
 
         let pipAllowsOverflow = layoutPreset == .freeForm
 
+        await streamManager.updateCursorVisibility(activeWindowID: cursorWindowID)
+
         guard let ci = compositeEngine.renderCompositeCIImage(
             frames: streamManager.latestFrames,
             windowOrder: windowOrder,
@@ -329,8 +331,7 @@ final class RecordingSessionCoordinator {
             zoomScale: zoomScale,
             zoomFocalPointNormalized: zoomController.focalPointNormalized,
             clickOverlay: clickOverlay,
-            mouseLocation: cursorTracker.currentCursorPoint,
-            activeWindowID: cursorWindowID,
+            activeWindowID: focusedWindowID,
             autoFocusEnabled: autoFocusEnabled,
             customPlacements: placements,
             windowAspects: windowAspects,

@@ -6,6 +6,11 @@
 import AppKit
 import SwiftUI
 
+enum CompositePreviewContentMode {
+    case fit
+    case fill
+}
+
 struct CompositePreviewView: View {
     let image: CGImage?
     let aspectRatio: CGFloat
@@ -38,13 +43,14 @@ struct CompositePreviewView: View {
 
 struct CompositePreviewRepresentable: NSViewRepresentable {
     let image: CGImage?
+    var contentMode: CompositePreviewContentMode = .fit
 
     func makeNSView(context: Context) -> CompositePreviewNSView {
         CompositePreviewNSView()
     }
 
     func updateNSView(_ nsView: CompositePreviewNSView, context: Context) {
-        nsView.update(image: image)
+        nsView.update(image: image, contentMode: contentMode)
     }
 }
 
@@ -52,11 +58,13 @@ final class CompositePreviewNSView: NSView {
     /// Match SwiftUI top-left coordinates with CIImage-backed layer contents.
     override var isFlipped: Bool { true }
 
+    private var contentMode: CompositePreviewContentMode = .fit
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.withAlphaComponent(0.85).cgColor
-        layer?.contentsGravity = .resizeAspect
+        applyContentMode()
     }
 
     @available(*, unavailable)
@@ -64,8 +72,14 @@ final class CompositePreviewNSView: NSView {
         nil
     }
 
-    func update(image: CGImage?) {
+    func update(image: CGImage?, contentMode: CompositePreviewContentMode = .fit) {
+        self.contentMode = contentMode
+        applyContentMode()
         layer?.contents = image
+    }
+
+    private func applyContentMode() {
+        layer?.contentsGravity = contentMode == .fill ? .resizeAspectFill : .resizeAspect
     }
 }
 

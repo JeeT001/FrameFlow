@@ -5,7 +5,9 @@
 
 import AppKit
 import CoreGraphics
+import CoreImage
 import Foundation
+import ScreenCaptureKit
 
 @MainActor
 @Observable
@@ -26,6 +28,7 @@ final class CompositePreviewCoordinator {
     private var windowAspects: [CGWindowID: CGFloat] = [:]
     private var autoFocusEnabled = false
     private var placementsResolver: (() -> [CGWindowID: WindowPlacement])?
+    var onCaptureFramesUpdated: (([CGWindowID: CIImage]) -> Void)?
 
     func start(
         windowIDs: Set<CGWindowID>,
@@ -82,7 +85,7 @@ final class CompositePreviewCoordinator {
         self.placementsResolver = placementsResolver
         self.windowAspects = windowAspects
         self.autoFocusEnabled = autoFocusEnabled
-        refreshCompositeFrame()
+        Task { await refreshCompositeFrame() }
     }
 
     func updateWindowIDs(
@@ -129,31 +132,48 @@ final class CompositePreviewCoordinator {
         displayTimer?.invalidate()
         displayTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.refreshCompositeFrame()
+                await self?.refreshCompositeFrame()
             }
         }
-        refreshCompositeFrame()
+        Task { await refreshCompositeFrame() }
     }
 
-    private func refreshCompositeFrame() {
+    private func refreshCompositeFrame() async {
         guard isLiveActive else { return }
 
         activeWindowMonitor.updateVisibleWindowIDs(Set(streamManager.latestFrames.keys))
         let canvasSize = compositeEngine.outputSize(for: format)
         let placements = layoutPreset == .freeForm ? placementsResolver?() : nil
         let focusedWindowID = autoFocusEnabled ? activeWindowMonitor.activeWindowID : nil
+        let cursorWindowID = cursorTargetWindowID(focusedWindowID: focusedWindowID)
+
+        await streamManager.updateCursorVisibility(activeWindowID: cursorWindowID)
+
+        let latestFrames = streamManager.latestFrames
+        onCaptureFramesUpdated?(latestFrames)
 
         previewImage = compositeEngine.renderComposite(
-            frames: streamManager.latestFrames,
+            frames: latestFrames,
             windowOrder: windowOrder,
             preset: layoutPreset,
             canvasSize: canvasSize,
-            mouseLocation: cursorTracker.currentCursorPoint,
             activeWindowID: focusedWindowID,
             autoFocusEnabled: autoFocusEnabled,
             customPlacements: placements,
             windowAspects: windowAspects,
             pipAllowsOverflow: layoutPreset == .freeForm
         )
+    }
+
+    private func cursorTargetWindowID(focusedWindowID: CGWindowID?) -> CGWindowID? {
+        let mouseLocation = cursorTracker.currentCursorPoint
+        for windowID in windowOrder.reversed() {
+            guard let scWindow = WindowCaptureService.shared.scWindow(for: windowID),
+                  scWindow.frame.contains(mouseLocation) else {
+                continue
+            }
+            return windowID
+        }
+        return focusedWindowID
     }
 }

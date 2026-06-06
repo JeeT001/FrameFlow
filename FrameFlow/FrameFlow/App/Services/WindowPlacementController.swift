@@ -4,6 +4,7 @@
 //
 
 import CoreGraphics
+import CoreImage
 import Foundation
 import ScreenCaptureKit
 
@@ -14,6 +15,16 @@ final class WindowPlacementController {
     var allowsOverflow: Bool = true
 
     private var windowAspects: [CGWindowID: CGFloat] = [:]
+
+    func needsReseed(for windowIDs: [CGWindowID]) -> Bool {
+        guard !windowIDs.isEmpty else { return false }
+        for windowID in windowIDs {
+            guard let placement = placements[windowID], placement.hasValidCropFrame else {
+                return true
+            }
+        }
+        return false
+    }
 
     func seedFromPreset(
         _ preset: LayoutPreset,
@@ -40,16 +51,25 @@ final class WindowPlacementController {
         canvasSize: CGSize
     ) {
         updateAspects(for: windowIDs)
-        let rects = WindowPlacementMath.presetCanvasRects(
-            count: windowIDs.count,
-            canvasSize: canvasSize,
-            preset: .freeForm
-        )
-        placements = WindowPlacementMath.placementsFromCanvasRects(
-            windowOrder: windowIDs,
-            rects: rects,
-            canvasSize: canvasSize
-        )
+
+        let defaultCenters: [CGPoint] = [
+            CGPoint(x: 0.5, y: 0.5),
+            CGPoint(x: 0.35, y: 0.65),
+            CGPoint(x: 0.65, y: 0.35),
+            CGPoint(x: 0.28, y: 0.55),
+        ]
+
+        var result: [CGWindowID: WindowPlacement] = [:]
+        for (index, windowID) in windowIDs.enumerated() {
+            let aspect = aspectRatio(for: windowID)
+            let center = defaultCenters[min(index, defaultCenters.count - 1)]
+            result[windowID] = WindowPlacementMath.initialPlacementForWindow(
+                windowAspect: aspect,
+                canvasSize: canvasSize,
+                center: center
+            )
+        }
+        placements = result
     }
 
     func updatePosition(
@@ -61,11 +81,10 @@ final class WindowPlacementController {
         if allowsOverflow {
             placement.center = WindowPlacementMath.freeFormPosition(center)
         } else {
-            let aspect = aspectRatio(for: windowID)
             placement.center = WindowPlacementMath.clampedPosition(
                 center,
                 widthFraction: placement.widthFraction,
-                aspect: aspect,
+                heightFraction: placement.heightFraction,
                 canvasSize: canvasSize
             )
         }
@@ -78,21 +97,36 @@ final class WindowPlacementController {
         canvasSize: CGSize
     ) {
         guard var placement = placements[windowID] else { return }
-        let aspect = aspectRatio(for: windowID)
         let minSize: CGFloat = 0.12
-        let maxSize: CGFloat = allowsOverflow ? 3.0 : 0.95
-        placement.widthFraction = min(max(widthFraction, minSize), maxSize)
+        let maxWidth: CGFloat = allowsOverflow ? 3.0 : 0.95
+        let maxHeight: CGFloat = allowsOverflow ? 3.0 : 0.95
+
+        placement.widthFraction = min(max(widthFraction, minSize), maxWidth)
+        let aspect = aspectRatio(for: windowID)
+        WindowPlacementMath.syncPlacementToWindowAspect(
+            &placement,
+            windowAspect: aspect,
+            canvasSize: canvasSize
+        )
+        placement.heightFraction = min(max(placement.heightFraction, minSize), maxHeight)
+
         if allowsOverflow {
             placement.center = WindowPlacementMath.freeFormPosition(placement.center)
         } else {
             placement.center = WindowPlacementMath.clampedPosition(
                 placement.center,
                 widthFraction: placement.widthFraction,
-                aspect: aspect,
+                heightFraction: placement.heightFraction,
                 canvasSize: canvasSize
             )
         }
         placements[windowID] = placement
+    }
+
+    func updateAspectFromCapture(windowID: CGWindowID, image: CIImage) {
+        let extent = image.extent
+        guard extent.width > 0 else { return }
+        windowAspects[windowID] = extent.height / extent.width
     }
 
     func aspectRatio(for windowID: CGWindowID) -> CGFloat {
@@ -111,19 +145,16 @@ final class WindowPlacementController {
         canvasSize: CGSize,
         coordinateSpace: WindowPlacementCoordinateSpace
     ) -> CGRect? {
-        guard let placement = placements[windowID] else { return nil }
-        let aspect = aspectRatio(for: windowID)
+        guard let placement = placements[windowID], placement.hasValidCropFrame else { return nil }
         if allowsOverflow {
             return WindowPlacementMath.canvasRectUnclamped(
                 for: placement,
-                aspect: aspect,
                 canvasSize: canvasSize,
                 coordinateSpace: coordinateSpace
             )
         }
         return WindowPlacementMath.canvasRect(
             for: placement,
-            aspect: aspectRatio(for: windowID),
             canvasSize: canvasSize,
             coordinateSpace: coordinateSpace
         )

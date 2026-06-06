@@ -84,6 +84,23 @@ final class LayoutPickerViewModel {
         format = newFormat
     }
 
+    func handleFormatChange(from oldFormat: RecordingFormat, to newFormat: RecordingFormat, appState: AppState) {
+        if newFormat == .nineBySixteen,
+           layoutPreset == .freeForm,
+           oldFormat != newFormat {
+            let windowIDs = appState.selectedWindowIDs.sorted()
+            if !windowIDs.isEmpty {
+                windowPlacementController.seedFreeFormDefault(
+                    windowIDs: windowIDs,
+                    canvasSize: CompositeEngine.shared.outputSize(for: newFormat)
+                )
+                appState.windowPlacements = windowPlacementController.placements
+            }
+        }
+        syncSessionState(to: appState)
+        updateLivePreviewLayout(appState: appState)
+    }
+
     func loadSessionState(from appState: AppState) {
         if !appState.selectedWindowIDs.isEmpty {
             format = appState.selectedFormat
@@ -91,7 +108,12 @@ final class LayoutPickerViewModel {
             previousLayoutPreset = layoutPreset
             previewWindowOrder = appState.selectedWindowIDs.sorted()
             if layoutPreset == .freeForm, !appState.windowPlacements.isEmpty {
-                windowPlacementController.placements = appState.windowPlacements
+                if let valid = validFreeFormPlacements(
+                    from: appState.windowPlacements,
+                    windowIDs: previewWindowOrder
+                ) {
+                    windowPlacementController.placements = valid
+                }
             }
         }
         cameraEnabled = pipController.isCameraEnabled
@@ -114,6 +136,11 @@ final class LayoutPickerViewModel {
         previewWindowOrder = appState.selectedWindowIDs.sorted()
         ensureFreeFormPlacementsIfNeeded(appState: appState)
         syncFreeFormOverflowState()
+        previewCoordinator.onCaptureFramesUpdated = { [windowPlacementController] frames in
+            for (windowID, image) in frames {
+                windowPlacementController.updateAspectFromCapture(windowID: windowID, image: image)
+            }
+        }
         await previewCoordinator.start(
             windowIDs: appState.selectedWindowIDs,
             format: format,
@@ -161,15 +188,14 @@ final class LayoutPickerViewModel {
         let windowIDs = appState.selectedWindowIDs.sorted()
 
         if newPreset == .freeForm {
-            if oldPreset == .freeForm, !windowPlacementController.placements.isEmpty {
-                // Keep existing free-form placements.
-            } else if !appState.windowPlacements.isEmpty {
-                windowPlacementController.placements = appState.windowPlacements
+            if oldPreset == .freeForm, !windowPlacementController.needsReseed(for: windowIDs) {
+                // Keep existing free-form placements while user is mid-edit.
             } else {
                 windowPlacementController.seedFreeFormDefault(
                     windowIDs: windowIDs,
                     canvasSize: canvasSize
                 )
+                appState.windowPlacements = windowPlacementController.placements
             }
         }
 
@@ -234,16 +260,29 @@ final class LayoutPickerViewModel {
         guard !windowIDs.isEmpty else { return }
 
         let missingWindow = windowIDs.contains { windowPlacementController.placements[$0] == nil }
-        if windowPlacementController.placements.isEmpty || missingWindow {
-            if !appState.windowPlacements.isEmpty, !missingWindow {
-                windowPlacementController.placements = appState.windowPlacements
-            } else {
-                windowPlacementController.seedFreeFormDefault(
-                    windowIDs: windowIDs,
-                    canvasSize: CompositeEngine.shared.outputSize(for: format)
-                )
-            }
+        if windowPlacementController.placements.isEmpty
+            || missingWindow
+            || windowPlacementController.needsReseed(for: windowIDs) {
+            windowPlacementController.seedFreeFormDefault(
+                windowIDs: windowIDs,
+                canvasSize: CompositeEngine.shared.outputSize(for: format)
+            )
         }
+    }
+
+    private func validFreeFormPlacements(
+        from stored: [CGWindowID: WindowPlacement],
+        windowIDs: [CGWindowID]
+    ) -> [CGWindowID: WindowPlacement]? {
+        guard !windowIDs.isEmpty else { return nil }
+        var result: [CGWindowID: WindowPlacement] = [:]
+        for windowID in windowIDs {
+            guard let placement = stored[windowID], placement.hasValidCropFrame else {
+                return nil
+            }
+            result[windowID] = placement
+        }
+        return result
     }
 
     private var placementsResolver: () -> [CGWindowID: WindowPlacement] {

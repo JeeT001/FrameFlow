@@ -46,7 +46,6 @@ final class CompositeEngine {
         zoomScale: CGFloat = 1.0,
         zoomFocalPointNormalized: CGPoint = CGPoint(x: 0.5, y: 0.5),
         clickOverlay: CIImage? = nil,
-        mouseLocation: CGPoint? = nil,
         activeWindowID: CGWindowID? = nil,
         autoFocusEnabled: Bool = false,
         customPlacements: [CGWindowID: WindowPlacement]? = nil,
@@ -64,7 +63,6 @@ final class CompositeEngine {
             zoomScale: zoomScale,
             zoomFocalPointNormalized: zoomFocalPointNormalized,
             clickOverlay: clickOverlay,
-            mouseLocation: mouseLocation,
             activeWindowID: activeWindowID,
             autoFocusEnabled: autoFocusEnabled,
             customPlacements: customPlacements,
@@ -131,7 +129,6 @@ final class CompositeEngine {
         zoomScale: CGFloat = 1.0,
         zoomFocalPointNormalized: CGPoint = CGPoint(x: 0.5, y: 0.5),
         clickOverlay: CIImage? = nil,
-        mouseLocation: CGPoint? = nil,
         activeWindowID: CGWindowID? = nil,
         autoFocusEnabled: Bool = false,
         customPlacements: [CGWindowID: WindowPlacement]? = nil,
@@ -149,8 +146,10 @@ final class CompositeEngine {
 
         let canvasRect = CGRect(origin: .zero, size: canvasSize)
         let isFreeForm = preset == .freeForm
+        let isVerticalCanvas = canvasSize.height > canvasSize.width
         let aspects = resolvedWindowAspects(
             windowOrder: windowOrder,
+            frames: frames,
             windowAspects: windowAspects
         )
         let placements = WindowPlacementMath.layoutRects(
@@ -168,20 +167,28 @@ final class CompositeEngine {
         var composite = CIImage(color: CIColor(red: 0.05, green: 0.05, blue: 0.06))
             .cropped(to: canvasRect)
 
-        for (image, targetRect) in zip(orderedImages, placements) {
-            let placed = isFreeForm ? fill(image: image, in: targetRect) : fit(image: image, in: targetRect)
-            composite = placed.composited(over: composite)
-        }
+        for index in orderedImages.indices {
+            let windowID = windowOrder[index]
+            let image = orderedImages[index]
+            let targetRect = placements[index]
+            let placed: CIImage
+            if isFreeForm {
+                let source = normalizedFrame(image)
+                if isVerticalCanvas {
+                    placed = fit(image: source, in: targetRect)
+                } else {
+                    let windowAspect = aspects[windowID] ?? (9.0 / 16.0)
+                    let cropAspect = targetRect.width / max(targetRect.height, 1)
+                    let windowWidthOverHeight = 1.0 / windowAspect
+                    let useFit = abs(cropAspect - windowWidthOverHeight) < 0.02
+                    placed = useFit ? fit(image: source, in: targetRect) : fill(image: source, in: targetRect)
+                }
+            } else {
+                placed = fit(image: image, in: targetRect)
+            }
 
-        if let mouseLocation,
-           let cursorOverlay = CursorCompositor.cursorOverlay(
-               mouseLocation: mouseLocation,
-               activeWindowID: activeWindowID,
-               windowOrder: windowOrder,
-               placements: placements,
-               canvasRect: canvasRect
-           ) {
-            composite = cursorOverlay.composited(over: composite)
+            let clipped = isFreeForm ? placed.cropped(to: targetRect) : placed
+            composite = clipped.composited(over: composite)
         }
 
         composite = applyZoom(
@@ -195,7 +202,7 @@ final class CompositeEngine {
             composite = clickOverlay.composited(over: composite)
         }
 
-        if autoFocusEnabled {
+        if autoFocusEnabled, preset != .freeForm {
             if let focusOverlay = focusOverlayImage(
                 activeWindowID: activeWindowID,
                 windowOrder: windowOrder,
@@ -431,18 +438,36 @@ final class CompositeEngine {
 
     private func resolvedWindowAspects(
         windowOrder: [CGWindowID],
+        frames: [CGWindowID: CIImage],
         windowAspects: [CGWindowID: CGFloat]
     ) -> [CGWindowID: CGFloat] {
         var aspects = windowAspects
-        for windowID in windowOrder where aspects[windowID] == nil {
-            if let window = WindowCaptureService.shared.scWindow(for: windowID),
-               window.frame.width > 0 {
-                aspects[windowID] = window.frame.height / window.frame.width
-            } else {
-                aspects[windowID] = 9.0 / 16.0
+        for windowID in windowOrder {
+            if let frame = frames[windowID] {
+                let extent = normalizedFrame(frame).extent
+                if extent.width > 0 {
+                    aspects[windowID] = extent.height / extent.width
+                    continue
+                }
+            }
+            if aspects[windowID] == nil {
+                if let window = WindowCaptureService.shared.scWindow(for: windowID),
+                   window.frame.width > 0 {
+                    aspects[windowID] = window.frame.height / window.frame.width
+                } else {
+                    aspects[windowID] = 9.0 / 16.0
+                }
             }
         }
         return aspects
+    }
+
+    private func normalizedFrame(_ image: CIImage) -> CIImage {
+        let extent = image.extent
+        guard extent.origin != .zero else { return image }
+        return image.transformed(
+            by: CGAffineTransform(translationX: -extent.origin.x, y: -extent.origin.y)
+        )
     }
 
     private func fit(image: CIImage, in targetRect: CGRect) -> CIImage {

@@ -49,9 +49,8 @@ struct LayoutPickerView: View {
         .onDisappear {
             Task { await viewModel.stopLivePreview() }
         }
-        .onChange(of: viewModel.format) { _, _ in
-            viewModel.syncSessionState(to: appState)
-            viewModel.updateLivePreviewLayout(appState: appState)
+        .onChange(of: viewModel.format) { old, new in
+            viewModel.handleFormatChange(from: old, to: new, appState: appState)
         }
         .onChange(of: viewModel.layoutPreset) { old, new in
             viewModel.handleLayoutPresetChange(from: old, to: new, appState: appState)
@@ -153,8 +152,6 @@ struct LayoutPickerView: View {
                     present: presentProGate,
                     action: {
                         viewModel.format = newValue
-                        viewModel.syncSessionState(to: appState)
-                        viewModel.updateLivePreviewLayout(appState: appState)
                     }
                 )
             }
@@ -313,6 +310,7 @@ struct LayoutPickerView: View {
                     LayoutLivePreviewStack(
                         image: previewImage,
                         aspectRatio: viewModel.format.aspectRatio,
+                        referenceCanvasSize: CompositeEngine.shared.outputSize(for: viewModel.format),
                         layoutPreset: viewModel.layoutPreset,
                         windowIDs: appState.selectedWindowIDs.sorted(),
                         pipController: viewModel.pipController,

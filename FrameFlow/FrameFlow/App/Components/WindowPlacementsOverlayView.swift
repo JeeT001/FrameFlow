@@ -8,6 +8,7 @@ import SwiftUI
 struct WindowPlacementsOverlayView: View {
     @Bindable var controller: WindowPlacementController
     let windowIDs: [CGWindowID]
+    let canvasSize: CGSize
     var interactionOnly: Bool = true
 
     @State private var dragStartCenters: [CGWindowID: CGPoint] = [:]
@@ -15,31 +16,22 @@ struct WindowPlacementsOverlayView: View {
     @State private var frontWindowID: CGWindowID?
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .topLeading) {
-                Color.clear
-
-                ForEach(windowIDs, id: \.self) { windowID in
-                    if let rect = controller.canvasRect(
-                        for: windowID,
-                        canvasSize: geometry.size,
-                        coordinateSpace: .swiftUI
-                    ) {
-                        windowChrome(for: windowID, rect: rect, canvasSize: geometry.size)
-                    }
+        ZStack {
+            ForEach(windowIDs, id: \.self) { windowID in
+                if let rect = controller.canvasRect(
+                    for: windowID,
+                    canvasSize: canvasSize,
+                    coordinateSpace: .swiftUI
+                ) {
+                    windowChrome(for: windowID, rect: rect)
                 }
             }
-            .frame(width: geometry.size.width, height: geometry.size.height)
         }
-        .allowsHitTesting(true)
+        .frame(width: canvasSize.width, height: canvasSize.height)
     }
 
     @ViewBuilder
-    private func windowChrome(
-        for windowID: CGWindowID,
-        rect: CGRect,
-        canvasSize: CGSize
-    ) -> some View {
+    private func windowChrome(for windowID: CGWindowID, rect: CGRect) -> some View {
         ZStack(alignment: .bottomTrailing) {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(Color.clear)
@@ -50,15 +42,15 @@ struct WindowPlacementsOverlayView: View {
 
             resizeHandle
                 .padding(4)
-                .gesture(resizeGesture(for: windowID, in: canvasSize))
+                .gesture(resizeGesture(for: windowID))
         }
         .frame(width: rect.width, height: rect.height)
-        .offset(x: rect.minX, y: rect.minY)
+        .position(x: rect.midX, y: rect.midY)
         .zIndex(windowID == frontWindowID ? 1 : 0)
         .onTapGesture {
             frontWindowID = windowID
         }
-        .gesture(dragGesture(for: windowID, in: canvasSize))
+        .gesture(dragGesture(for: windowID))
     }
 
     private var resizeHandle: some View {
@@ -71,7 +63,7 @@ struct WindowPlacementsOverlayView: View {
             .shadow(radius: 2, y: 1)
     }
 
-    private func dragGesture(for windowID: CGWindowID, in canvasSize: CGSize) -> some Gesture {
+    private func dragGesture(for windowID: CGWindowID) -> some Gesture {
         DragGesture()
             .onChanged { value in
                 frontWindowID = windowID
@@ -89,7 +81,7 @@ struct WindowPlacementsOverlayView: View {
             }
     }
 
-    private func resizeGesture(for windowID: CGWindowID, in canvasSize: CGSize) -> some Gesture {
+    private func resizeGesture(for windowID: CGWindowID) -> some Gesture {
         DragGesture()
             .onChanged { value in
                 if resizeStartSizes[windowID] == nil {

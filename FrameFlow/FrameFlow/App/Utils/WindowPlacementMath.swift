@@ -13,14 +13,11 @@ enum WindowPlacementCoordinateSpace {
 }
 
 enum WindowPlacementMath {
-    static func windowSize(
-        placement: WindowPlacement,
-        aspect: CGFloat,
-        canvasSize: CGSize
-    ) -> CGSize {
-        let width = canvasSize.width * placement.widthFraction
-        let height = width * aspect
-        return CGSize(width: width, height: height)
+    static func cropFrameSize(placement: WindowPlacement, canvasSize: CGSize) -> CGSize {
+        CGSize(
+            width: canvasSize.width * placement.widthFraction,
+            height: canvasSize.height * placement.heightFraction
+        )
     }
 
     static func canvasCenter(
@@ -41,11 +38,10 @@ enum WindowPlacementMath {
 
     static func canvasRect(
         for placement: WindowPlacement,
-        aspect: CGFloat,
         canvasSize: CGSize,
         coordinateSpace: WindowPlacementCoordinateSpace
     ) -> CGRect {
-        let size = windowSize(placement: placement, aspect: aspect, canvasSize: canvasSize)
+        let size = cropFrameSize(placement: placement, canvasSize: canvasSize)
         let center = canvasCenter(placement: placement, canvasSize: canvasSize, coordinateSpace: coordinateSpace)
         let rect = CGRect(
             x: center.x - size.width / 2,
@@ -58,17 +54,61 @@ enum WindowPlacementMath {
 
     static func canvasRectUnclamped(
         for placement: WindowPlacement,
-        aspect: CGFloat,
         canvasSize: CGSize,
         coordinateSpace: WindowPlacementCoordinateSpace
     ) -> CGRect {
-        let size = windowSize(placement: placement, aspect: aspect, canvasSize: canvasSize)
+        let size = cropFrameSize(placement: placement, canvasSize: canvasSize)
         let center = canvasCenter(placement: placement, canvasSize: canvasSize, coordinateSpace: coordinateSpace)
         return CGRect(
             x: center.x - size.width / 2,
             y: center.y - size.height / 2,
             width: size.width,
             height: size.height
+        )
+    }
+
+    static func heightFraction(
+        forWidthFraction widthFraction: CGFloat,
+        windowAspect: CGFloat,
+        canvasSize: CGSize
+    ) -> CGFloat {
+        let canvasAspect = canvasSize.width / canvasSize.height
+        let windowWidthOverHeight = 1.0 / windowAspect
+        return widthFraction * canvasAspect / windowWidthOverHeight
+    }
+
+    static func syncPlacementToWindowAspect(
+        _ placement: inout WindowPlacement,
+        windowAspect: CGFloat,
+        canvasSize: CGSize
+    ) {
+        placement.heightFraction = heightFraction(
+            forWidthFraction: placement.widthFraction,
+            windowAspect: windowAspect,
+            canvasSize: canvasSize
+        )
+    }
+
+    static func initialPlacementForWindow(
+        windowAspect: CGFloat,
+        canvasSize: CGSize,
+        center: CGPoint,
+        maxFraction: CGFloat = 0.88
+    ) -> WindowPlacement {
+        let canvasAspect = canvasSize.width / canvasSize.height
+        let windowWidthOverHeight = 1.0 / windowAspect
+        var widthFraction = maxFraction
+        var heightFraction = widthFraction * canvasAspect / windowWidthOverHeight
+
+        if heightFraction > maxFraction {
+            heightFraction = maxFraction
+            widthFraction = heightFraction * windowWidthOverHeight / canvasAspect
+        }
+
+        return WindowPlacement(
+            center: center,
+            widthFraction: widthFraction,
+            heightFraction: heightFraction
         )
     }
 
@@ -79,11 +119,11 @@ enum WindowPlacementMath {
     static func clampedPosition(
         _ position: CGPoint,
         widthFraction: CGFloat,
-        aspect: CGFloat,
+        heightFraction: CGFloat,
         canvasSize: CGSize
     ) -> CGPoint {
         let halfWidth = widthFraction / 2
-        let halfHeight = (widthFraction * aspect) / 2
+        let halfHeight = heightFraction / 2
         return CGPoint(
             x: min(max(position.x, halfWidth), 1 - halfWidth),
             y: min(max(position.y, halfHeight), 1 - halfHeight)
@@ -146,7 +186,7 @@ enum WindowPlacementMath {
             ]
 
         case .freeForm:
-            return defaultFreeFormRects(count: n, canvasSize: canvasSize)
+            return [CGRect(origin: .zero, size: canvasSize)]
         }
     }
 
@@ -159,11 +199,9 @@ enum WindowPlacementMath {
     ) -> [CGRect] {
         if preset == .freeForm, let customPlacements {
             return windowOrder.compactMap { id in
-                guard let placement = customPlacements[id] else { return nil }
-                let aspect = windowAspects[id] ?? (9.0 / 16.0)
+                guard let placement = customPlacements[id], placement.hasValidCropFrame else { return nil }
                 return canvasRectUnclamped(
                     for: placement,
-                    aspect: aspect,
                     canvasSize: canvasSize,
                     coordinateSpace: .coreImage
                 )
@@ -192,34 +230,10 @@ enum WindowPlacementMath {
                     x: rect.midX / canvasSize.width,
                     y: (canvasSize.height - rect.midY) / canvasSize.height
                 ),
-                widthFraction: rect.width / canvasSize.width
+                widthFraction: rect.width / canvasSize.width,
+                heightFraction: rect.height / canvasSize.height
             )
         }
         return result
-    }
-
-    private static func defaultFreeFormRects(count: Int, canvasSize: CGSize) -> [CGRect] {
-        let width = canvasSize.width
-        let height = canvasSize.height
-        let offsets: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
-            (0.35, 0.65, 0.55, 0.42),
-            (0.65, 0.35, 0.55, 0.34),
-            (0.28, 0.55, 0.4, 0.28),
-            (0.72, 0.48, 0.36, 0.24),
-        ]
-
-        return (0..<min(count, 4)).map { index in
-            let slot = offsets[index]
-            let rectWidth = width * slot.2
-            let rectHeight = height * slot.3
-            let centerX = width * slot.0
-            let centerYFromTop = height * (1 - slot.1)
-            return CGRect(
-                x: centerX - rectWidth / 2,
-                y: centerYFromTop - rectHeight / 2,
-                width: rectWidth,
-                height: rectHeight
-            )
-        }
     }
 }

@@ -47,7 +47,6 @@ struct PiPOverlayView: View {
                     .gesture(dragGesture(in: geometry.size))
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height)
-                .modifier(PiPOverlayClipModifier(allowsOverflow: controller.allowsOverflow))
             }
         }
         .allowsHitTesting(controller.isCameraEnabled)
@@ -142,18 +141,6 @@ struct PiPOverlayView: View {
             .onEnded { _ in
                 resizeStartSize = nil
             }
-    }
-}
-
-private struct PiPOverlayClipModifier: ViewModifier {
-    let allowsOverflow: Bool
-
-    func body(content: Content) -> some View {
-        if allowsOverflow {
-            content
-        } else {
-            content.clipped()
-        }
     }
 }
 
