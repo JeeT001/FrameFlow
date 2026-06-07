@@ -2,6 +2,9 @@
 //  CaptionEditorView.swift
 //  FrameFlow
 //
+//  Legacy — post-record flow absorbed by EditorView (Day 40.1 Phase A).
+//  Kept for reference; RouteDetailView routes `.captionEditor` to EditorView.
+//
 
 import AVFoundation
 import SwiftUI

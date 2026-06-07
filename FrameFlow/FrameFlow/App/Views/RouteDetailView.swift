@@ -20,8 +20,10 @@ struct RouteDetailView: View {
             AudioModePickerStandaloneView()
         case .recording:
             RecordingView()
+        case .editor:
+            EditorView()
         case .captionEditor:
-            CaptionEditorView()
+            EditorView()
         case .export:
             ExportView()
         case .recordingDetail:

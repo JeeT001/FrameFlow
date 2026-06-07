@@ -51,15 +51,16 @@ struct HelpView: View {
             answer: """
             Exports support 16:9 (landscape) and 9:16 (vertical) aspect ratios. Default \
             resolution is set in Settings → Recording & Export (720p, 1080p, and 4K on Apple \
-            Silicon). Final export options are configured on the Export screen after recording.
+            Silicon). After recording, open the Post-Record Editor and use the Export tab to \
+            choose resolution; tap Export in the toolbar to save your MP4.
             """
         ),
         HelpFAQItem(
             title: "How do captions work?",
             answer: """
-            Captions are generated on-device using WhisperKit in a later phase — no audio is sent \
-            to the cloud for transcription. You can edit segments in the Caption Editor and burn \
-            them into the exported video.
+            Captions are generated on-device using WhisperKit — no audio is sent to the cloud. \
+            Pro users can generate and edit captions in the Post-Record Editor Captions tab, \
+            then export with captions burned in from the Export tab or toolbar Export button.
             """
         ),
         HelpFAQItem(

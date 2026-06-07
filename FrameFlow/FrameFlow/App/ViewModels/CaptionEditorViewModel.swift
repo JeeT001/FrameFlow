@@ -31,6 +31,9 @@ final class CaptionEditorViewModel {
     var showExportSuccessAlert = false
     var exportedPaths: [URL] = []
 
+    /// When set, preview playback and seeks are constrained to this range (Editor trim).
+    var playbackRange: ClosedRange<Double>?
+
     let player = AVPlayer()
 
     private var timeObserver: Any?
@@ -72,17 +75,36 @@ final class CaptionEditorViewModel {
             }) ?? []
         }
 
+        if let url = state.videoURL, let id = state.recordingID {
+            selectedStyle = CaptionEngine.shared.loadStyle(for: url, recordingID: id)
+        }
+
         if let url = state.videoURL, player.currentItem == nil {
-            Task {
-                do {
-                    try await SecurityScopedFileAccess.withAccess(to: url) {
-                        configurePlayer(url: url)
-                    }
-                } catch SecurityScopedFileAccess.AccessError.denied {
-                    exportError = SecurityScopedFileAccess.accessDeniedMessage
-                } catch {
-                    exportError = error.localizedDescription
+            loadPlayer(url: url)
+        }
+    }
+
+    func loadPreview(url: URL, recording: RecordingMetadata) {
+        recordingURL = url
+        recordingID = recording.id
+        recordingMetadata = recording
+        selectedStyle = CaptionEngine.shared.loadStyle(for: url, recordingID: recording.id)
+
+        if player.currentItem == nil {
+            loadPlayer(url: url)
+        }
+    }
+
+    private func loadPlayer(url: URL) {
+        Task {
+            do {
+                try await SecurityScopedFileAccess.withAccess(to: url) {
+                    configurePlayer(url: url)
                 }
+            } catch SecurityScopedFileAccess.AccessError.denied {
+                exportError = SecurityScopedFileAccess.accessDeniedMessage
+            } catch {
+                exportError = error.localizedDescription
             }
         }
     }
@@ -96,6 +118,37 @@ final class CaptionEditorViewModel {
 
     func setPosition(_ position: CaptionVerticalPosition) {
         selectedStyle.verticalPosition = position
+        selectedStyle.customVerticalOffsetNormalized = nil
+    }
+
+    func updateCaptionVerticalOffset(_ offset: Double) {
+        selectedStyle.customVerticalOffsetNormalized = min(
+            max(offset, CaptionStyleConfig.verticalOffsetRange.lowerBound),
+            CaptionStyleConfig.verticalOffsetRange.upperBound
+        )
+    }
+
+    func updateSegmentTimes(id: UUID, start: Double?, end: Double?) {
+        guard let index = segments.firstIndex(where: { $0.id == id }) else { return }
+
+        var newStart = start ?? segments[index].startTime
+        var newEnd = end ?? segments[index].endTime
+
+        if let range = playbackRange {
+            newStart = max(newStart, range.lowerBound)
+            newEnd = min(newEnd, range.upperBound)
+        }
+
+        let maxDuration = max(videoDuration, 0.1)
+        newStart = max(0, min(newStart, maxDuration - 0.1))
+        newEnd = max(newStart + 0.1, min(newEnd, maxDuration))
+
+        guard newEnd - newStart >= 0.1 else { return }
+
+        segments[index].startTime = newStart
+        segments[index].endTime = newEnd
+        segments.sort { $0.startTime < $1.startTime }
+        CaptionGenerationState.shared.applySegments(segments)
     }
 
     func updateSegmentText(id: UUID, text: String) {
@@ -110,7 +163,10 @@ final class CaptionEditorViewModel {
     }
 
     func seek(to time: Double) {
-        let clamped = max(0, min(time, max(videoDuration, 0.1)))
+        var clamped = max(0, min(time, max(videoDuration, 0.1)))
+        if let range = playbackRange {
+            clamped = min(max(clamped, range.lowerBound), range.upperBound)
+        }
         currentPlaybackTime = clamped
         player.seek(
             to: CMTime(seconds: clamped, preferredTimescale: 600),
@@ -126,8 +182,10 @@ final class CaptionEditorViewModel {
         if player.rate > 0 {
             player.pause()
         } else {
-            if currentPlaybackTime >= videoDuration - 0.05 {
-                seek(to: 0)
+            let rangeEnd = playbackRange?.upperBound ?? videoDuration
+            let rangeStart = playbackRange?.lowerBound ?? 0
+            if currentPlaybackTime >= rangeEnd - 0.05 {
+                seek(to: rangeStart)
             }
             player.play()
         }
@@ -243,6 +301,7 @@ final class CaptionEditorViewModel {
             self.timeObserver = nil
         }
         player.replaceCurrentItem(with: nil)
+        playbackRange = nil
     }
 
     private func configurePlayer(url: URL) {
@@ -264,7 +323,16 @@ final class CaptionEditorViewModel {
         timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             guard let self else { return }
             Task { @MainActor in
-                self.currentPlaybackTime = CMTimeGetSeconds(time)
+                var seconds = CMTimeGetSeconds(time)
+                if let range = self.playbackRange {
+                    if seconds >= range.upperBound {
+                        self.player.pause()
+                        seconds = range.upperBound
+                    } else if seconds < range.lowerBound {
+                        seconds = range.lowerBound
+                    }
+                }
+                self.currentPlaybackTime = seconds
             }
         }
     }

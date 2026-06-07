@@ -4,6 +4,11 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+### Planned (Blueprint Day 40.1)
+- **Post-Record Editor** — unified screen after Stop with Edit / Captions (Pro) / Export tabs
+- Replaces post-record `Caption Editor → Export` hop; keeps standalone `ExportView` for Dashboard re-export
+- Phase A: flow refactor; Phase B: basic trim; Phase C: draggable captions + segment time edit
+
 ### Added
 - Swift Package Manager dependencies: Supabase, RevenueCat, WhisperKit, Sparkle, Sentry (linked to FrameFlow target)
 - `Config.example.swift` template for local `Config.swift` (secrets gitignored)

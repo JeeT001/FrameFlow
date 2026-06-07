@@ -35,6 +35,7 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
     case layoutPicker
     case audioMode
     case recording
+    case editor
     case captionEditor
     case export
     case recordingDetail
@@ -58,6 +59,7 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
         case .layoutPicker: "Layout Picker"
         case .audioMode: "Audio Mode"
         case .recording: "Recording"
+        case .editor: "Editor"
         case .captionEditor: "Caption Editor"
         case .export: "Export"
         case .recordingDetail: "Recording Detail"
@@ -81,6 +83,7 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
         case .layoutPicker: "square.split.2x1"
         case .audioMode: "waveform"
         case .recording: "record.circle"
+        case .editor: "film.stack"
         case .captionEditor: "captions.bubble"
         case .export: "square.and.arrow.up"
         case .recordingDetail: "play.rectangle"
@@ -109,8 +112,10 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
             "Choose how microphone and system audio are captured."
         case .recording:
             "Live composite view with recording controls and HUD."
+        case .editor:
+            "Review, caption, and export your recording in one place."
         case .captionEditor:
-            "Review and edit auto-generated captions before export."
+            "Legacy caption editor — use Editor for post-record flow."
         case .export:
             "Preview the recording and export at the chosen resolution."
         case .recordingDetail:
@@ -160,6 +165,8 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
             ["Microphone Only", "System Audio Only", "Mic + System", "No Audio", "Volume sliders", "Confirm"]
         case .recording:
             ["Live canvas", "Camera PiP", "Auto-focus highlight", "Cursor highlight", "Recording HUD", "Countdown overlay"]
+        case .editor:
+            ["Video preview", "Edit tab", "Captions tab (Pro)", "Export tab", "Toolbar Export", "Discard"]
         case .captionEditor:
             ["Video player", "Caption segments", "Style presets", "Caption position", "Export format", "Export", "Skip Captions"]
         case .export:

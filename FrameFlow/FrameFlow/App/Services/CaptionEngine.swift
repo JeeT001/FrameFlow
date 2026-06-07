@@ -77,19 +77,21 @@ final class CaptionEngine: @unchecked Sendable {
     }
 
     func loadCaptions(for recordingURL: URL, recordingID: UUID) throws -> [CaptionSegment] {
-        let primary = sidecarURLAdjacent(to: recordingURL)
-        if fileManager.fileExists(atPath: primary.path),
-           let sidecar = try? loadSidecar(from: primary) {
-            return sidecar.segments
+        try loadSidecar(for: recordingURL, recordingID: recordingID)?.segments ?? []
+    }
+
+    func loadStyle(for recordingURL: URL, recordingID: UUID) -> CaptionStyleConfig {
+        guard let sidecar = try? loadSidecar(for: recordingURL, recordingID: recordingID),
+              let presetRaw = sidecar.stylePreset,
+              let preset = CaptionStylePreset(rawValue: presetRaw) else {
+            return CaptionStyleConfig.fromSettings()
         }
 
-        let fallback = appSupportSidecarURL(recordingID: recordingID)
-        if fileManager.fileExists(atPath: fallback.path),
-           let sidecar = try? loadSidecar(from: fallback) {
-            return sidecar.segments
-        }
-
-        return []
+        let position = sidecar.styleVerticalPosition
+            .flatMap(CaptionVerticalPosition.init(rawValue:)) ?? .bottom
+        var style = CaptionStyleConfig.config(for: preset, position: position)
+        style.customVerticalOffsetNormalized = sidecar.customVerticalOffsetNormalized
+        return style
     }
 
     func saveCaptions(
@@ -102,7 +104,9 @@ final class CaptionEngine: @unchecked Sendable {
             recordingID: recordingID,
             segments: segments,
             createdAt: Date(),
-            stylePreset: style.preset.rawValue
+            stylePreset: style.preset.rawValue,
+            styleVerticalPosition: style.verticalPosition.rawValue,
+            customVerticalOffsetNormalized: style.customVerticalOffsetNormalized
         )
 
         let adjacent = sidecarURLAdjacent(to: recordingURL)
@@ -135,6 +139,22 @@ final class CaptionEngine: @unchecked Sendable {
     private func loadSidecar(from url: URL) throws -> CaptionSidecar {
         let data = try Data(contentsOf: url)
         return try decoder.decode(CaptionSidecar.self, from: data)
+    }
+
+    private func loadSidecar(for recordingURL: URL, recordingID: UUID) throws -> CaptionSidecar? {
+        let primary = sidecarURLAdjacent(to: recordingURL)
+        if fileManager.fileExists(atPath: primary.path),
+           let sidecar = try? loadSidecar(from: primary) {
+            return sidecar
+        }
+
+        let fallback = appSupportSidecarURL(recordingID: recordingID)
+        if fileManager.fileExists(atPath: fallback.path),
+           let sidecar = try? loadSidecar(from: fallback) {
+            return sidecar
+        }
+
+        return nil
     }
 
     private func writeSidecar(_ sidecar: CaptionSidecar, to url: URL) throws {

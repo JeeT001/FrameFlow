@@ -20,6 +20,9 @@ final class ExportViewModel {
     var exportError: String?
     var showSuccessAlert = false
     var exportedURL: URL?
+    var trimStartSeconds: Double?
+    var trimEndSeconds: Double?
+    var alsoSaveSRT = false
 
     let player = AVPlayer()
 
@@ -55,6 +58,9 @@ final class ExportViewModel {
         }
 
         applyCaptions = hasCaptionsAvailable
+        trimStartSeconds = nil
+        trimEndSeconds = nil
+        alsoSaveSRT = false
 
         if let recording {
             let url = URL(fileURLWithPath: recording.filePath)
@@ -168,7 +174,9 @@ final class ExportViewModel {
             isPro: isPro,
             applyCaptionsIfAvailable: applyCaptions && hasCaptionsAvailable,
             captionStyle: style,
-            outputFilename: outputFilename
+            outputFilename: outputFilename,
+            trimStartSeconds: trimStartSeconds,
+            trimEndSeconds: trimEndSeconds
         )
 
         do {
@@ -261,6 +269,11 @@ final class ExportViewModel {
         metadata.resolution = resolutionBadge(for: selectedResolution, format: metadata.format)
         if applyCaptions && hasCaptionsAvailable {
             metadata.hasCaptions = true
+        }
+        if let trimStart = trimStartSeconds,
+           let trimEnd = trimEndSeconds,
+           trimEnd > trimStart {
+            metadata.durationSeconds = max(1, Int((trimEnd - trimStart).rounded()))
         }
 
         if isPendingExport {

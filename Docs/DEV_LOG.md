@@ -1925,3 +1925,117 @@ fix: correct webcam orientation with single normalize at capture
 ```
 feat: free-form window layout and single-cursor composite rendering
 ```
+
+---
+
+## Blueprint Day 40.1 Phase C — Caption polish (2026-06-02)
+
+### Implemented
+- **Draggable caption placement (Pro, Captions tab):** vertical drag on preview with dashed affordance; `customVerticalOffsetNormalized` (−0.3…+0.3) on `CaptionStyleConfig`; persisted in sidecar; shared math in preview + `CaptionRenderer` burn-in; Top/Middle/Bottom picker resets offset
+- **Editable segment times (Pro):** start/end fields on `CaptionSegmentRow`; validated in `CaptionEditorViewModel.updateSegmentTimes`; sorted by start time; flows through sidecar + trim export
+- **Optional SRT (Pro, Export tab):** `alsoSaveSRT` toggle; writes `.srt` next to exported MP4 with trim-relative timecodes when trim active
+
+### Files
+- `CaptionStyleConfig.swift`, `CaptionSegment.swift` (sidecar fields)
+- `CaptionPreviewView.swift`, `CaptionSegmentRow.swift`
+- `CaptionEngine.swift`, `CaptionRenderer.swift`, `ExportService.swift`
+- `CaptionEditorViewModel.swift`, `EditorViewModel.swift`, `ExportViewModel.swift`, `EditorView.swift`
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: editor caption placement and SRT export (Day 40.1 Phase C)
+```
+
+---
+
+## Blueprint Day 40.1 Phase B — Editor trim timeline (2026-06-02)
+
+### Implemented
+- **`EditorTimelineView`** — in/out draggable handles (0.5s min span), playhead, duration readout, tap-to-seek
+- **`EditorViewModel`** — trim state, `playbackRange` sync to caption player, trim passed to export
+- **`TrimHelpers`** — segment clip/shift for export; shared timeline time formatting
+- **`CaptionEditorViewModel.playbackRange`** — preview play/seek constrained to trim; auto-pause at out point
+- **`ExportOptions` + `ExportService`** — `CMTimeRange` trim on video + audio during encode; caption burn-in uses segments clipped to trim (absolute times on full source, then trim in encode)
+- **`ExportViewModel`** — optional trim fields (Editor only); standalone Export leaves nil
+
+### Export path (documented)
+1. Load captions → clip to `[trimStart, trimEnd]` with absolute times
+2. `burnInCaptions` on **full** source with clipped segments
+3. `writeEncodedExport` inserts `CMTimeRange(trimStart, trimEnd−trimStart)` for video + audio
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: post-record editor trim timeline (Day 40.1 Phase B)
+```
+
+---
+
+## Blueprint Day 40.1 Phase A — Post-Record Editor (2026-06-02)
+
+### Implemented
+- **`AppRoute.editor`** — unified post-record screen; `.captionEditor` route redirects to `EditorView`
+- **`EditorView` + `EditorViewModel`** — 55/45 split: shared `CaptionPreviewView` + inspector tabs
+  - **Edit:** preview, play/pause, scrub; "Trim coming soon" placeholder (Phase B)
+  - **Captions (Pro):** style cards, segment list, position picker, inline transcription progress; no export controls
+  - **Export:** resolution picker, captions toggle, watermark notice, progress — settings only; toolbar **Export** is primary action
+- **`RecordingView`:** Stop → `.editor` for all users; Pro starts `CaptionGenerationState` before navigate
+- **`ExportView`:** unchanged for Dashboard / RecordingDetail re-export
+- **`CaptionEditorView`:** legacy file retained; post-record path removed
+- **`HelpView`:** FAQ updated for Post-Record Editor flow
+
+### Files
+- `EditorView.swift`, `EditorViewModel.swift`
+- `Models.swift`, `RouteDetailView.swift`, `RecordingView.swift`
+- `CaptionEditorViewModel.swift` (`loadPreview`), `HelpView.swift`
+- `Docs/CURRENT_STATUS.md`, `Docs/DEV_LOG.md`
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: unified post-record editor (Day 40.1 Phase A)
+```
+
+---
+
+## Blueprint Day 40.1 — Post-Record Editor (planning, 2026-06-02)
+
+### Context
+- During **Day 40** recording-flow testing, separate **Caption Editor** and **Export** screens felt fragmented
+- Caption Editor duplicated export (burn-in/SRT) while toolbar "Export Video" skipped saving edits
+- User request: one **basic editor** after Stop — trim, captions (Pro), placement, export sizes in one place
+
+### Decision (documented in Master Blueprint)
+- **Stop → Editor → Dashboard** for all new recordings
+- **Free:** Edit tab + Export tab (720p, watermark); no Captions tab
+- **Pro:** + Captions tab (generate, style, position, segment text); export 1080p/4K; optional SRT on Export tab
+- **Dashboard re-export:** keep standalone `ExportView`
+
+### Phases
+| Phase | Deliverable |
+|-------|-------------|
+| A | `EditorView` shell, three tabs, wire Stop → `.editor`, remove in-editor export |
+| B | Timeline trim in/out |
+| C | Draggable caption box, editable segment times |
+
+### Files to create/modify (implementation — not started)
+- `EditorView.swift`, `EditorViewModel.swift`
+- `AppRoute.editor`, `RouteDetailView`, `RecordingView` navigation
+- Refactor panels from `CaptionEditorView` + `ExportView`
+- Blueprint + status docs updated
+
+### Next
+- Complete Day 40 checklist
+- Implement Day 40.1 Phase A on `feature/uiFix`
+
+### Suggested commit (docs only)
+```
+docs: add Blueprint Day 40.1 post-record editor flow
+```

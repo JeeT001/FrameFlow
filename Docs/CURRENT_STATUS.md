@@ -1,15 +1,16 @@
 # FrameFlow — Current Status
 
-**Last updated:** 2026-05-29  
+**Last updated:** 2026-06-02  
 **Version:** v0.1.0
 
 ## Current Phase
 
-**Phase 12 — Dark mode + polish** (blueprint-aligned)
+**Phase 15 — Testing (Days 39–42)** + **Day 40.1 Phase C complete**
 
 ## Currently Working On
 
-- **Blueprint Day 41** — Auth + permission flow testing (next)
+- **Blueprint Day 40** — Recording flow testing (in progress on branch `feature/uiFix`)
+- **Blueprint Day 41** — Editor + export test checklist (planned next)
 
 ## Completed
 
@@ -42,11 +43,15 @@
 - **Blueprint Day 37:** Profile header (app icon + version); display name save checkmark + disabled when unchanged; delete account via RPC `delete_user` (client-safe, CASCADE to public.users/subscriptions); RevenueCat + session cleanup
 - **Blueprint Day 38:** `AnalyticsService` (PostHog events); Sentry init in `FrameFlowApp`; identify/reset on auth; events wired in ViewModels + Pro gates
 - **Blueprint Day 39:** Password reset deep link — URL scheme `com.simranjit.frameflow`, `redirectTo` on reset email, `ResetPasswordView` + recovery session via `session(from:)`
-- **Blueprint Day 40:** PiP camera crash fix — serialized `AVCaptureSession` lifecycle on `sessionQueue`; mic A/V sync — host-clock audio PTS, `writerQueue`, pending audio queue
+- **Blueprint Day 40:** PiP camera crash fix; mic A/V sync (native sample rate, mixQueue, nonisolated writer append); PiP preview/recording alignment
+- **Blueprint Day 40.1 Phase A:** Unified `EditorView` (Edit / Captions / Export tabs); Stop → Editor for all users; toolbar Export; standalone `ExportView` kept for Dashboard re-export
+- **Blueprint Day 40.1 Phase B:** `EditorTimelineView` in/out trim handles; preview playback constrained to trim range; `ExportService` applies trim at encode
+- **Blueprint Day 40.1 Phase C:** Draggable caption placement on preview; editable segment times; optional SRT export on Editor Export tab (Pro)
 
 ## Next Task
 
-1. **Blueprint Day 41** — Auth + permission flow testing checklist (continued)
+1. **Finish Day 40** — recording flow test checklist
+2. **Day 41** — updated Editor + export test checklist (trim, captions, SRT)
 
 ## Important Decisions
 
@@ -68,11 +73,11 @@
 | PiP camera | PiP uses AVCaptureSession camera frames, draggable/resizable config in Layout Picker, and final overlay composited after focus border |
 | Writer timestamps | Video-led host clock (timescale 600): anchors on first video frame; audio gated until video timeline starts |
 | Pause/resume | `totalPausedDuration` subtracted from append PTS; capture stays warm; no timeline gap in exported MP4 |
-| Captions (Pro) | After save: Caption Editor; WhisperKit transcription in background; `hasCaptions` set only after user exports |
-| Caption editor | 40/60 split: `CaptionPreviewView` + style cards + editable segments; export SRT / burn-in / both via `CaptionRenderer` |
-| Caption styles | Five presets in editor; Highlighted Word burn-in + preview; Custom uses bordered classic preview |
-| Export flow | Stop stages to App Support only; **Export** writes one MP4 to save folder; `pendingRecording` until export or discard |
-| Recording detail | Dashboard card → detail; Re-export from exported file in save folder |
+| **Post-record flow (Day 40.1)** | **Stop → Editor** (not Caption Editor → Export). Free: Edit + Export (720p) + trim. Pro: + Captions tab. Dashboard re-export keeps standalone `ExportView` (full clip). |
+| Captions (Pro) | Generate/edit in Editor Captions tab; drag placement; edit segment times; burn-in via Export; optional SRT on Export tab |
+| Caption editor (legacy) | `CaptionEditorView` panels absorbed into Editor; remove in-editor SRT/burn-in export |
+| Export flow | Staging until export; `ExportService` from Editor Export tab; resolution + watermark on Export tab |
+| Recording detail | Dashboard card → detail; Re-export opens standalone Export screen |
 | Supabase schema | `users` + `subscriptions` in `public`; RLS own-row only; subscription writes via service role (Day 30 webhook) |
 | User profile sync | Sign-up inserts `public.users`; login/bootstrap backfills via `ensureUserProfile`; display name updates DB + auth metadata |
 | Pro gating | RevenueCat entitlement `pro` via `SubscriptionManager` → `AppState.subscriptionStatus`; DEBUG override only when RC key empty |

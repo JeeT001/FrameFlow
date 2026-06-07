@@ -13,7 +13,33 @@ struct CaptionPreviewView: View {
     let style: CaptionStyleConfig
     let displayText: String?
     let highlightedWord: String?
+    let isCaptionPlacementEditable: Bool
     let onSeek: (Double) -> Void
+    let onCaptionVerticalOffsetChange: ((Double) -> Void)?
+
+    @State private var dragStartOffset: Double?
+
+    init(
+        player: AVPlayer,
+        currentTime: Binding<Double>,
+        duration: Double,
+        style: CaptionStyleConfig,
+        displayText: String?,
+        highlightedWord: String?,
+        isCaptionPlacementEditable: Bool = false,
+        onSeek: @escaping (Double) -> Void,
+        onCaptionVerticalOffsetChange: ((Double) -> Void)? = nil
+    ) {
+        self.player = player
+        self._currentTime = currentTime
+        self.duration = duration
+        self.style = style
+        self.displayText = displayText
+        self.highlightedWord = highlightedWord
+        self.isCaptionPlacementEditable = isCaptionPlacementEditable
+        self.onSeek = onSeek
+        self.onCaptionVerticalOffsetChange = onCaptionVerticalOffsetChange
+    }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -23,12 +49,19 @@ struct CaptionPreviewView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
 
                 if let displayText {
-                    CaptionOverlayView(
-                        text: displayText,
-                        style: style,
-                        highlightedWord: highlightedWord
-                    )
-                    .allowsHitTesting(false)
+                    GeometryReader { geometry in
+                        CaptionOverlayView(
+                            text: displayText,
+                            style: style,
+                            highlightedWord: highlightedWord,
+                            showsPlacementChrome: isCaptionPlacementEditable
+                        )
+                        .offset(y: style.swiftUIVerticalOffset(containerHeight: geometry.size.height))
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .contentShape(Rectangle())
+                        .gesture(placementDragGesture(containerHeight: geometry.size.height))
+                    }
+                    .allowsHitTesting(isCaptionPlacementEditable || displayText != nil)
                 }
             }
             .background(Color.black, in: RoundedRectangle(cornerRadius: 10))
@@ -58,6 +91,26 @@ struct CaptionPreviewView: View {
         }
     }
 
+    private func placementDragGesture(containerHeight: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 1)
+            .onChanged { value in
+                guard isCaptionPlacementEditable else { return }
+                if dragStartOffset == nil {
+                    dragStartOffset = style.clampedVerticalOffset
+                }
+                let normalizedDelta = -Double(value.translation.height / containerHeight)
+                let newOffset = (dragStartOffset ?? 0) + normalizedDelta
+                let clamped = min(
+                    max(newOffset, CaptionStyleConfig.verticalOffsetRange.lowerBound),
+                    CaptionStyleConfig.verticalOffsetRange.upperBound
+                )
+                onCaptionVerticalOffsetChange?(clamped)
+            }
+            .onEnded { _ in
+                dragStartOffset = nil
+            }
+    }
+
     private func formatTime(_ seconds: Double) -> String {
         let total = max(0, Int(seconds.rounded()))
         let minutes = total / 60
@@ -70,6 +123,7 @@ struct CaptionOverlayView: View {
     let text: String
     let style: CaptionStyleConfig
     var highlightedWord: String?
+    var showsPlacementChrome: Bool = false
 
     var body: some View {
         VStack {
@@ -80,6 +134,15 @@ struct CaptionOverlayView: View {
                     if let background = style.swiftUIBackgroundColor {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(background.opacity(0.85))
+                    }
+                }
+                .overlay {
+                    if showsPlacementChrome {
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(
+                                AppColors.primary.opacity(0.85),
+                                style: StrokeStyle(lineWidth: 1.5, dash: [5, 3])
+                            )
                     }
                 }
         }

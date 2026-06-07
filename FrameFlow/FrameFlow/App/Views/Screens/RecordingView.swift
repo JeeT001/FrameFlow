@@ -162,11 +162,9 @@ struct RecordingView: View {
 
                 if await shouldStartCaptionFlow(for: metadata) {
                     CaptionGenerationState.shared.begin(with: metadata)
-                    router.navigate(to: .captionEditor)
-                    return
                 }
 
-                router.navigate(to: .export)
+                router.navigate(to: .editor)
             } catch {
                 viewModel.coordinator.errorMessage = error.localizedDescription
             }

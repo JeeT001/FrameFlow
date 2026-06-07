@@ -178,9 +178,9 @@ Git Commit: feat: device capability detection for Apple Silicon vs Intel
 6. Hits Record — the app composites windows live, auto-zooms on clicks, highlights
    cursor, auto-focuses active window, and captures everything in real time
 7. Pauses/resumes as needed — paused time is not in the final video
-8. Stops — app auto-generates captions via WhisperKit
-9. User picks caption style, edits if needed, and exports
-10. Creator-ready MP4 saved to chosen folder. No editing needed.
+8. Stops — navigates to the **Post-Record Editor** (unified edit + captions + export)
+9. User trims (basic in/out), optionally generates/edits captions (Pro), picks export quality, and exports
+10. Creator-ready MP4 saved to chosen folder
 
 ### What Is Included in MVP
 
@@ -199,10 +199,11 @@ Git Commit: feat: device capability detection for Apple Silicon vs Intel
 - Pause and resume recording (paused time excluded from video)
 - Countdown timer before recording starts (3/5/10 seconds)
 - Full keyboard shortcut suite for all recording controls
-- Auto-generated captions via WhisperKit (Pro)
-- 5 caption style presets (Pro)
-- Caption editor with per-segment text editing (Pro)
-- Export: MP4 H.264, captions burned in or SRT file
+- **Post-Record Editor** (Day 40.1): single screen after Stop — preview, basic trim, export settings
+- Auto-generated captions via WhisperKit (Pro, Captions tab in Editor)
+- 5 caption style presets + draggable caption placement (Pro)
+- Caption segment text editing (Pro)
+- Export: MP4 H.264 from Editor Export tab; captions burned in and optional SRT (Pro)
 - Free tier: 720p, watermark, 2 windows, 16:9 only, mic audio only
 - Pro tier: 4K, no watermark, 4 windows, 9:16, system audio, PiP, captions
 - User account (email + password)
@@ -216,7 +217,7 @@ Git Commit: feat: device capability detection for Apple Silicon vs Intel
 - Apple Sign In (post-MVP)
 - Cloud storage of recordings (post-MVP)
 - Team/multi-seat accounts (post-MVP)
-- Timeline editor or clip trimming (post-MVP)
+- Multi-clip timeline, split/delete, ripple edit (post-MVP; basic in/out trim is Day 40.1 Phase B)
 - AI auto-zoom toward cursor independent of clicks (click-zoom is included)
 - Recording scheduler (post-MVP)
 - Custom background images behind windows (post-MVP)
@@ -554,70 +555,80 @@ Sign Up button, "Already have an account?" link, Privacy Policy link, Terms link
 
 **Navigation From:** Layout Picker (after countdown)
 
-**Navigation To:** Caption Editor (Pro) or Export Screen (free)
+**Navigation To:** Post-Record Editor (all users)
 
 ---
 
-### Screen 11: Caption Editor (Pro Only)
+### Screen 11: Post-Record Editor (Day 40.1)
 
-**Purpose:** Review and edit auto-generated captions before exporting.
+**Purpose:** Unified post-recording workspace — preview, basic edits, captions (Pro), and export.
+Replaces the separate Caption Editor → Export hop for new recordings.
 
-**UI Elements:**
-- Left panel: video player with caption preview (scrubber to any timestamp)
-  Captions rendered over video in the selected style in real time
-- Right panel: scrollable list of all CaptionSegments, each showing:
-  - Start time (editable)
-  - End time (editable)
-  - Text (editable TextField)
-- Top bar: 5 caption style preset selector (cards with preview miniatures)
-- Bottom bar:
-  - Caption position picker: Top / Middle / Bottom
-  - Export format: Burned In / SRT File / Both
-  - Export button
-- "Skip Captions" button (goes to Export without captions)
-- "Generating captions..." loading state with progress spinner (shown first)
+**Layout:**
+- **Top:** Discard (staging) | recording name | **Export** (primary action)
+- **Center-left (~55%):** Video preview with play/scrub; caption overlay when Pro + captions enabled
+- **Center-right (~45%):** Inspector with segmented tabs: **Edit** | **Captions*** | **Export**
+  (*Captions tab hidden for Free — show Pro upgrade CTA instead)
+- **Bottom:** Simple timeline strip with trim in/out handles (Phase B); duration readout
+
+**Edit tab (Free + Pro):**
+- Play / pause, scrubber
+- Trim start/end (Phase B — `AVMutableComposition` or export-time range)
+- Phase C+: draggable caption safe-area on preview (Pro)
+
+**Captions tab (Pro only):**
+- "Generate captions" button (WhisperKit; progress inline — no full-screen blocker)
+- 5 style preset cards (reuse `CaptionStyleCard`)
+- Position: Top / Middle / Bottom (+ drag on preview in Phase C)
+- Scrollable segment list: edit text (times read-only v1; editable v2)
+- Saves segments + style to sidecar via `CaptionEngine.saveCaptions` — **no burn-in here**
+
+**Export tab (Free + Pro):**
+- Duration + source file size labels
+- Resolution: **720p only (Free)** | 720p / 1080p / 4K (Pro; 4K Apple Silicon only)
+- Pro: toggle "Include captions in export"; optional "Also save SRT file"
+- Free: watermark notice
+- Export progress bar (delegates to `ExportService`)
+
+**Toolbar actions:**
+- **Discard** → delete staging, Dashboard
+- **Export** → persist caption edits if any, run `ExportService`, success → Dashboard / Reveal in Finder
 
 **User Actions:**
-- Edit any segment's text
-- Reposition captions
-- Pick style
-- Tap Export → Export Screen
+- Trim clip (Phase B)
+- Generate / edit captions (Pro)
+- Choose resolution and export
+- Discard without saving
 
-**Data Needed:** Recording file URL, WhisperKit transcription result (CaptionSegment array),
-subscription status
+**Data Needed:** Staged recording (`pendingRecording`), caption sidecar, subscription status
 
-**Navigation From:** Recording Screen (Pro users)
+**Navigation From:** Recording Screen (all users on Stop)
 
-**Navigation To:** Export Screen
+**Navigation To:** Dashboard (after export or discard)
+
+**Implementation notes:**
+- New route: `AppRoute.editor` (or repurpose `captionEditor` → `EditorView`)
+- Reuse: `CaptionEditorViewModel` (captions), `ExportViewModel` / `ExportService` (export)
+- Deprecate post-record navigation to standalone `ExportView`; keep `ExportView` for Dashboard re-export shortcut
 
 ---
 
-### Screen 12: Export / Preview Screen
+### Screen 11 (legacy): Caption Editor — superseded by Editor Captions tab
 
-**Purpose:** Final step. Review recording and export the file.
+> **Day 40.1:** `CaptionEditorView` logic moves into Editor **Captions** tab. Remove duplicate
+> export format picker and in-editor burn-in export. Screen retained temporarily for migration.
 
-**UI Elements:**
-- Video player (full preview of the recording)
-- Duration and file size labels
-- Resolution picker: 720p (free) / 1080p / 4K (Pro, Apple Silicon only)
-- Caption indicator: "Captions included" badge (if captions were added)
-- Export button
-- Save to Folder button (NSOpenPanel picker)
-- Discard button
-- Watermark notice (free users only)
-- Progress bar during export
+---
 
-**User Actions:**
-- Preview video
-- Change resolution
-- Tap Export → file saved → back to Dashboard
-- Tap Discard → delete recording files, back to Dashboard
+### Screen 12: Export / Preview Screen — re-export path
 
-**Data Needed:** Recording file URL, caption segments if applicable, subscription status
+**Purpose:** Quick re-export from Dashboard / Recording Detail (existing saved recordings).
+For **new recordings**, export lives in Editor **Export** tab (Day 40.1).
 
-**Pro Gates:** 1080p and 4K resolution options
+**UI Elements:** (unchanged from Day 26)
+- Video player, duration/file size, resolution picker, captions toggle (Pro), Export, Discard
 
-**Navigation From:** Caption Editor (Pro) or Recording Screen (free)
+**Navigation From:** Dashboard re-export, Recording Detail
 
 **Navigation To:** Dashboard (after export or discard)
 
@@ -777,8 +788,8 @@ resolution badge, Play button (opens in system player), Re-export button, Delete
 6. Select up to 2 windows → Layout Picker
 7. Choose 16:9 (vertical is locked) → Audio Mode: Mic Only → Start Recording
 8. 3-second countdown → recording starts
-9. Record → Tap Stop → Export Screen (no captions — free tier)
-10. Export at 720p (watermarked) → saved to Desktop
+9. Record → Tap Stop → **Post-Record Editor** (Edit + Export tabs; no captions — free tier)
+10. Export tab: 720p (watermarked) → saved to Desktop
 11. Dashboard: recording appears in list
 
 ### Flow 2: Pro User (First Recording)
@@ -792,8 +803,7 @@ resolution badge, Play button (opens in system player), Re-export button, Delete
 7. Countdown 3s → Recording starts
 8. Record — auto-zooms on clicks, highlights cursor, PiP camera visible
 9. Cmd+P to pause → Cmd+P to resume → Cmd+R to stop
-10. Caption Editor: WhisperKit generates captions → pick TikTok Bold style → Export
-11. Export at 4K, no watermark → saved to ~/Movies/FrameFlow
+10. **Post-Record Editor:** Captions tab → WhisperKit generates captions → pick TikTok Bold style → Export tab → Export at 4K, no watermark → saved to ~/Movies/FrameFlow
 
 ### Flow 3: Free User Hitting a Pro Gate
 
@@ -1310,8 +1320,8 @@ Cursor Prompt:
 "Build a SwiftUI macOS app navigation system with NavigationSplitView. The sidebar shows
 items for Home, Settings, and Account with SF Symbol icons. AppRouter is an ObservableObject
 with a currentRoute: AppRoute enum (cases: dashboard, windowPicker, layoutPicker,
-audioMode, recording, captionEditor, export, profile, settings, subscription, help,
-onboarding, login, signUp). The main content area switches views based on AppRouter.currentRoute.
+audioMode, recording, editor, captionEditor, export, profile, settings, subscription, help,
+onboarding, login, signUp). Note: `editor` added Day 40.1; `captionEditor` legacy until migration.
 Inject AppRouter as @EnvironmentObject."
 
 Git Commit: feat: navigation shell with sidebar and AppRouter
@@ -1675,6 +1685,9 @@ Git Commit: feat: WhisperKit captions with 5 style presets and video burn-in
 
 **DAY 25 — Caption Editor Screen**
 
+> **Superseded for navigation by Day 40.1** — caption UI moves into Editor **Captions** tab.
+> Keep building blocks: `CaptionEditorView`, `CaptionPreviewView`, `CaptionEditorViewModel`.
+
 Files: CaptionEditorView.swift, CaptionPreviewView.swift
 
 Cursor Prompt:
@@ -1693,6 +1706,9 @@ Git Commit: feat: caption editor screen with live preview and segment editing
 ---
 
 **DAY 26 — Export Screen + ExportService**
+
+> **Post-record export UI moves to Editor Export tab (Day 40.1).** Keep `ExportView` for
+> Dashboard / Recording Detail re-export.
 
 Files: ExportView.swift, ExportService.swift
 
@@ -2013,21 +2029,64 @@ Test checklist:
 - Auto-zoom on click: click in window during recording, verify zoom in video playback
 - Auto-focus: switch between apps during recording, verify highlight switches
 - Pause: paused duration not in final video
-- Stop → Caption Editor (Pro) or Export (free)
+- Stop → **Post-Record Editor** (all users; Free: Edit + Export tabs only)
+
+---
+
+**DAY 40.1 — Post-Record Editor (unified Edit + Captions + Export)**
+
+**Context:** Emerged from Day 40 recording-flow testing. Current flow splits Caption Editor and
+Export into two screens with duplicate export paths. Target: one Editor after Stop.
+
+**Goal:** Replace `Stop → Caption Editor (Pro) / Export (free)` with `Stop → Editor → Dashboard`.
+
+**Phases:**
+
+| Phase | Scope | Files (indicative) |
+|-------|--------|-------------------|
+| **A — Flow refactor** | New `EditorView` shell; Edit + Captions + Export tabs; Stop → Editor; remove in-editor burn-in/SRT export; save captions on Export | `EditorView.swift`, `EditorViewModel.swift`, `RecordingView.swift`, `RouteDetailView.swift`, `Models.swift` (`AppRoute.editor`), refactor `CaptionEditorView` / `ExportView` panels |
+| **B — Basic trim** | Timeline strip; in/out trim handles; apply range in `ExportService` | `EditorTimelineView.swift`, `ExportService.swift` |
+| **C — Polish** | Draggable caption region; editable segment times; optional SRT on Export tab | `CaptionPreviewView`, `CaptionSegmentRow`, `ExportViewModel` |
+
+**Free tier:** Edit tab + Export tab (720p, watermark). No Captions tab (Pro CTA).
+
+**Pro tier:** All three tabs; WhisperKit generate on demand; 1080p/4K; captions burn-in + optional SRT.
+
+**Acceptance (Phase A):**
+- Stop navigates to Editor for Free and Pro
+- No export buttons inside Captions tab
+- Toolbar Export saves caption sidecar then runs `ExportService`
+- Free user never sees caption generation UI
+- Dashboard re-export still uses standalone `ExportView`
+
+**Cursor prompt (Phase A):**
+"Build `EditorView` as the unified post-recording screen. Three inspector tabs: Edit (preview +
+play), Captions (Pro only — reuse CaptionEditor panels without export), Export (reuse ExportView
+resolution picker + watermark notice). Toolbar: Discard, Export. Wire `RecordingView` stop to
+`.editor`. Remove duplicate export from `CaptionEditorView`. Keep `ExportView` for Dashboard
+re-export only."
+
+Git Commit: feat: unified post-record editor (Day 40.1 Phase A)
 
 ---
 
 **DAY 41 — Captions + Export Testing**
 
-Test checklist:
+Test checklist (updated for Day 40.1 Editor):
+- Stop → Editor opens for Free and Pro (not separate Caption Editor / Export hop)
+- Free: Edit + Export tabs only; 720p locked; watermark on export; no caption UI
+- Pro: Captions tab → Generate captions → edit text, style, position
+- Editor Export tab: resolution picker, include-captions toggle, export progress
+- Toolbar Export persists caption sidecar before burn-in
+- Dashboard / Recording Detail re-export still opens standalone Export screen
 - WhisperKit transcription on a 2-minute English recording → accuracy acceptable
-- Caption Editor: edit a segment text, change timestamps
-- All 5 caption styles preview correctly in left panel
-- Burn captions → export → open in QuickTime → captions visible at correct times
-- SRT export → open SRT file, verify format correct
-- Export 720p (free, with watermark), 1080p and 4K (Pro, no watermark)
+- All 5 caption styles preview correctly in Editor preview
+- Burn captions → export → QuickTime → captions visible at correct times
+- Optional SRT export from Editor Export tab (Pro)
+- Export 720p (free, watermark), 1080p and 4K (Pro, no watermark)
 - Apple Silicon: 4K export completes in under 3 min for 5-min recording
 - Intel Mac: 4K disabled, 1080p export completes in reasonable time
+- Phase B (when shipped): trim in/out reflected in exported duration
 
 ---
 
@@ -2275,7 +2334,7 @@ Complete user flow on a fresh Mac account (not developer machine):
 5. New Recording → select 2 windows → choose 9:16 layout → PiP camera on → Combined audio
 6. Countdown → Record for 60 seconds
 7. Pause → Resume → Stop
-8. Caption Editor → generate captions → pick TikTok Bold → Export
+8. **Post-Record Editor** → Captions tab: generate captions → TikTok Bold → Export tab → Export
 9. Open exported file in QuickTime → captions visible, audio correct, PiP visible
 10. Dashboard → recording in list
 11. Go to Profile → check subscription shows Free
@@ -2384,8 +2443,8 @@ Always run git log --oneline before rolling back.
 | Auto-focus | Switch app during recording, highlight switches in video |
 | Pause: paused time excluded | Pause 30s, verify final video is 30s shorter |
 | Source window closes mid-recording | Grey placeholder, no crash |
-| Stop → Caption Editor (Pro) | Caption Editor shown after recording |
-| Stop → Export Screen (Free) | Export shown directly |
+| Stop → Post-Record Editor | Editor shown after recording (Free: Edit+Export; Pro: +Captions) |
+| Editor → Export → Dashboard | Final MP4 saved; recording appears on Dashboard |
 
 ### Caption Tests
 

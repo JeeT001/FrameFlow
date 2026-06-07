@@ -38,6 +38,8 @@ struct ExportOptions: Sendable {
     let applyCaptionsIfAvailable: Bool
     let captionStyle: CaptionStyleConfig
     let outputFilename: String
+    let trimStartSeconds: Double?
+    let trimEndSeconds: Double?
 }
 
 enum ExportServiceError: LocalizedError {
@@ -83,10 +85,20 @@ final class ExportService: @unchecked Sendable {
             }
 
             if options.applyCaptionsIfAvailable {
-                let segments = try captionEngine.loadCaptions(
+                var segments = try captionEngine.loadCaptions(
                     for: options.sourceVideoURL,
                     recordingID: options.recordingID
                 )
+                if let trimStart = options.trimStartSeconds,
+                   let trimEnd = options.trimEndSeconds,
+                   trimEnd > trimStart {
+                    segments = TrimHelpers.segmentsForExport(
+                        from: segments,
+                        trimStart: trimStart,
+                        trimEnd: trimEnd,
+                        relativeToTrimStart: false
+                    )
+                }
                 if !segments.isEmpty {
                     progress(0.12, "Burning in captions…")
                     let temp = fileManager.temporaryDirectory
@@ -109,6 +121,8 @@ final class ExportService: @unchecked Sendable {
                 outputFilename: options.outputFilename,
                 resolution: options.resolution,
                 applyWatermark: !options.isPro,
+                trimStartSeconds: options.trimStartSeconds,
+                trimEndSeconds: options.trimEndSeconds,
                 progress: progress
             )
 
@@ -119,17 +133,7 @@ final class ExportService: @unchecked Sendable {
     }
 
     static func captionStyle(for sourceURL: URL, recordingID: UUID) -> CaptionStyleConfig {
-        let sidecarURL = CaptionEngine.shared.sidecarURLAdjacent(to: sourceURL)
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        guard let data = try? Data(contentsOf: sidecarURL),
-              let sidecar = try? decoder.decode(CaptionSidecar.self, from: data),
-              let presetRaw = sidecar.stylePreset,
-              let preset = CaptionStylePreset(rawValue: presetRaw)
-        else {
-            return CaptionStyleConfig.fromSettings()
-        }
-        return CaptionStyleConfig.config(for: preset, position: .bottom)
+        CaptionEngine.shared.loadStyle(for: sourceURL, recordingID: recordingID)
     }
 
     // MARK: - Encode
@@ -139,6 +143,8 @@ final class ExportService: @unchecked Sendable {
         outputFilename: String,
         resolution: ExportResolution,
         applyWatermark: Bool,
+        trimStartSeconds: Double?,
+        trimEndSeconds: Double?,
         progress: @Sendable (Double, String) -> Void
     ) async throws -> URL {
         let asset = AVURLAsset(url: sourceURL)
@@ -147,7 +153,21 @@ final class ExportService: @unchecked Sendable {
             throw ExportServiceError.noVideoTrack
         }
 
-        let duration = try await asset.load(.duration)
+        let fullDuration = try await asset.load(.duration)
+        let sourceStart: CMTime
+        let exportDuration: CMTime
+
+        if let trimStart = trimStartSeconds,
+           let trimEnd = trimEndSeconds,
+           trimEnd > trimStart {
+            sourceStart = CMTime(seconds: trimStart, preferredTimescale: 600)
+            exportDuration = CMTime(seconds: trimEnd - trimStart, preferredTimescale: 600)
+        } else {
+            sourceStart = .zero
+            exportDuration = fullDuration
+        }
+
+        let sourceTimeRange = CMTimeRange(start: sourceStart, duration: exportDuration)
         let naturalSize = try await sourceVideoTrack.load(.naturalSize)
         let preferredTransform = try await sourceVideoTrack.load(.preferredTransform)
         var renderSize = naturalSize.applying(preferredTransform)
@@ -170,7 +190,7 @@ final class ExportService: @unchecked Sendable {
         }
 
         try compositionVideoTrack.insertTimeRange(
-            CMTimeRange(start: .zero, duration: duration),
+            sourceTimeRange,
             of: sourceVideoTrack,
             at: .zero
         )
@@ -181,7 +201,7 @@ final class ExportService: @unchecked Sendable {
                preferredTrackID: kCMPersistentTrackID_Invalid
            ) {
             try compositionAudioTrack.insertTimeRange(
-                CMTimeRange(start: .zero, duration: duration),
+                sourceTimeRange,
                 of: sourceAudioTrack,
                 at: .zero
             )
@@ -212,7 +232,7 @@ final class ExportService: @unchecked Sendable {
             .concatenating(CGAffineTransform(translationX: xOffset, y: yOffset))
 
         let instruction = AVMutableVideoCompositionInstruction()
-        instruction.timeRange = CMTimeRange(start: .zero, duration: duration)
+        instruction.timeRange = CMTimeRange(start: .zero, duration: exportDuration)
         let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
         layerInstruction.setTransform(finalTransform, at: .zero)
         instruction.layerInstructions = [layerInstruction]

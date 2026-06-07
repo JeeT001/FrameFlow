@@ -29,6 +29,37 @@ struct CaptionStyleConfig: Codable, Equatable, Sendable {
     var backgroundColorHex: String?
     var showsBackground: Bool
     var verticalPosition: CaptionVerticalPosition
+    /// Fine-tune offset from `verticalPosition` anchor, normalized to frame height (−0.3…+0.3; + moves up).
+    var customVerticalOffsetNormalized: Double? = nil
+
+    static let verticalOffsetRange: ClosedRange<Double> = -0.3...0.3
+
+    var clampedVerticalOffset: Double {
+        guard let offset = customVerticalOffsetNormalized else { return 0 }
+        return min(max(offset, Self.verticalOffsetRange.lowerBound), Self.verticalOffsetRange.upperBound)
+    }
+
+    /// Core Animation Y origin (geometry-flipped layer space, origin bottom-left).
+    func captionOriginY(renderHeight: CGFloat, boxHeight: CGFloat) -> CGFloat {
+        let margin = renderHeight * 0.08
+        let baseY: CGFloat
+        switch verticalPosition {
+        case .top:
+            baseY = renderHeight - margin - boxHeight
+        case .middle:
+            baseY = (renderHeight - boxHeight) / 2
+        case .bottom:
+            baseY = margin
+        }
+        let offset = CGFloat(clampedVerticalOffset) * renderHeight
+        let y = baseY + offset
+        return min(max(y, margin), renderHeight - margin - boxHeight)
+    }
+
+    /// SwiftUI offset for preview overlay (+Y moves down on screen).
+    func swiftUIVerticalOffset(containerHeight: CGFloat) -> CGFloat {
+        -CGFloat(clampedVerticalOffset) * containerHeight
+    }
 
     static func from(settingsValue: String) -> CaptionStyleConfig {
         switch settingsValue.lowercased() {

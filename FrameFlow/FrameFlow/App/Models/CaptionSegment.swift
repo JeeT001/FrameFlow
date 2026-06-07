@@ -24,4 +24,6 @@ struct CaptionSidecar: Codable, Sendable {
     var segments: [CaptionSegment]
     let createdAt: Date
     var stylePreset: String?
+    var styleVerticalPosition: String?
+    var customVerticalOffsetNormalized: Double?
 }

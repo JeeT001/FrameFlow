@@ -242,7 +242,7 @@ final class CaptionRenderer: @unchecked Sendable {
         let padding: CGFloat = style.showsBackground ? 14 * scale : 0
         let boxHeight = textHeight + padding * 2
 
-        let y = yPosition(for: style.verticalPosition, renderSize: renderSize, boxHeight: boxHeight)
+        let y = style.captionOriginY(renderHeight: renderSize.height, boxHeight: boxHeight)
         textLayer.frame = CGRect(
             x: (renderSize.width - maxWidth) / 2,
             y: y,
@@ -261,22 +261,6 @@ final class CaptionRenderer: @unchecked Sendable {
         }
 
         return textLayer
-    }
-
-    private func yPosition(
-        for position: CaptionVerticalPosition,
-        renderSize: CGSize,
-        boxHeight: CGFloat
-    ) -> CGFloat {
-        let margin = renderSize.height * 0.08
-        switch position {
-        case .top:
-            return renderSize.height - margin - boxHeight
-        case .middle:
-            return (renderSize.height - boxHeight) / 2
-        case .bottom:
-            return margin
-        }
     }
 
     private func srtTimestamp(_ seconds: Double) -> String {
