@@ -254,13 +254,15 @@ final class CompositeEngine {
         }
         guard pipRect.width > 4, pipRect.height > 4 else { return base.cropped(to: canvasRect) }
 
-        let pipImage = allowsOverflow ? fill(image: cameraFrame, in: pipRect) : fit(image: cameraFrame, in: pipRect)
+        let source = normalizedFrame(cameraFrame)
+        let pipImage = allowsOverflow ? fill(image: source, in: pipRect) : fit(image: source, in: pipRect)
+        let clipped = pipImage.cropped(to: pipRect)
         let pipContent: CIImage
         switch config.shape {
         case .roundedRect:
-            pipContent = pipImage
+            pipContent = clipped
         case .circle:
-            pipContent = circularCrop(image: pipImage, in: pipRect)
+            pipContent = circularCrop(image: clipped, in: pipRect)
         }
 
         var result = pipContent.composited(over: base)

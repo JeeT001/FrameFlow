@@ -29,6 +29,23 @@ final class CompositePreviewCoordinator {
     private var autoFocusEnabled = false
     private var placementsResolver: (() -> [CGWindowID: WindowPlacement])?
     var onCaptureFramesUpdated: (([CGWindowID: CIImage]) -> Void)?
+    private var pipConfigProvider: (() -> PiPConfig)?
+    private var cameraFrameProvider: (() -> CIImage?)?
+    private var pipEnabledProvider: (() -> Bool)?
+
+    func configurePiPPreview(
+        configProvider: @escaping () -> PiPConfig,
+        cameraFrameProvider: @escaping () -> CIImage?,
+        pipEnabledProvider: @escaping () -> Bool
+    ) {
+        pipConfigProvider = configProvider
+        self.cameraFrameProvider = cameraFrameProvider
+        self.pipEnabledProvider = pipEnabledProvider
+    }
+
+    func refreshPreviewFrame() {
+        Task { await refreshCompositeFrame() }
+    }
 
     func start(
         windowIDs: Set<CGWindowID>,
@@ -152,6 +169,7 @@ final class CompositePreviewCoordinator {
         let latestFrames = streamManager.latestFrames
         onCaptureFramesUpdated?(latestFrames)
 
+        let pipEnabled = pipEnabledProvider?() ?? false
         previewImage = compositeEngine.renderComposite(
             frames: latestFrames,
             windowOrder: windowOrder,
@@ -161,6 +179,9 @@ final class CompositePreviewCoordinator {
             autoFocusEnabled: autoFocusEnabled,
             customPlacements: placements,
             windowAspects: windowAspects,
+            cameraFrame: pipEnabled ? cameraFrameProvider?() : nil,
+            pipConfig: pipConfigProvider?(),
+            pipEnabled: pipEnabled,
             pipAllowsOverflow: layoutPreset == .freeForm
         )
     }

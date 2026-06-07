@@ -114,7 +114,49 @@ final class RecordingSessionCoordinator {
                 try await streamManager.startSystemAudioCapture()
             }
             AudioCaptureDiagnostics.resetForRecording()
-            try engine.start(outputURL: outputURL, outputSize: outputSize)
+            let micSampleRate: Double
+            if writerAudioMode == .mic || writerAudioMode == .combined {
+                micSampleRate = AudioCaptureService.defaultInputSampleRate()
+            } else {
+                micSampleRate = 48_000
+            }
+            #if DEBUG
+            print("[RecordingSessionCoordinator] writer audio sample rate: \(micSampleRate)Hz")
+            #endif
+            try engine.start(
+                outputURL: outputURL,
+                outputSize: outputSize,
+                audioSampleRate: micSampleRate
+            )
+            let recordingEngine = engine
+            let onAudioAppend: @Sendable (CMSampleBuffer, CMTime) -> Void = { sampleBuffer, captureHostTime in
+                do {
+                    try recordingEngine.appendAudioSampleBuffer(sampleBuffer, captureHostTime: captureHostTime)
+                } catch {
+                    Task { @MainActor in
+                        self.errorMessage = error.localizedDescription
+                    }
+                }
+            }
+            await audioCaptureService.start(
+                mode: writerAudioMode,
+                micVolume: SettingsStore.shared.defaultMicVolume,
+                systemVolume: SettingsStore.shared.defaultSystemVolume,
+                preferredMicDeviceUniqueID: SettingsStore.shared.defaultMicDevice,
+                appendSampleBuffer: onAudioAppend
+            )
+            if let audioStatus = audioCaptureService.statusMessage {
+                errorMessage = audioStatus
+            }
+            let waitForMicAudio = writerAudioMode == .mic && audioCaptureService.micCaptureActive
+            engine.configureAudioTimeline(waitForAudioBeforeVideo: waitForMicAudio)
+            if writerAudioMode == .mic && !audioCaptureService.micCaptureActive {
+                engine.configureAudioTimeline(waitForAudioBeforeVideo: false)
+                if errorMessage == nil {
+                    errorMessage = audioCaptureService.statusMessage
+                        ?? "Microphone unavailable. Recording video only."
+                }
+            }
             if pipController.isCameraEnabled {
                 await cameraCapture.start(preferredCameraID: pipController.selectedCameraID)
                 if let cameraStatus = cameraCapture.statusMessage {
@@ -122,21 +164,6 @@ final class RecordingSessionCoordinator {
                 }
             } else {
                 await cameraCapture.stop()
-            }
-            await audioCaptureService.start(
-                mode: writerAudioMode,
-                micVolume: SettingsStore.shared.defaultMicVolume,
-                systemVolume: SettingsStore.shared.defaultSystemVolume,
-                preferredMicDeviceUniqueID: SettingsStore.shared.defaultMicDevice
-            ) { sampleBuffer, captureHostTime in
-                do {
-                    try self.engine.appendAudioSampleBuffer(sampleBuffer, captureHostTime: captureHostTime)
-                } catch {
-                    self.errorMessage = error.localizedDescription
-                }
-            }
-            if let audioStatus = audioCaptureService.statusMessage {
-                errorMessage = audioStatus
             }
             isRecording = true
             startTimer()

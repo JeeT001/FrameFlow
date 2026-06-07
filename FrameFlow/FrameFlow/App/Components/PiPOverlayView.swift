@@ -9,6 +9,9 @@ import SwiftUI
 struct PiPOverlayView: View {
     @Bindable var controller: PiPController
     let cameraFrame: CIImage?
+    let canvasSize: CGSize
+    var interactionOnly: Bool = false
+    var onChanged: (() -> Void)?
 
     @State private var dragStartCenter: CGPoint?
     @State private var resizeStartSize: CGFloat?
@@ -16,40 +19,39 @@ struct PiPOverlayView: View {
     private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
 
     var body: some View {
-        GeometryReader { geometry in
-            if controller.isCameraEnabled {
-                let rect = controller.allowsOverflow
-                    ? PiPLayoutMath.pipRectUnclamped(
-                        config: controller.config,
-                        canvasSize: geometry.size,
-                        coordinateSpace: .swiftUI
-                    )
-                    : PiPLayoutMath.pipRect(
-                        config: controller.config,
-                        canvasSize: geometry.size,
-                        coordinateSpace: .swiftUI
-                    )
+        if controller.isCameraEnabled {
+            let rect = controller.allowsOverflow
+                ? PiPLayoutMath.pipRectUnclamped(
+                    config: controller.config,
+                    canvasSize: canvasSize,
+                    coordinateSpace: .swiftUI
+                )
+                : PiPLayoutMath.pipRect(
+                    config: controller.config,
+                    canvasSize: canvasSize,
+                    coordinateSpace: .swiftUI
+                )
 
-                ZStack(alignment: .topLeading) {
-                    Color.clear
-
-                    ZStack(alignment: .bottomTrailing) {
-                        cameraContent(in: rect)
-                            .overlay { shapeStroke }
-                            .clipShape(shapePath(in: rect))
-
-                        resizeHandle
-                            .padding(4)
-                            .gesture(resizeGesture(in: geometry.size))
-                    }
-                    .frame(width: rect.width, height: rect.height)
-                    .offset(x: rect.minX, y: rect.minY)
-                    .gesture(dragGesture(in: geometry.size))
+            ZStack(alignment: .bottomTrailing) {
+                if interactionOnly {
+                    shapePath(in: rect)
+                        .fill(Color.clear)
+                        .contentShape(shapePath(in: rect))
+                        .overlay { shapeStroke }
+                } else {
+                    cameraContent(in: rect)
+                        .overlay { shapeStroke }
+                        .clipShape(shapePath(in: rect))
                 }
-                .frame(width: geometry.size.width, height: geometry.size.height)
+
+                resizeHandle
+                    .padding(4)
+                    .gesture(resizeGesture)
             }
+            .frame(width: rect.width, height: rect.height)
+            .position(x: rect.midX, y: rect.midY)
+            .gesture(dragGesture)
         }
-        .allowsHitTesting(controller.isCameraEnabled)
     }
 
     @ViewBuilder
@@ -111,7 +113,7 @@ struct PiPOverlayView: View {
         }
     }
 
-    private func dragGesture(in canvasSize: CGSize) -> some Gesture {
+    private var dragGesture: some Gesture {
         DragGesture()
             .onChanged { value in
                 if dragStartCenter == nil {
@@ -122,13 +124,15 @@ struct PiPOverlayView: View {
                 let dy = value.translation.height / canvasSize.height
                 let newCenter = CGPoint(x: start.x + dx, y: start.y - dy)
                 controller.updatePosition(newCenter, canvasSize: canvasSize)
+                onChanged?()
             }
             .onEnded { _ in
                 dragStartCenter = nil
+                onChanged?()
             }
     }
 
-    private func resizeGesture(in canvasSize: CGSize) -> some Gesture {
+    private var resizeGesture: some Gesture {
         DragGesture()
             .onChanged { value in
                 if resizeStartSize == nil {
@@ -137,9 +141,11 @@ struct PiPOverlayView: View {
                 guard let start = resizeStartSize else { return }
                 let delta = value.translation.width / canvasSize.width
                 controller.updateSize(start + delta, canvasSize: canvasSize)
+                onChanged?()
             }
             .onEnded { _ in
                 resizeStartSize = nil
+                onChanged?()
             }
     }
 }

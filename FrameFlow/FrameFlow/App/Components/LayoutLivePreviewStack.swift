@@ -3,7 +3,6 @@
 //  FrameFlow
 //
 
-import CoreImage
 import SwiftUI
 
 struct LayoutLivePreviewStack: View {
@@ -14,9 +13,9 @@ struct LayoutLivePreviewStack: View {
     let windowIDs: [CGWindowID]
     @Bindable var pipController: PiPController
     @Bindable var windowPlacementController: WindowPlacementController
-    let cameraFrame: CIImage?
     var showPiPOverlay: Bool = true
     var onPlacementsChanged: (() -> Void)?
+    var onPiPChanged: (() -> Void)?
 
     private let cornerRadius: CGFloat = 12
 
@@ -51,7 +50,10 @@ struct LayoutLivePreviewStack: View {
                 if showPiPOverlay, pipController.isCameraEnabled {
                     PiPOverlayView(
                         controller: pipController,
-                        cameraFrame: cameraFrame
+                        cameraFrame: nil,
+                        canvasSize: referenceCanvasSize,
+                        interactionOnly: true,
+                        onChanged: onPiPChanged
                     )
                     .frame(width: referenceCanvasSize.width, height: referenceCanvasSize.height)
                 }

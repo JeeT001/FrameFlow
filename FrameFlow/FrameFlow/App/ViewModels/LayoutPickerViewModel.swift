@@ -135,6 +135,7 @@ final class LayoutPickerViewModel {
                 windowPlacementController.updateAspectFromCapture(windowID: windowID, image: image)
             }
         }
+        configurePiPPreviewCoordinator()
         await previewCoordinator.start(
             windowIDs: appState.selectedWindowIDs,
             format: format,
@@ -167,6 +168,7 @@ final class LayoutPickerViewModel {
 
     func updateLivePreviewLayout(appState: AppState) {
         syncSessionState(to: appState)
+        configurePiPPreviewCoordinator()
         previewCoordinator.updateLayout(
             format: format,
             layoutPreset: layoutPreset,
@@ -205,6 +207,11 @@ final class LayoutPickerViewModel {
         updateLivePreviewLayout(appState: appState)
     }
 
+    func notifyPiPChanged(appState: AppState) {
+        syncSessionState(to: appState)
+        previewCoordinator.refreshPreviewFrame()
+    }
+
     func setCameraEnabled(_ enabled: Bool) {
         cameraEnabled = enabled
         pipController.isCameraEnabled = enabled
@@ -216,6 +223,7 @@ final class LayoutPickerViewModel {
             }
             ensureValidCameraSelection()
         }
+        previewCoordinator.refreshPreviewFrame()
     }
 
     func setSelectedCameraID(_ cameraID: String?) {
@@ -223,10 +231,11 @@ final class LayoutPickerViewModel {
         pipController.selectedCameraID = cameraID
     }
 
-    func applyPiPPreset(_ preset: PiPPreset) {
+    func applyPiPPreset(_ preset: PiPPreset, appState: AppState) {
         pipController.applyPreset(preset)
         cameraEnabled = pipController.isCameraEnabled
         normalizePiPForCurrentFormat()
+        updateLivePreviewLayout(appState: appState)
     }
 
     func syncPiPState() {
@@ -316,6 +325,14 @@ final class LayoutPickerViewModel {
             aspects[windowID] = windowPlacementController.aspectRatio(for: windowID)
         }
         return aspects
+    }
+
+    private func configurePiPPreviewCoordinator() {
+        previewCoordinator.configurePiPPreview(
+            configProvider: { [pipController] in pipController.config },
+            cameraFrameProvider: { [cameraCapture] in cameraCapture.latestFrame },
+            pipEnabledProvider: { [pipController] in pipController.isCameraEnabled }
+        )
     }
 
     private func normalizePiPForCurrentFormat() {

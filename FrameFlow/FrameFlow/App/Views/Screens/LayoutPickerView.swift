@@ -238,7 +238,7 @@ struct LayoutPickerView: View {
     private var presetSelection: Binding<PiPPreset> {
         Binding(
             get: { viewModel.pipController.selectedPreset },
-            set: { viewModel.applyPiPPreset($0) }
+            set: { viewModel.applyPiPPreset($0, appState: appState) }
         )
     }
 
@@ -318,10 +318,12 @@ struct LayoutPickerView: View {
                         windowIDs: appState.selectedWindowIDs.sorted(),
                         pipController: viewModel.pipController,
                         windowPlacementController: viewModel.windowPlacementController,
-                        cameraFrame: viewModel.latestCameraFrame,
                         showPiPOverlay: viewModel.cameraEnabled,
                         onPlacementsChanged: {
                             viewModel.syncWindowPlacements(to: appState)
+                        },
+                        onPiPChanged: {
+                            viewModel.notifyPiPChanged(appState: appState)
                         }
                     )
                 } else {

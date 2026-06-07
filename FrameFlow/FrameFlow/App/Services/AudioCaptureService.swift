@@ -4,8 +4,14 @@
 //
 
 import AVFoundation
+import AudioToolbox
 import CoreMedia
 import Foundation
+
+/// Shared mic-active flag readable from mixQueue without touching `@MainActor` service state.
+final class MicCaptureState: @unchecked Sendable {
+    nonisolated(unsafe) var isActive = false
+}
 
 @MainActor
 @Observable
@@ -13,24 +19,29 @@ final class AudioCaptureService {
     private(set) var liveLevel: Float = 0
     private(set) var statusMessage: String?
     private(set) var isRunning = false
+    private(set) var micCaptureActive = false
 
     private var audioEngine: AVAudioEngine?
     private var audioMode: AudioModeOption = .none
     private var micVolume: Float = 1.0
     private var systemVolume: Float = 1.0
     private var appendSampleBuffer: ((CMSampleBuffer, CMTime) -> Void)?
+    private nonisolated(unsafe) var onAppendSampleBuffer: ((CMSampleBuffer, CMTime) -> Void)?
     private var systemBufferCount = 0
 
-    /// Tap callbacks run off MainActor — use this flag instead of `isRunning` on mixQueue.
-    private nonisolated(unsafe) var isCaptureActive = false
-
-    private let sampleRate: Double = 48_000
+    private let micCaptureState = MicCaptureState()
     /// Larger buffer reduces HAL cycle pressure during PiP + composite recording.
     private static let tapBufferSize: AVAudioFrameCount = 4096
     private let mixQueue = DispatchQueue(
         label: "com.Simranjit.FrameFlow.audio.capture",
         qos: .userInteractive
     )
+
+    nonisolated static func defaultInputSampleRate() -> Double {
+        let engine = AVAudioEngine()
+        defer { engine.stop() }
+        return engine.inputNode.outputFormat(forBus: 0).sampleRate
+    }
 
     func start(
         mode: AudioModeOption,
@@ -45,9 +56,11 @@ final class AudioCaptureService {
         self.micVolume = max(0, min(1, micVolume))
         self.systemVolume = max(0, min(1, systemVolume))
         self.appendSampleBuffer = appendSampleBuffer
+        self.onAppendSampleBuffer = appendSampleBuffer
         self.systemBufferCount = 0
         self.statusMessage = nil
         self.liveLevel = 0
+        self.micCaptureActive = false
 
         guard mode != .none else {
             isRunning = true
@@ -55,21 +68,26 @@ final class AudioCaptureService {
         }
 
         if includesMic {
-            await startMicrophoneCapture(preferredMicDeviceUniqueID: preferredMicDeviceUniqueID)
+            await startMicrophoneCapture(
+                preferredMicDeviceUniqueID: preferredMicDeviceUniqueID,
+                onAppend: appendSampleBuffer
+            )
         }
 
         isRunning = true
     }
 
     func stop() {
-        isCaptureActive = false
+        micCaptureState.isActive = false
         if let audioEngine {
             audioEngine.inputNode.removeTap(onBus: 0)
             audioEngine.stop()
         }
         audioEngine = nil
         appendSampleBuffer = nil
+        onAppendSampleBuffer = nil
         isRunning = false
+        micCaptureActive = false
         liveLevel = 0
         AudioCaptureDiagnostics.logStopSummaryIfNeeded()
     }
@@ -90,7 +108,7 @@ final class AudioCaptureService {
 
         let captureHostTime = CMClockGetTime(CMClockGetHostTimeClock())
         AudioCaptureDiagnostics.recordAppend()
-        appendSampleBuffer?(sampleBuffer, captureHostTime)
+        onAppendSampleBuffer?(sampleBuffer, captureHostTime)
     }
 
     private var includesMic: Bool {
@@ -101,7 +119,10 @@ final class AudioCaptureService {
         audioMode == .system || audioMode == .combined
     }
 
-    private func startMicrophoneCapture(preferredMicDeviceUniqueID: String?) async {
+    private func startMicrophoneCapture(
+        preferredMicDeviceUniqueID: String?,
+        onAppend: @escaping (CMSampleBuffer, CMTime) -> Void
+    ) async {
         let status = PermissionManager.shared.checkMicrophonePermission()
         if status == .notDetermined {
             let granted = await PermissionManager.shared.requestMicrophonePermission()
@@ -121,27 +142,97 @@ final class AudioCaptureService {
         let engine = AVAudioEngine()
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
-        let canonicalFormat = AudioMixerEngine.canonicalPCMFormat(sampleRate: sampleRate)
+        let outputSampleRate = inputFormat.sampleRate
+        let canonicalFormat = AudioMixerEngine.canonicalPCMFormat(sampleRate: outputSampleRate)
         let gain = micVolume
 
-        isCaptureActive = true
+        #if DEBUG
+        print(
+            "[AudioCapture] mic tap format: \(inputFormat.sampleRate)Hz " +
+            "channels=\(inputFormat.channelCount) interleaved=\(inputFormat.isInterleaved) " +
+            "writerRate=\(outputSampleRate)Hz"
+        )
+        #endif
 
+        micCaptureState.isActive = true
+
+        let liveLevelUpdater: (Float) -> Void = { [weak self] level in
+            Task { @MainActor in
+                guard let self else { return }
+                self.liveLevel = self.liveLevel * 0.65 + min(1, level) * 0.35
+            }
+        }
+
+        installMicrophoneTap(
+            on: inputNode,
+            format: inputFormat,
+            canonicalFormat: canonicalFormat,
+            outputSampleRate: outputSampleRate,
+            gain: gain,
+            captureState: micCaptureState,
+            onAppend: onAppend,
+            onLiveLevel: liveLevelUpdater
+        )
+
+        do {
+            engine.prepare()
+            try engine.start()
+            self.audioEngine = engine
+
+            try await Task.sleep(nanoseconds: 300_000_000)
+            let tapCount = AudioCaptureDiagnostics.snapshot().tapCount
+            if tapCount == 0 {
+                micCaptureState.isActive = false
+                micCaptureActive = false
+                inputNode.removeTap(onBus: 0)
+                engine.stop()
+                self.audioEngine = nil
+                statusMessage = "Microphone capture failed to produce audio. Recording will continue without mic."
+                #if DEBUG
+                print("[AudioCapture] WARNING: no mic taps within 300ms after engine start")
+                #endif
+            } else {
+                micCaptureActive = true
+            }
+        } catch {
+            micCaptureState.isActive = false
+            micCaptureActive = false
+            inputNode.removeTap(onBus: 0)
+            statusMessage = "Could not start microphone capture. Recording will continue with available audio sources."
+        }
+    }
+
+    private func installMicrophoneTap(
+        on inputNode: AVAudioInputNode,
+        format tapFormat: AVAudioFormat,
+        canonicalFormat: AVAudioFormat,
+        outputSampleRate: Double,
+        gain: Float,
+        captureState: MicCaptureState,
+        onAppend: @escaping (CMSampleBuffer, CMTime) -> Void,
+        onLiveLevel: @escaping (Float) -> Void
+    ) {
+        let captureMixQueue = mixQueue
         inputNode.installTap(
             onBus: 0,
             bufferSize: Self.tapBufferSize,
-            format: inputFormat
-        ) { [weak self] buffer, time in
-            guard let self else { return }
+            format: tapFormat
+        ) { buffer, time in
             AudioCaptureDiagnostics.recordTap()
             let captureHostTime = AudioMixerEngine.hostTime(from: time)
+            guard let copiedBuffer = AudioMixerEngine.copyPCMBuffer(buffer) else {
+                AudioCaptureDiagnostics.recordCopyFail()
+                return
+            }
 
-            self.mixQueue.async {
-                guard self.isCaptureActive else {
+            captureMixQueue.async {
+                AudioCaptureDiagnostics.recordMixQueueEnter()
+                guard captureState.isActive else {
                     AudioCaptureDiagnostics.recordSkippedNotRunning()
                     return
                 }
                 guard let converted = AudioMixerEngine.convert(
-                    buffer: buffer,
+                    buffer: copiedBuffer,
                     to: canonicalFormat
                 ) else {
                     AudioCaptureDiagnostics.recordConvertFail()
@@ -149,13 +240,11 @@ final class AudioCaptureService {
                 }
 
                 let level = AudioMixerEngine.levelFromPCMBuffer(converted) * max(0.05, gain)
-                Task { @MainActor in
-                    self.liveLevel = self.liveLevel * 0.65 + min(1, level) * 0.35
-                }
+                onLiveLevel(level)
 
                 guard let sampleBuffer = AudioMixerEngine.makeSampleBuffer(
                     from: converted,
-                    sampleRate: self.sampleRate,
+                    sampleRate: outputSampleRate,
                     gain: gain
                 ) else {
                     AudioCaptureDiagnostics.recordMakeBufferFail()
@@ -164,17 +253,8 @@ final class AudioCaptureService {
 
                 AudioCaptureDiagnostics.recordAppend()
                 AudioCaptureDiagnostics.logPeriodicIfNeeded()
-                self.appendSampleBuffer?(sampleBuffer, captureHostTime)
+                onAppend(sampleBuffer, captureHostTime)
             }
-        }
-
-        do {
-            engine.prepare()
-            try engine.start()
-            self.audioEngine = engine
-        } catch {
-            isCaptureActive = false
-            statusMessage = "Could not start microphone capture. Recording will continue with available audio sources."
         }
     }
 }
@@ -185,7 +265,7 @@ enum AudioMixerEngine {
             commonFormat: .pcmFormatFloat32,
             sampleRate: sampleRate,
             channels: 2,
-            interleaved: true
+            interleaved: false
         )!
     }
 
@@ -197,22 +277,70 @@ enum AudioMixerEngine {
     }
 
     static func convert(buffer: AVAudioPCMBuffer, to outputFormat: AVAudioFormat) -> AVAudioPCMBuffer? {
-        if buffer.format == outputFormat {
+        guard buffer.frameLength > 0 else { return nil }
+
+        if formatsMatch(buffer.format, outputFormat) {
             return buffer
         }
 
-        guard let converter = AVAudioConverter(from: buffer.format, to: outputFormat) else {
+        var working = buffer
+
+        if working.format.channelCount == 1, outputFormat.channelCount >= 2 {
+            guard let stereo = upmixMonoToStereoNonInterleaved(working) else {
+                AudioCaptureDiagnostics.logConvertFailOnce(
+                    stage: "upmix",
+                    input: working.format,
+                    output: outputFormat
+                )
+                return nil
+            }
+            working = stereo
+            if formatsMatch(working.format, outputFormat) {
+                return working
+            }
+        }
+
+        guard let resampled = resamplePCMBuffer(working, to: outputFormat) else {
+            AudioCaptureDiagnostics.logConvertFailOnce(
+                stage: "resample",
+                input: working.format,
+                output: outputFormat
+            )
+            return nil
+        }
+        return resampled
+    }
+
+    private static func resamplePCMBuffer(
+        _ input: AVAudioPCMBuffer,
+        to outputFormat: AVAudioFormat
+    ) -> AVAudioPCMBuffer? {
+        guard input.format.channelCount == outputFormat.channelCount else {
             return nil
         }
 
-        let ratio = outputFormat.sampleRate / buffer.format.sampleRate
-        let capacity = AVAudioFrameCount(max(1, Int(Double(buffer.frameLength) * ratio + 16)))
-        guard let converted = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: capacity) else {
+        if abs(input.format.sampleRate - outputFormat.sampleRate) < 1 {
+            return input
+        }
+
+        guard let converter = AVAudioConverter(from: input.format, to: outputFormat) else {
+            return nil
+        }
+
+        let inputFrames = Double(input.frameLength)
+        let ratio = outputFormat.sampleRate / input.format.sampleRate
+        let expectedFrames = AVAudioFrameCount(ceil(inputFrames * ratio) + 64)
+
+        guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: expectedFrames) else {
+            return nil
+        }
+
+        let scratchCapacity = max(expectedFrames, AVAudioFrameCount(4096))
+        guard let scratchBuffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: scratchCapacity) else {
             return nil
         }
 
         var hasProvidedInput = false
-        var conversionError: NSError?
         let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
             if hasProvidedInput {
                 outStatus.pointee = .noDataNow
@@ -220,14 +348,87 @@ enum AudioMixerEngine {
             }
             hasProvidedInput = true
             outStatus.pointee = .haveData
-            return buffer
+            return input
         }
 
-        let status = converter.convert(to: converted, error: &conversionError, withInputFrom: inputBlock)
-        guard status == .haveData || status == .inputRanDry else {
+        var totalOutputFrames: AVAudioFrameCount = 0
+        var conversionError: NSError?
+        var iterations = 0
+        let maxIterations = 32
+
+        while iterations < maxIterations {
+            iterations += 1
+            scratchBuffer.frameLength = 0
+            let status = converter.convert(to: scratchBuffer, error: &conversionError, withInputFrom: inputBlock)
+
+            if status == .error {
+                return nil
+            }
+
+            if scratchBuffer.frameLength > 0 {
+                guard appendPCMBuffer(
+                    scratchBuffer,
+                    to: outputBuffer,
+                    atFrameOffset: totalOutputFrames
+                ) else {
+                    return nil
+                }
+                totalOutputFrames += scratchBuffer.frameLength
+            }
+
+            if status == .inputRanDry || status == .endOfStream {
+                break
+            }
+
+            if hasProvidedInput && scratchBuffer.frameLength == 0 {
+                break
+            }
+        }
+
+        #if DEBUG
+        if iterations >= maxIterations {
+            print("[AudioCapture] WARNING: resample hit iteration cap")
+        }
+        #endif
+
+        outputBuffer.frameLength = totalOutputFrames
+        guard totalOutputFrames > 0 else {
             return nil
         }
-        return converted
+        return outputBuffer
+    }
+
+    private static func upmixMonoToStereoNonInterleaved(_ input: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        guard input.format.channelCount == 1,
+              input.format.commonFormat == .pcmFormatFloat32,
+              let mono = input.floatChannelData?[0] else {
+            return nil
+        }
+
+        let frameCount = Int(input.frameLength)
+        guard frameCount > 0,
+              let outFormat = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: input.format.sampleRate,
+                channels: 2,
+                interleaved: false
+              ),
+              let out = AVAudioPCMBuffer(
+                pcmFormat: outFormat,
+                frameCapacity: AVAudioFrameCount(frameCount)
+              ),
+              let left = out.floatChannelData?[0],
+              let right = out.floatChannelData?[1] else {
+            return nil
+        }
+
+        out.frameLength = AVAudioFrameCount(frameCount)
+        for index in 0..<frameCount {
+            let sample = mono[index]
+            left[index] = sample
+            right[index] = sample
+        }
+        return out
     }
 
     static func makeSampleBuffer(
@@ -235,24 +436,43 @@ enum AudioMixerEngine {
         sampleRate: Double,
         gain: Float
     ) -> CMSampleBuffer? {
-        guard let data = interleavedFloatData(from: pcmBuffer) else {
+        guard pcmBuffer.frameLength > 0,
+              let data = interleavedFloatData(from: pcmBuffer) else {
+            #if DEBUG
+            print("[AudioCapture] makeSampleBuffer fail: interleavedFloatData unavailable")
+            #endif
             return nil
         }
 
-        var scaled = data
-        if gain != 1 {
-            for i in 0..<scaled.count {
-                let sample = scaled[i] * gain
-                scaled[i] = max(-1, min(1, sample))
-            }
+        let channels = Int(pcmBuffer.format.channelCount)
+        let frameCount = Int(pcmBuffer.frameLength)
+        let expectedInterleavedSamples = frameCount * channels
+        guard data.count == expectedInterleavedSamples else {
+            #if DEBUG
+            print("[AudioCapture] makeSampleBuffer fail: frames=\(frameCount) channels=\(channels)")
+            #endif
+            return nil
         }
 
-        let streamDescription = pcmBuffer.format.streamDescription
+        let scaled = data.map { softLimitSample($0, gain: gain) }
+        let expectedByteLength = expectedInterleavedSamples * MemoryLayout<Float>.size
+
+        var asbd = AudioStreamBasicDescription(
+            mSampleRate: sampleRate,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
+            mBytesPerPacket: UInt32(channels * MemoryLayout<Float>.size),
+            mFramesPerPacket: 1,
+            mBytesPerFrame: UInt32(channels * MemoryLayout<Float>.size),
+            mChannelsPerFrame: UInt32(channels),
+            mBitsPerChannel: 32,
+            mReserved: 0
+        )
 
         var formatDescription: CMAudioFormatDescription?
         let formatStatus = CMAudioFormatDescriptionCreate(
             allocator: kCFAllocatorDefault,
-            asbd: streamDescription,
+            asbd: &asbd,
             layoutSize: 0,
             layout: nil,
             magicCookieSize: 0,
@@ -261,10 +481,16 @@ enum AudioMixerEngine {
             formatDescriptionOut: &formatDescription
         )
         guard formatStatus == noErr, let formatDescription else {
+            #if DEBUG
+            print("[AudioCapture] makeSampleBuffer fail: frames=\(frameCount) channels=\(channels)")
+            #endif
             return nil
         }
 
         let dataLength = scaled.count * MemoryLayout<Float>.size
+        guard dataLength == expectedByteLength else {
+            return nil
+        }
         var blockBuffer: CMBlockBuffer?
         let blockStatus = CMBlockBufferCreateWithMemoryBlock(
             allocator: kCFAllocatorDefault,
@@ -304,7 +530,7 @@ enum AudioMixerEngine {
         )
 
         var sampleBuffer: CMSampleBuffer?
-        let sampleCount = CMItemCount(pcmBuffer.frameLength)
+        let sampleCount = CMItemCount(frameCount)
         let sampleStatus = CMSampleBufferCreate(
             allocator: kCFAllocatorDefault,
             dataBuffer: blockBuffer,
@@ -395,5 +621,121 @@ enum AudioMixerEngine {
             }
         }
         return interleaved
+    }
+
+    private static func softLimitSample(_ sample: Float, gain: Float) -> Float {
+        tanh(sample * gain)
+    }
+
+    private static func formatsMatch(_ lhs: AVAudioFormat, _ rhs: AVAudioFormat) -> Bool {
+        lhs.sampleRate == rhs.sampleRate
+            && lhs.channelCount == rhs.channelCount
+            && lhs.commonFormat == rhs.commonFormat
+            && lhs.isInterleaved == rhs.isInterleaved
+    }
+
+    static func copyPCMBuffer(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        guard buffer.frameLength > 0 else { return nil }
+        guard let copy = AVAudioPCMBuffer(
+            pcmFormat: buffer.format,
+            frameCapacity: buffer.frameLength
+        ) else {
+            return nil
+        }
+        guard appendPCMBuffer(buffer, to: copy, atFrameOffset: 0) else {
+            return copyViaAudioBufferListFallback(from: buffer, to: copy)
+        }
+        copy.frameLength = buffer.frameLength
+        return copy
+    }
+
+    private static func copyViaAudioBufferListFallback(
+        from source: AVAudioPCMBuffer,
+        to destination: AVAudioPCMBuffer
+    ) -> AVAudioPCMBuffer? {
+        let frameCount = Int(source.frameLength)
+        let channels = Int(source.format.channelCount)
+        guard frameCount > 0, channels > 0 else { return nil }
+
+        if source.format.isInterleaved,
+           destination.format.isInterleaved,
+           let srcData = source.audioBufferList.pointee.mBuffers.mData,
+           let dstData = destination.mutableAudioBufferList.pointee.mBuffers.mData {
+            let sampleCount = frameCount * channels
+            let src = srcData.assumingMemoryBound(to: Float.self)
+            let dst = dstData.assumingMemoryBound(to: Float.self)
+            dst.update(from: src, count: sampleCount)
+            destination.frameLength = source.frameLength
+            return destination
+        }
+
+        if !source.format.isInterleaved,
+           !destination.format.isInterleaved,
+           source.format.channelCount == 1,
+           let srcData = source.audioBufferList.pointee.mBuffers.mData,
+           let dstData = destination.mutableAudioBufferList.pointee.mBuffers.mData {
+            let src = srcData.assumingMemoryBound(to: Float.self)
+            let dst = dstData.assumingMemoryBound(to: Float.self)
+            dst.update(from: src, count: frameCount)
+            destination.frameLength = source.frameLength
+            return destination
+        }
+
+        return nil
+    }
+
+    private static func appendPCMBuffer(
+        _ source: AVAudioPCMBuffer,
+        to destination: AVAudioPCMBuffer,
+        atFrameOffset: AVAudioFrameCount
+    ) -> Bool {
+        let frameCount = Int(source.frameLength)
+        let channels = Int(source.format.channelCount)
+        guard frameCount > 0, channels > 0 else { return true }
+
+        let requiredCapacity = atFrameOffset + source.frameLength
+        guard destination.frameCapacity >= requiredCapacity else { return false }
+
+        if source.format.isInterleaved, destination.format.isInterleaved {
+            guard let srcData = source.audioBufferList.pointee.mBuffers.mData,
+                  let dstData = destination.mutableAudioBufferList.pointee.mBuffers.mData else {
+                return false
+            }
+            let sampleCount = frameCount * channels
+            let dstOffsetBytes = Int(atFrameOffset) * channels * MemoryLayout<Float>.size
+            let src = srcData.assumingMemoryBound(to: Float.self)
+            let dst = dstData.advanced(by: dstOffsetBytes).assumingMemoryBound(to: Float.self)
+            dst.update(from: src, count: sampleCount)
+            destination.frameLength = max(destination.frameLength, atFrameOffset + source.frameLength)
+            return true
+        }
+
+        guard let srcChannels = source.floatChannelData,
+              let dstChannels = destination.floatChannelData else {
+            if !source.format.isInterleaved,
+               !destination.format.isInterleaved,
+               source.format.channelCount == 1,
+               destination.format.channelCount == 1,
+               let srcData = source.audioBufferList.pointee.mBuffers.mData,
+               let dstData = destination.mutableAudioBufferList.pointee.mBuffers.mData {
+                let dstOffsetBytes = Int(atFrameOffset) * MemoryLayout<Float>.size
+                let src = srcData.assumingMemoryBound(to: Float.self)
+                let dst = dstData.advanced(by: dstOffsetBytes).assumingMemoryBound(to: Float.self)
+                dst.update(from: src, count: frameCount)
+                destination.frameLength = max(destination.frameLength, atFrameOffset + source.frameLength)
+                return true
+            }
+            return false
+        }
+
+        let dstStart = Int(atFrameOffset)
+        for channel in 0..<channels {
+            dstChannels[channel].advanced(by: dstStart).update(
+                from: srcChannels[channel],
+                count: frameCount
+            )
+        }
+        destination.frameLength = max(destination.frameLength, atFrameOffset + source.frameLength)
+        return true
     }
 }

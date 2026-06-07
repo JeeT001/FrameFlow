@@ -45,45 +45,57 @@ final class RecordingEngine: @unchecked Sendable {
     /// Max video lead over audio sample timeline when duplicating frames.
     private static let audioMasterLead = CMTime(value: 50, timescale: 1000)
 
-    private(set) var isRecording = false
-    private(set) var isPaused = false
+    private nonisolated(unsafe) var writerAudioSampleRate: Double = 48_000
+
+    private(set) nonisolated(unsafe) var isRecording = false
+    private(set) nonisolated(unsafe) var isPaused = false
     private(set) var formattedDuration = "00:00"
     private(set) var lastRecordedDurationSeconds = 0
 
     /// Serializes all writer appends and timeline mutations (safe from mic tap thread).
     private let writerQueue = DispatchQueue(label: "com.Simranjit.FrameFlow.recording.writer", qos: .userInitiated)
 
-    private var writer: AVAssetWriter?
-    private var videoInput: AVAssetWriterInput?
-    private var audioInput: AVAssetWriterInput?
-    private var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
+    /// Writer-queue state — accessed only inside `writerQueue.sync` (mic thread uses nonisolated append path).
+    private nonisolated(unsafe) var writer: AVAssetWriter?
+    private nonisolated(unsafe) var videoInput: AVAssetWriterInput?
+    private nonisolated(unsafe) var audioInput: AVAssetWriterInput?
+    private nonisolated(unsafe) var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var durationTimer: Timer?
     private var startDate: Date?
 
     /// Video PTS follows audio sample timeline; frameIndex counts appends for diagnostics.
-    private var videoFrameIndex: Int64 = 0
-    private var hasStartedMediaTimeline = false
-    private var lastVideoPTS: CMTime = .invalid
-    private var lastAudioPTS: CMTime = .invalid
-    private var nextAudioSamplePTS: CMTime?
-    private var pendingAudioBuffers: [CMSampleBuffer] = []
+    private nonisolated(unsafe) var videoFrameIndex: Int64 = 0
+    private nonisolated(unsafe) var hasStartedMediaTimeline = false
+    private nonisolated(unsafe) var lastVideoPTS: CMTime = .invalid
+    private nonisolated(unsafe) var lastAudioPTS: CMTime = .invalid
+    private nonisolated(unsafe) var nextAudioSamplePTS: CMTime?
+    private nonisolated(unsafe) var pendingAudioBuffers: [CMSampleBuffer] = []
+    private nonisolated(unsafe) var waitForAudioBeforeVideo = true
+    private nonisolated(unsafe) var expectsMicAudio = false
+    private nonisolated(unsafe) var videoOnlyFallbackActive = false
+    private nonisolated(unsafe) var firstVideoAppendAttemptDate: Date?
+    private static let videoOnlyFallbackDelay: TimeInterval = 1.0
 
     #if DEBUG
-    private var didLogWaitingForFirstAudio = false
-    private var audioDropNotReadyCount = 0
-    private var audioQueuedCount = 0
-    private var videoSkipNotReadyCount = 0
-    private var duplicateFrameCount = 0
-    private var maxPendingAudioDepth = 0
-    private var lastPeriodicLogDate = Date.distantPast
+    private nonisolated(unsafe) var didLogWaitingForFirstAudio = false
+    private nonisolated(unsafe) var audioDropNotReadyCount = 0
+    private nonisolated(unsafe) var audioQueuedCount = 0
+    private nonisolated(unsafe) var audioWriterAppends = 0
+    private nonisolated(unsafe) var videoSkipNotReadyCount = 0
+    private nonisolated(unsafe) var duplicateFrameCount = 0
+    private nonisolated(unsafe) var maxPendingAudioDepth = 0
+    private nonisolated(unsafe) var lastPeriodicLogDate = Date.distantPast
     #endif
 
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     private static let maxPendingAudioBuffers = 256
 
-    func start(outputURL: URL, outputSize: CGSize) throws {
+    func start(outputURL: URL, outputSize: CGSize, audioSampleRate: Double = 48_000) throws {
         guard !isRecording else { throw RecordingEngineError.alreadyRecording }
         try? FileManager.default.removeItem(at: outputURL)
+
+        writerAudioSampleRate = audioSampleRate
+        let writerAudioRate = Int(audioSampleRate.rounded())
 
         do {
             let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
@@ -104,7 +116,7 @@ final class RecordingEngine: @unchecked Sendable {
 
             let audioSettings: [String: Any] = [
                 AVFormatIDKey: kAudioFormatMPEG4AAC,
-                AVSampleRateKey: Self.audioSampleRate,
+                AVSampleRateKey: writerAudioRate,
                 AVNumberOfChannelsKey: 2,
                 AVEncoderBitRateKey: 128_000,
             ]
@@ -144,11 +156,16 @@ final class RecordingEngine: @unchecked Sendable {
             lastAudioPTS = .invalid
             nextAudioSamplePTS = nil
             pendingAudioBuffers.removeAll()
+            waitForAudioBeforeVideo = true
+            expectsMicAudio = false
+            videoOnlyFallbackActive = false
+            firstVideoAppendAttemptDate = nil
 
             #if DEBUG
             didLogWaitingForFirstAudio = false
             audioDropNotReadyCount = 0
             audioQueuedCount = 0
+            audioWriterAppends = 0
             videoSkipNotReadyCount = 0
             duplicateFrameCount = 0
             maxPendingAudioDepth = 0
@@ -171,6 +188,17 @@ final class RecordingEngine: @unchecked Sendable {
         }
     }
 
+    func configureAudioTimeline(waitForAudioBeforeVideo: Bool) {
+        writerQueue.sync {
+            self.waitForAudioBeforeVideo = waitForAudioBeforeVideo
+            self.expectsMicAudio = waitForAudioBeforeVideo
+            if waitForAudioBeforeVideo {
+                self.videoOnlyFallbackActive = false
+                self.firstVideoAppendAttemptDate = nil
+            }
+        }
+    }
+
     func pauseRecording() {
         writerQueue.sync {
             guard isRecording, !isPaused else { return }
@@ -186,13 +214,58 @@ final class RecordingEngine: @unchecked Sendable {
     }
 
     func appendFrame(ciImage: CIImage, outputSize: CGSize) throws {
+        let pool: CVPixelBufferPool? = try performOnWriterQueue {
+            guard self.isRecording,
+                  let writer = self.writer,
+                  let adaptor = self.pixelBufferAdaptor,
+                  let pool = adaptor.pixelBufferPool else {
+                throw RecordingEngineError.notRecording
+            }
+            guard !self.isPaused, writer.status == .writing else { return nil }
+
+            if self.firstVideoAppendAttemptDate == nil {
+                self.firstVideoAppendAttemptDate = Date()
+            }
+            self.updateVideoOnlyFallbackIfNeededOnWriterQueue()
+
+            if self.shouldWaitForAudioOnWriterQueue() {
+                guard CMTimeCompare(self.currentAudioEndPTSOnWriterQueue(), .zero) > 0 else {
+                    #if DEBUG
+                    if !self.didLogWaitingForFirstAudio {
+                        self.didLogWaitingForFirstAudio = true
+                        print("[RecordingEngine] Waiting for first audio buffer before video append.")
+                    }
+                    #endif
+                    return nil
+                }
+            }
+            return pool
+        }
+
+        guard let pool else { return }
+
+        var pixelBuffer: CVPixelBuffer?
+        let poolStatus = CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pixelBuffer)
+        guard poolStatus == kCVReturnSuccess, let pixelBuffer else {
+            throw RecordingEngineError.appendFailed
+        }
+
+        CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        ciContext.render(
+            ciImage,
+            to: pixelBuffer,
+            bounds: CGRect(origin: .zero, size: outputSize),
+            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)
+        )
+        CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+
         try performOnWriterQueue {
             try self.drainPendingAudioBuffersOnWriterQueue()
-            try self.appendFrameOnWriterQueue(ciImage: ciImage, outputSize: outputSize)
+            try self.appendPreparedPixelBufferOnWriterQueue(pixelBuffer)
         }
     }
 
-    func appendAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer, captureHostTime: CMTime) throws {
+    nonisolated func appendAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer, captureHostTime: CMTime) throws {
         try performOnWriterQueue {
             try self.enqueueOrAppendAudioOnWriterQueue(sampleBuffer: sampleBuffer)
         }
@@ -214,14 +287,49 @@ final class RecordingEngine: @unchecked Sendable {
                 "[RecordingEngine] stop summary: frames=\(self.videoFrameIndex) " +
                 "videoSkips=\(self.videoSkipNotReadyCount) duplicateFrames=\(self.duplicateFrameCount) " +
                 "audioNotReady=\(self.audioDropNotReadyCount) audioEnqueued=\(self.audioQueuedCount) " +
+                "audioWriterAppends=\(self.audioWriterAppends) " +
                 "maxPendingAudio=\(self.maxPendingAudioDepth) " +
                 "lastVideoPTS=\(String(format: "%.3f", videoSeconds))s " +
                 "lastAudioPTS=\(String(format: "%.3f", audioSeconds))s " +
                 "Δ=\(String(format: "%+.0f", (audioSeconds - videoSeconds) * 1000))ms " +
                 "micTaps=\(audioSnap.tapCount) micAppends=\(audioSnap.appendCount) " +
+                "convertFail=\(audioSnap.convertFailCount) makeFail=\(audioSnap.makeBufferFailCount) " +
                 "tapsPerSec=\(String(format: "%.1f", tapsPerSec))"
             )
+            if self.expectsMicAudio && self.audioWriterAppends == 0 {
+                print(
+                    "[RecordingEngine] WARNING: mic expected but no audio samples written to writer " +
+                    "(micAppends=\(audioSnap.appendCount), convertFail=\(audioSnap.convertFailCount))"
+                )
+            }
+            if self.audioDropNotReadyCount > 0
+                || audioSnap.convertFailCount > 0
+                || self.maxPendingAudioDepth > 32 {
+                print(
+                    "[RecordingEngine] WARNING: audio backpressure detected " +
+                    "(audioNotReady=\(self.audioDropNotReadyCount), " +
+                    "maxPendingAudio=\(self.maxPendingAudioDepth), " +
+                    "convertFail=\(audioSnap.convertFailCount))"
+                )
+            }
+            if self.videoFrameIndex == 0 {
+                print(
+                    "[RecordingEngine] ERROR: no video frames written — check audio convert path " +
+                    "(convertFail=\(audioSnap.convertFailCount), micAppends=\(audioSnap.appendCount))"
+                )
+            }
             #endif
+
+            while !pendingAudioBuffers.isEmpty {
+                let pendingBefore = pendingAudioBuffers.count
+                try drainPendingAudioBuffersOnWriterQueue()
+                if pendingAudioBuffers.isEmpty {
+                    break
+                }
+                if pendingAudioBuffers.count == pendingBefore {
+                    break
+                }
+            }
 
             pendingAudioBuffers.removeAll()
 
@@ -274,7 +382,7 @@ final class RecordingEngine: @unchecked Sendable {
 
     // MARK: - Writer queue
 
-    private func performOnWriterQueue<T>(_ work: () throws -> T) throws -> T {
+    nonisolated private func performOnWriterQueue<T>(_ work: () throws -> T) throws -> T {
         var outcome: Result<T, Error>?
         writerQueue.sync {
             outcome = Result { try work() }
@@ -282,7 +390,7 @@ final class RecordingEngine: @unchecked Sendable {
         return try outcome!.get()
     }
 
-    private func appendFrameOnWriterQueue(ciImage: CIImage, outputSize: CGSize) throws {
+    private func appendPreparedPixelBufferOnWriterQueue(_ pixelBuffer: CVPixelBuffer) throws {
         guard isRecording,
               let writer,
               let input = videoInput,
@@ -300,37 +408,19 @@ final class RecordingEngine: @unchecked Sendable {
             #endif
             return
         }
-        guard let pool = adaptor.pixelBufferPool else {
-            throw RecordingEngineError.appendFailed
-        }
+
+        updateVideoOnlyFallbackIfNeededOnWriterQueue()
 
         let audioEnd = currentAudioEndPTSOnWriterQueue()
-        guard CMTimeCompare(audioEnd, .zero) > 0 else {
-            #if DEBUG
-            if !didLogWaitingForFirstAudio {
-                didLogWaitingForFirstAudio = true
-                print("[RecordingEngine] Waiting for first audio buffer before video append.")
-            }
-            #endif
+        let pts: CMTime
+        if CMTimeCompare(audioEnd, .zero) > 0 {
+            pts = videoPresentationTimeOnWriterQueue(audioEnd: audioEnd)
+        } else if !waitForAudioBeforeVideo || videoOnlyFallbackActive {
+            pts = CMTime(value: videoFrameIndex, timescale: Self.videoFrameRate)
+            hasStartedMediaTimeline = true
+        } else {
             return
         }
-
-        let pts = videoPresentationTimeOnWriterQueue(audioEnd: audioEnd)
-
-        var pixelBuffer: CVPixelBuffer?
-        let status = CVPixelBufferPoolCreatePixelBuffer(nil, pool, &pixelBuffer)
-        guard status == kCVReturnSuccess, let pixelBuffer else {
-            throw RecordingEngineError.appendFailed
-        }
-
-        CVPixelBufferLockBaseAddress(pixelBuffer, [])
-        ciContext.render(
-            ciImage,
-            to: pixelBuffer,
-            bounds: CGRect(origin: .zero, size: outputSize),
-            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)
-        )
-        CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
 
         if !adaptor.append(pixelBuffer, withPresentationTime: pts) {
             throw RecordingEngineError.appendFailed
@@ -345,13 +435,34 @@ final class RecordingEngine: @unchecked Sendable {
         #endif
     }
 
-    private func enqueueOrAppendAudioOnWriterQueue(sampleBuffer: CMSampleBuffer) throws {
-        guard isRecording,
-              let writer,
-              audioInput != nil else {
+    private func shouldWaitForAudioOnWriterQueue() -> Bool {
+        waitForAudioBeforeVideo && !videoOnlyFallbackActive
+    }
+
+    private func updateVideoOnlyFallbackIfNeededOnWriterQueue() {
+        guard waitForAudioBeforeVideo,
+              !videoOnlyFallbackActive,
+              CMTimeCompare(currentAudioEndPTSOnWriterQueue(), .zero) <= 0,
+              let firstAttempt = firstVideoAppendAttemptDate,
+              Date().timeIntervalSince(firstAttempt) >= Self.videoOnlyFallbackDelay else {
+            return
+        }
+        videoOnlyFallbackActive = true
+        #if DEBUG
+        print(
+            "[RecordingEngine] WARNING: no audio after \(Self.videoOnlyFallbackDelay)s — " +
+            "using video-only timeline fallback."
+        )
+        #endif
+    }
+
+    nonisolated private func enqueueOrAppendAudioOnWriterQueue(sampleBuffer: CMSampleBuffer) throws {
+        guard self.isRecording,
+              let writer = self.writer,
+              self.audioInput != nil else {
             throw RecordingEngineError.notRecording
         }
-        guard !isPaused else { return }
+        guard !self.isPaused else { return }
         guard writer.status == .writing else {
             throw RecordingEngineError.appendFailed
         }
@@ -373,7 +484,7 @@ final class RecordingEngine: @unchecked Sendable {
         #endif
     }
 
-    private func drainPendingAudioBuffersOnWriterQueue() throws {
+    nonisolated private func drainPendingAudioBuffersOnWriterQueue() throws {
         guard let audioInput else { return }
 
         while !pendingAudioBuffers.isEmpty {
@@ -391,11 +502,14 @@ final class RecordingEngine: @unchecked Sendable {
             guard audioInput.append(retimedBuffer) else {
                 throw RecordingEngineError.appendFailed
             }
+            #if DEBUG
+            audioWriterAppends += 1
+            #endif
         }
     }
 
     /// Sample-count audio timeline: each buffer follows the previous by its duration (handles HAL dropouts).
-    private func retimedAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) -> CMSampleBuffer? {
+    nonisolated private func retimedAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) -> CMSampleBuffer? {
         let duration = audioBufferDuration(sampleBuffer)
 
         if nextAudioSamplePTS == nil {
@@ -426,10 +540,11 @@ final class RecordingEngine: @unchecked Sendable {
         return retimed
     }
 
-    private func audioBufferDuration(_ sampleBuffer: CMSampleBuffer) -> CMTime {
+    nonisolated private func audioBufferDuration(_ sampleBuffer: CMSampleBuffer) -> CMTime {
+        let sampleRate = CMTimeScale(writerAudioSampleRate.rounded())
         let sampleCount = CMSampleBufferGetNumSamples(sampleBuffer)
         if sampleCount > 0 {
-            return CMTime(value: CMTimeValue(sampleCount), timescale: Self.audioSampleRate)
+            return CMTime(value: CMTimeValue(sampleCount), timescale: sampleRate)
         }
 
         let duration = CMSampleBufferGetDuration(sampleBuffer)
@@ -437,16 +552,17 @@ final class RecordingEngine: @unchecked Sendable {
             return duration
         }
 
-        return CMTime(value: 1, timescale: Self.audioSampleRate)
+        return CMTime(value: 1, timescale: sampleRate)
     }
 
-    private func monotonicPresentationTime(_ pts: CMTime, last: CMTime) -> CMTime {
+    nonisolated private func monotonicPresentationTime(_ pts: CMTime, last: CMTime) -> CMTime {
+        let sampleRate = CMTimeScale(writerAudioSampleRate.rounded())
         guard last.isValid else { return pts }
         if CMTimeCompare(pts, last) > 0 { return pts }
-        return CMTimeAdd(last, CMTime(value: 1, timescale: Self.audioSampleRate))
+        return CMTimeAdd(last, CMTime(value: 1, timescale: sampleRate))
     }
 
-    private func currentAudioEndPTSOnWriterQueue() -> CMTime {
+    nonisolated private func currentAudioEndPTSOnWriterQueue() -> CMTime {
         if let next = nextAudioSamplePTS, next.isValid {
             return next
         }
@@ -483,7 +599,7 @@ final class RecordingEngine: @unchecked Sendable {
     }
 
     #if DEBUG
-    private func logPeriodicSyncDiagnosticsIfNeeded() {
+    nonisolated private func logPeriodicSyncDiagnosticsIfNeeded() {
         let now = Date()
         guard now.timeIntervalSince(lastPeriodicLogDate) >= 1.0 else { return }
         lastPeriodicLogDate = now
@@ -549,7 +665,7 @@ final class RecordingEngine: @unchecked Sendable {
 }
 
 extension RecordingEngine {
-    func appendAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) throws {
+    nonisolated func appendAudioSampleBuffer(_ sampleBuffer: CMSampleBuffer) throws {
         try appendAudioSampleBuffer(sampleBuffer, captureHostTime: .invalid)
     }
 }
