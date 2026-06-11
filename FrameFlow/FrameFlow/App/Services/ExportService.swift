@@ -38,8 +38,8 @@ struct ExportOptions: Sendable {
     let applyCaptionsIfAvailable: Bool
     let captionStyle: CaptionStyleConfig
     let outputFilename: String
-    let trimStartSeconds: Double?
-    let trimEndSeconds: Double?
+    let editTimeline: EditTimelineModel?
+    let editorProject: EditorProjectModel?
 }
 
 enum ExportServiceError: LocalizedError {
@@ -89,14 +89,13 @@ final class ExportService: @unchecked Sendable {
                     for: options.sourceVideoURL,
                     recordingID: options.recordingID
                 )
-                if let trimStart = options.trimStartSeconds,
-                   let trimEnd = options.trimEndSeconds,
-                   trimEnd > trimStart {
-                    segments = TrimHelpers.segmentsForExport(
+                let timeline = (options.editorProject ?? options.editTimeline.map {
+                    EditorProjectModel(timeline: $0)
+                })?.preparedForExport().timeline
+                if let timeline, timeline.requiresStitchExport {
+                    segments = CaptionTimelineMapper.segmentsForSourceBurnIn(
                         from: segments,
-                        trimStart: trimStart,
-                        trimEnd: trimEnd,
-                        relativeToTrimStart: false
+                        editTimeline: timeline
                     )
                 }
                 if !segments.isEmpty {
@@ -121,8 +120,9 @@ final class ExportService: @unchecked Sendable {
                 outputFilename: options.outputFilename,
                 resolution: options.resolution,
                 applyWatermark: !options.isPro,
-                trimStartSeconds: options.trimStartSeconds,
-                trimEndSeconds: options.trimEndSeconds,
+                editorProject: options.editorProject ?? options.editTimeline.map {
+                    EditorProjectModel(timeline: $0)
+                }?.preparedForExport(),
                 progress: progress
             )
 
@@ -143,8 +143,7 @@ final class ExportService: @unchecked Sendable {
         outputFilename: String,
         resolution: ExportResolution,
         applyWatermark: Bool,
-        trimStartSeconds: Double?,
-        trimEndSeconds: Double?,
+        editorProject: EditorProjectModel?,
         progress: @Sendable (Double, String) -> Void
     ) async throws -> URL {
         let asset = AVURLAsset(url: sourceURL)
@@ -154,20 +153,31 @@ final class ExportService: @unchecked Sendable {
         }
 
         let fullDuration = try await asset.load(.duration)
-        let sourceStart: CMTime
-        let exportDuration: CMTime
+        let fullSeconds = CMTimeGetSeconds(fullDuration)
 
-        if let trimStart = trimStartSeconds,
-           let trimEnd = trimEndSeconds,
-           trimEnd > trimStart {
-            sourceStart = CMTime(seconds: trimStart, preferredTimescale: 600)
-            exportDuration = CMTime(seconds: trimEnd - trimStart, preferredTimescale: 600)
+        let project = editorProject
+        let timeline = project?.timeline
+        let keptRanges: [KeptSourceRange]
+        let expectedExportSeconds: Double
+
+        let videoExportSeconds: Double
+        if let timeline, timeline.requiresStitchExport {
+            keptRanges = timeline.orderedSourceRanges.filter { $0.duration > 0.001 }
+            videoExportSeconds = timeline.exportDurationSeconds
+            #if DEBUG
+            if timeline.hasRemovedRegions {
+                print("[Export] stitch ranges=\(keptRanges.count) videoExport=\(videoExportSeconds)s")
+            }
+            #endif
         } else {
-            sourceStart = .zero
-            exportDuration = fullDuration
+            keptRanges = [KeptSourceRange(start: 0, end: fullSeconds)]
+            videoExportSeconds = fullSeconds
         }
 
-        let sourceTimeRange = CMTimeRange(start: sourceStart, duration: exportDuration)
+        let masterSeconds = project?.masterTimelineDurationSeconds ?? videoExportSeconds
+        expectedExportSeconds = max(videoExportSeconds, masterSeconds)
+
+        let exportDuration = CMTime(seconds: expectedExportSeconds, preferredTimescale: 600)
         let naturalSize = try await sourceVideoTrack.load(.naturalSize)
         let preferredTransform = try await sourceVideoTrack.load(.preferredTransform)
         var renderSize = naturalSize.applying(preferredTransform)
@@ -189,22 +199,54 @@ final class ExportService: @unchecked Sendable {
             throw ExportServiceError.exportFailed("Could not create video track.")
         }
 
-        try compositionVideoTrack.insertTimeRange(
-            sourceTimeRange,
-            of: sourceVideoTrack,
-            at: .zero
-        )
+        var insertCursor = CMTime.zero
+        for range in keptRanges {
+            let rangeDuration = CMTime(seconds: range.duration, preferredTimescale: 600)
+            guard rangeDuration.seconds > 0 else { continue }
+            let sourceRange = CMTimeRange(
+                start: CMTime(seconds: range.start, preferredTimescale: 600),
+                duration: rangeDuration
+            )
+            try compositionVideoTrack.insertTimeRange(
+                sourceRange,
+                of: sourceVideoTrack,
+                at: insertCursor
+            )
+            insertCursor = CMTimeAdd(insertCursor, rangeDuration)
+        }
 
         if let sourceAudioTrack = try await asset.loadTracks(withMediaType: .audio).first,
            let compositionAudioTrack = composition.addMutableTrack(
                withMediaType: .audio,
                preferredTrackID: kCMPersistentTrackID_Invalid
            ) {
-            try compositionAudioTrack.insertTimeRange(
-                sourceTimeRange,
-                of: sourceAudioTrack,
-                at: .zero
-            )
+            insertCursor = .zero
+            for range in keptRanges {
+                let rangeDuration = CMTime(seconds: range.duration, preferredTimescale: 600)
+                guard rangeDuration.seconds > 0 else { continue }
+                let sourceRange = CMTimeRange(
+                    start: CMTime(seconds: range.start, preferredTimescale: 600),
+                    duration: rangeDuration
+                )
+                try compositionAudioTrack.insertTimeRange(
+                    sourceRange,
+                    of: sourceAudioTrack,
+                    at: insertCursor
+                )
+                insertCursor = CMTimeAdd(insertCursor, rangeDuration)
+            }
+        }
+
+        if let tracks = project?.importedAudioTracks {
+            for importedAudio in tracks {
+                try await SecurityScopedFileAccess.withAccess(to: importedAudio.fileURL) {
+                    try await EditorCompositionBuilder.insertImportedAudio(
+                        importedAudio,
+                        into: composition,
+                        compositionDurationSeconds: expectedExportSeconds
+                    )
+                }
+            }
         }
 
         let parentLayer = CALayer()
@@ -214,6 +256,20 @@ final class ExportService: @unchecked Sendable {
         let videoLayer = CALayer()
         videoLayer.frame = CGRect(x: xOffset, y: yOffset, width: scaledWidth, height: scaledHeight)
         parentLayer.addSublayer(videoLayer)
+
+        let videoRect = CGRect(x: xOffset, y: yOffset, width: scaledWidth, height: scaledHeight)
+
+        if let overlays = project?.imageOverlays, let timeline = project?.timeline.preparedForExport() {
+            for overlay in overlays {
+                EditorCompositionBuilder.addImageOverlay(
+                    overlay,
+                    timeline: timeline,
+                    to: parentLayer,
+                    canvasSize: targetSize,
+                    videoRect: videoRect
+                )
+            }
+        }
 
         if applyWatermark {
             WatermarkCompositor.add(to: parentLayer, canvasSize: targetSize)
@@ -267,6 +323,18 @@ final class ExportService: @unchecked Sendable {
             }
             guard exportSession.status == .completed else {
                 throw ExportServiceError.exportFailed("Export status \(exportSession.status.rawValue).")
+            }
+
+        if timeline?.requiresStitchExport == true || project?.hasMediaLayers == true {
+                let outAsset = AVURLAsset(url: outputURL)
+                let outDuration = try await outAsset.load(.duration)
+                let outSeconds = CMTimeGetSeconds(outDuration)
+                if abs(outSeconds - expectedExportSeconds) > 1.0 {
+                    throw ExportServiceError.exportFailed(
+                        "Export duration mismatch: got \(String(format: "%.1f", outSeconds))s " +
+                        "expected \(String(format: "%.1f", expectedExportSeconds))s"
+                    )
+                }
             }
 
             return outputURL

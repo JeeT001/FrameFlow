@@ -77,7 +77,8 @@ final class CaptionEngine: @unchecked Sendable {
     }
 
     func loadCaptions(for recordingURL: URL, recordingID: UUID) throws -> [CaptionSegment] {
-        try loadSidecar(for: recordingURL, recordingID: recordingID)?.segments ?? []
+        let raw = try loadSidecar(for: recordingURL, recordingID: recordingID)?.segments ?? []
+        return WhisperTranscriptSanitizer.sanitizedSegments(from: raw)
     }
 
     func loadStyle(for recordingURL: URL, recordingID: UUID) -> CaptionStyleConfig {
@@ -100,9 +101,10 @@ final class CaptionEngine: @unchecked Sendable {
         recordingID: UUID,
         style: CaptionStyleConfig
     ) throws {
+        let cleaned = WhisperTranscriptSanitizer.sanitizedSegments(from: segments)
         let sidecar = CaptionSidecar(
             recordingID: recordingID,
-            segments: segments,
+            segments: cleaned,
             createdAt: Date(),
             stylePreset: style.preset.rawValue,
             styleVerticalPosition: style.verticalPosition.rawValue,

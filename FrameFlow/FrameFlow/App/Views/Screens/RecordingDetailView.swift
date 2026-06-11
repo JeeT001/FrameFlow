@@ -10,6 +10,8 @@ struct RecordingDetailView: View {
     @Environment(AppRouter.self) private var router
     @State private var viewModel = RecordingDetailViewModel()
 
+    @State private var showReexportConfirmation = false
+
     private let wideLayoutMinWidth: CGFloat = 700
 
     var body: some View {
@@ -46,6 +48,21 @@ struct RecordingDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This removes the video and related caption files from disk. This cannot be undone.")
+        }
+        .confirmationDialog(
+            "Re-export original recording?",
+            isPresented: $showReexportConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Re-export original") {
+                performReexportOriginal()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "This exports the full saved recording without editor changes " +
+                "(trim, cuts, overlays, or imported audio). To export edits, finish from the Editor after recording."
+            )
         }
     }
 
@@ -214,9 +231,9 @@ struct RecordingDetailView: View {
                 .disabled(!viewModel.fileExistsOnDisk)
 
                 Button {
-                    reexport()
+                    showReexportConfirmation = true
                 } label: {
-                    Label("Re-export", systemImage: "square.and.arrow.up")
+                    Label("Re-export original…", systemImage: "square.and.arrow.up")
                 }
                 .disabled(viewModel.recording == nil)
 
@@ -245,7 +262,7 @@ struct RecordingDetailView: View {
         .padding()
     }
 
-    private func reexport() {
+    private func performReexportOriginal() {
         guard let id = viewModel.recording?.id else { return }
         appState.exportRecordingID = id
         router.navigate(to: .export)

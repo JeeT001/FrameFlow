@@ -39,22 +39,37 @@ struct CaptionStyleConfig: Codable, Equatable, Sendable {
         return min(max(offset, Self.verticalOffsetRange.lowerBound), Self.verticalOffsetRange.upperBound)
     }
 
-    /// Core Animation Y origin (geometry-flipped layer space, origin bottom-left).
+    /// Core Animation Y origin for geometry-flipped parent layers (top-left origin, Y increases downward).
+    /// Used with `CALayer.isGeometryFlipped = true` (matches SwiftUI preview).
     func captionOriginY(renderHeight: CGFloat, boxHeight: CGFloat) -> CGFloat {
         let margin = renderHeight * 0.08
         let baseY: CGFloat
         switch verticalPosition {
         case .top:
-            baseY = renderHeight - margin - boxHeight
+            baseY = margin
         case .middle:
             baseY = (renderHeight - boxHeight) / 2
         case .bottom:
-            baseY = margin
+            baseY = renderHeight - margin - boxHeight
         }
+        // +offset moves up on screen → smaller Y in flipped space
         let offset = CGFloat(clampedVerticalOffset) * renderHeight
-        let y = baseY + offset
+        let y = baseY - offset
         return min(max(y, margin), renderHeight - margin - boxHeight)
     }
+
+    #if DEBUG
+    /// Sanity check: bottom anchor sits lower on screen (larger Y) than top for the same box height.
+    static func debugAssertCaptionYOrdering(renderHeight: CGFloat = 1080, boxHeight: CGFloat = 80) {
+        var topStyle = CaptionStyleConfig.classic
+        topStyle.verticalPosition = .top
+        var bottomStyle = CaptionStyleConfig.classic
+        bottomStyle.verticalPosition = .bottom
+        let topY = topStyle.captionOriginY(renderHeight: renderHeight, boxHeight: boxHeight)
+        let bottomY = bottomStyle.captionOriginY(renderHeight: renderHeight, boxHeight: boxHeight)
+        assert(bottomY > topY, "Caption Y ordering inverted: top=\(topY) bottom=\(bottomY)")
+    }
+    #endif
 
     /// SwiftUI offset for preview overlay (+Y moves down on screen).
     func swiftUIVerticalOffset(containerHeight: CGFloat) -> CGFloat {

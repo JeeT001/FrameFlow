@@ -7,11 +7,12 @@ import SwiftUI
 
 struct MainAppView: View {
     @Environment(AppRouter.self) private var router
+    @State private var splitVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
         @Bindable var router = router
 
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $splitVisibility) {
             SidebarView(
                 selection: Binding(
                     get: { router.selectedSection },
@@ -28,6 +29,12 @@ struct MainAppView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 900, minHeight: 600)
+        .onChange(of: router.currentRoute) { _, route in
+            splitVisibility = route.isEditorFocused ? .detailOnly : .all
+        }
+        .onAppear {
+            splitVisibility = router.currentRoute.isEditorFocused ? .detailOnly : .all
+        }
     }
 }
 

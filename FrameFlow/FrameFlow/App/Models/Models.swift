@@ -193,4 +193,14 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
         case .account: .profile
         }
     }
+
+    /// Routes that use the full width for editing (sidebar hidden).
+    var isEditorFocused: Bool {
+        switch self {
+        case .editor, .captionEditor:
+            return true
+        default:
+            return false
+        }
+    }
 }

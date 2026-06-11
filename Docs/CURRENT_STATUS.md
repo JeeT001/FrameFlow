@@ -1,16 +1,16 @@
 # FrameFlow — Current Status
 
-**Last updated:** 2026-06-02  
+**Last updated:** 2026-06-10  
 **Version:** v0.1.0
 
 ## Current Phase
 
-**Phase 15 — Testing (Days 39–42)** + **Day 40.1 Phase C complete**
+**Phase 15 — Testing (Days 39–42)** + **Segment trim + ripple gap close**
 
 ## Currently Working On
 
-- **Blueprint Day 40** — Recording flow testing (in progress on branch `feature/uiFix`)
-- **Blueprint Day 41** — Editor + export test checklist (planned next)
+- **Day 41 verification** — Editor 3.0 + export test checklist
+- **Follow-up (deferred):** Persist `EditorProjectModel` to disk for Dashboard re-edit; full undo/redo stack
 
 ## Completed
 
@@ -47,11 +47,21 @@
 - **Blueprint Day 40.1 Phase A:** Unified `EditorView` (Edit / Captions / Export tabs); Stop → Editor for all users; toolbar Export; standalone `ExportView` kept for Dashboard re-export
 - **Blueprint Day 40.1 Phase B:** `EditorTimelineView` in/out trim handles; preview playback constrained to trim range; `ExportService` applies trim at encode
 - **Blueprint Day 40.1 Phase C:** Draggable caption placement on preview; editable segment times; optional SRT export on Editor Export tab (Pro)
+- **Blueprint Day 40.1 Phase D:** Middle-chunk delete on Edit tab (Free + Pro); `EditTimelineModel` + `CaptionTimelineMapper`; export stitches kept ranges; preview skips removed zone; captions/SRT remapped to export timeline
+- **Blueprint Day 40.2 Editor 2.0:** Filmora-inspired shell (project bin | preview | inspector | tracks); multi-cut `removedRanges[]`; split at playhead; import 1 image overlay + 1 audio track; `EditorProjectModel` + `EditorCompositionBuilder`; export duration verification
+- **Blueprint Day 40.3 Editor polish:** Caption export Y-axis fix; draggable image overlay; draggable audio start on timeline
+- **Blueprint Day 41 Editor 3.0:** Contextual inspector; Export… sheet with summary; 2-column layout; Captions always visible; per-cut delete; re-export original confirmation
+- **Blueprint Day 41.5 clip timing:** Timeline clip blocks; image source-time visibility; audio export-time start/end; export CALayer + audio insert honor intervals
+- **Timeline lane alignment:** Unified track grid; playhead + clips share same column width and label gutter
+- **Razor cut (iMovie Blade):** Toggle scissors → crosshair + yellow hover line; click video lane to split; per-segment yellow clip borders + movable split handles; ⌘B at playhead; Escape exits razor mode; removed playhead range-selection popover
+- **Segment trim + ripple close:** Per-segment in/out handles; trim creates export gaps; extend restores; ripple-close joins neighbors; split drag when segments touch (export unchanged)
+- **Filmstrip timeline UI:** Thumbnail filmstrip + waveform bar; 72pt video lane; chunky yellow trim handles; playhead triangle; no left label column; inline pill labels
+- **Filmora-style editor chrome:** Two-row timeline toolbar (edit tools + zoom/snap controls); 80pt lane control column (lock/mute/eye); timecode ruler; red playhead with draggable handle; real cyan audio waveform; preview transport bar with in/out/snapshot
 
 ## Next Task
 
-1. **Finish Day 40** — recording flow test checklist
-2. **Day 41** — updated Editor + export test checklist (trim, captions, SRT)
+1. **Day 41 verification** — manual checklist (trim, multi-cut, overlay, audio, captions, export sheet, re-export warning)
+2. **Deferred:** Persist `EditorProjectModel` for Dashboard re-edit; undo/redo stack
 
 ## Important Decisions
 
@@ -73,8 +83,10 @@
 | PiP camera | PiP uses AVCaptureSession camera frames, draggable/resizable config in Layout Picker, and final overlay composited after focus border |
 | Writer timestamps | Video-led host clock (timescale 600): anchors on first video frame; audio gated until video timeline starts |
 | Pause/resume | `totalPausedDuration` subtracted from append PTS; capture stays warm; no timeline gap in exported MP4 |
-| **Post-record flow (Day 40.1)** | **Stop → Editor** (not Caption Editor → Export). Free: Edit + Export (720p) + trim. Pro: + Captions tab. Dashboard re-export keeps standalone `ExportView` (full clip). |
+| **Post-record flow (Day 40.1–40.2)** | **Stop → Editor** (not Caption Editor → Export). Free: Edit + Export (720p) + trim/cut/import. Pro: + Captions tab. Dashboard re-export keeps standalone `ExportView` (full clip). |
+| Editor 2.0 (Day 40.2) | Project bin (main clip + import image/audio); tracks panel with Split/Delete; multi-cut export stitch; optional image overlay + imported audio mixed at export |
 | Captions (Pro) | Generate/edit in Editor Captions tab; drag placement; edit segment times; burn-in via Export; optional SRT on Export tab |
+| Middle delete (Day 40.1 Phase D) | Remove contiguous middle chunk; export stitches kept ranges; **caption segments remapped** via shared mapper so preview/burn-in/SRT match export timeline |
 | Caption editor (legacy) | `CaptionEditorView` panels absorbed into Editor; remove in-editor SRT/burn-in export |
 | Export flow | Staging until export; `ExportService` from Editor Export tab; resolution + watermark on Export tab |
 | Recording detail | Dashboard card → detail; Re-export opens standalone Export screen |

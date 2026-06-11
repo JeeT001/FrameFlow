@@ -217,7 +217,7 @@ Git Commit: feat: device capability detection for Apple Silicon vs Intel
 - Apple Sign In (post-MVP)
 - Cloud storage of recordings (post-MVP)
 - Team/multi-seat accounts (post-MVP)
-- Multi-clip timeline, split/delete, ripple edit (post-MVP; basic in/out trim is Day 40.1 Phase B)
+- Multi-clip timeline, ripple edit (post-MVP; basic in/out trim is Day 40.1 Phase B; middle-chunk delete is Day 40.1 Phase D)
 - AI auto-zoom toward cursor independent of clicks (click-zoom is included)
 - Recording scheduler (post-MVP)
 - Custom background images behind windows (post-MVP)
@@ -569,18 +569,19 @@ Replaces the separate Caption Editor → Export hop for new recordings.
 - **Center-left (~55%):** Video preview with play/scrub; caption overlay when Pro + captions enabled
 - **Center-right (~45%):** Inspector with segmented tabs: **Edit** | **Captions*** | **Export**
   (*Captions tab hidden for Free — show Pro upgrade CTA instead)
-- **Bottom:** Simple timeline strip with trim in/out handles (Phase B); duration readout
+- **Bottom:** Timeline strip — in/out trim handles (Phase B); middle-chunk delete regions (Phase D); duration readout
 
 **Edit tab (Free + Pro):**
 - Play / pause, scrubber
 - Trim start/end (Phase B — `AVMutableComposition` or export-time range)
+- Remove middle section (Phase D — select range on timeline, delete; stitches head + tail on export)
 - Phase C+: draggable caption safe-area on preview (Pro)
 
 **Captions tab (Pro only):**
 - "Generate captions" button (WhisperKit; progress inline — no full-screen blocker)
 - 5 style preset cards (reuse `CaptionStyleCard`)
 - Position: Top / Middle / Bottom (+ drag on preview in Phase C)
-- Scrollable segment list: edit text (times read-only v1; editable v2)
+- Scrollable segment list: edit text; editable start/end times (Phase C)
 - Saves segments + style to sidecar via `CaptionEngine.saveCaptions` — **no burn-in here**
 
 **Export tab (Free + Pro):**
@@ -595,7 +596,8 @@ Replaces the separate Caption Editor → Export hop for new recordings.
 - **Export** → persist caption edits if any, run `ExportService`, success → Dashboard / Reveal in Finder
 
 **User Actions:**
-- Trim clip (Phase B)
+- Trim clip start/end (Phase B)
+- Delete a middle chunk — keep head + tail (Phase D)
 - Generate / edit captions (Pro)
 - Choose resolution and export
 - Discard without saving
@@ -2047,8 +2049,48 @@ Export into two screens with duplicate export paths. Target: one Editor after St
 | **A — Flow refactor** | New `EditorView` shell; Edit + Captions + Export tabs; Stop → Editor; remove in-editor burn-in/SRT export; save captions on Export | `EditorView.swift`, `EditorViewModel.swift`, `RecordingView.swift`, `RouteDetailView.swift`, `Models.swift` (`AppRoute.editor`), refactor `CaptionEditorView` / `ExportView` panels |
 | **B — Basic trim** | Timeline strip; in/out trim handles; apply range in `ExportService` | `EditorTimelineView.swift`, `ExportService.swift` |
 | **C — Polish** | Draggable caption region; editable segment times; optional SRT on Export tab | `CaptionPreviewView`, `CaptionSegmentRow`, `ExportViewModel` |
+| **D — Middle delete** | Remove a contiguous chunk from the middle; stitch head + tail on export; **remap caption times** so burn-in/SRT/preview stay in sync | `EditorTimelineView.swift`, `EditTimelineModel.swift`, `CaptionTimelineMapper.swift`, `ExportService.swift`, `TrimHelpers.swift` |
 
 **Free tier:** Edit tab + Export tab (720p, watermark). No Captions tab (Pro CTA).
+
+**Phase D — Middle-chunk delete (planned):**
+
+Removes a contiguous region from the **middle** of the clip while keeping the beginning and end
+(e.g. delete 20s–40s on a 60s recording → ~40s export: 0–20s + 40–60s stitched).
+
+**Why caption remapping is required:** Caption segments use absolute times on the **source**
+timeline. Deleting video alone would leave captions pointing at wrong times. Phase D must remap
+segments whenever a middle region is removed.
+
+**Edit model:**
+- `RemovedRange` — `{ startSeconds, endSeconds }` on source timeline (v1: one middle cut; v2: multiple)
+- `EditTimelineModel` — source duration + trim in/out (Phase B) + removed ranges → **export timeline**
+- `CaptionTimelineMapper` — shared helper used by preview overlay, burn-in, and SRT:
+  - Drop segments fully inside a removed range
+  - Clip segments that overlap cut boundaries
+  - Shift segments after each cut by `−(cutEnd − cutStart)` (cumulative for multiple cuts)
+  - Map source time ↔ export time for preview scrubber
+
+**UI (Edit tab, Free + Pro):**
+- On timeline: select a region (drag or split markers), **Delete** / scissors action
+- Visual gap or dimmed “removed” zone; preview plays **export timeline** (head then tail, no deleted section)
+- Export tab shows export duration after all edits (trim + middle delete)
+
+**Export path:**
+- `AVMutableComposition`: multiple `insertTimeRange` calls (one per kept segment), in order
+- Caption burn-in: pass **remapped** segments (export-relative times, t=0 at export start)
+- SRT: same remapped segments as Phase C optional export
+- Combine with Phase B in/out trim: apply trim first on source, then middle deletes on trimmed source (or single pipeline in `EditTimelineModel`)
+
+**Acceptance (Phase D):**
+- User can delete one middle chunk; exported MP4 duration = source − deleted length (± trim if also applied)
+- Pro: captions in preview and exported MP4 match spoken words on stitched timeline
+- Pro: optional SRT timecodes match export timeline (not source timeline)
+- Segments spanning a cut boundary are clipped, not dropped entirely, when partial speech remains
+- Free + Pro both get middle delete; no Captions tab changes required for Free
+- Dashboard re-export (`ExportView`) unchanged — full source clip, no edit model
+
+**Out of scope for Phase D:** ripple edit, multi-track timeline, re-transcribe after cut, split into separate clips on disk.
 
 **Pro tier:** All three tabs; WhisperKit generate on demand; 1080p/4K; captions burn-in + optional SRT.
 
@@ -2086,7 +2128,9 @@ Test checklist (updated for Day 40.1 Editor):
 - Export 720p (free, watermark), 1080p and 4K (Pro, no watermark)
 - Apple Silicon: 4K export completes in under 3 min for 5-min recording
 - Intel Mac: 4K disabled, 1080p export completes in reasonable time
-- Phase B (when shipped): trim in/out reflected in exported duration
+- Phase B: trim in/out reflected in exported duration
+- Phase C: draggable caption placement; editable segment times; optional SRT with trim-relative timecodes
+- Phase D (when shipped): delete middle chunk → stitched export; captions/SRT synced to export timeline
 
 ---
 

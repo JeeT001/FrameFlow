@@ -1928,6 +1928,189 @@ feat: free-form window layout and single-cursor composite rendering
 
 ---
 
+## Blueprint Day 40.2 — Editor 2.0 Enhanced Single-Clip (2026-06-09)
+
+### Implemented
+- **Editor shell:** `EditorShellLayout` — left project bin, center preview, right inspector (Edit | Captions | Export), bottom tracks
+- **Project bin:** `EditorProjectBinView` — main recording + Import image (PNG/JPG) / audio (MP3/WAV/AAC); session-scoped assets
+- **Timeline tools:** `EditorTracksView` — Split at playhead, Delete selection, Undo cuts; multi-cut via `removedRanges[]`; split markers
+- **Multi-cut model:** `EditTimelineModel.removedRanges` — cumulative kept ranges; `CaptionTimelineMapper` unchanged (uses kept ranges)
+- **Image overlay:** `EditorImageOverlay` + preview + Edit tab opacity/position; burned via `EditorCompositionBuilder` at export
+- **Imported audio:** `EditorImportedAudio` — volume + export-timeline start offset; mixed in `ExportService` via second audio track
+- **Export:** `EditorProjectModel` passed through `ExportOptions`; duration mismatch guard on stitch; Phase D export fix retained
+- **Shortcuts:** Space play/pause, S split at playhead
+
+### Files (new)
+- `EditorProjectModel.swift`, `EditorCompositionBuilder.swift`
+- `EditorShellLayout.swift`, `EditorProjectBinView.swift`, `EditorTracksView.swift`, `EditorImageOverlayPreview.swift`
+
+### Files (updated)
+- `EditTimelineModel.swift`, `EditorViewModel.swift`, `EditorView.swift`, `EditorTimelineView.swift`
+- `ExportService.swift`, `ExportViewModel.swift`, `CaptionTimelineMapper.swift`, `CaptionEditorViewModel.swift`
+
+### Unchanged
+- Recording engine, layout picker, PiP, composite, Dashboard, standalone `ExportView` re-export
+
+### Build
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: Editor 2.0 shell with multi-cut, image overlay, and imported audio (Day 40.2)
+```
+
+---
+
+## Blueprint Day 40.3 — Editor polish: caption export Y + draggable overlay/audio (2026-06-09)
+
+### Symptom
+Pro user selects **Bottom** caption position → preview correct → exported MP4 shows caption at **top**. Drag placement on preview did not reliably match burn-in.
+
+### Root cause
+`CaptionStyleConfig.captionOriginY` used **non-flipped** Core Animation math (bottom = low Y) while `CaptionRenderer.burnInCaptions` sets `parentLayer.isGeometryFlipped = true` (top-left origin, Y down). Top/Bottom were inverted; custom vertical offset sign was also wrong (+offset added Y instead of subtracting).
+
+### Fix
+- **`CaptionStyleConfig.captionOriginY`:** rewritten for flipped CALayer space — top = margin, bottom = renderHeight − margin − boxHeight; offset subtracts (+ moves up)
+- **`CaptionPreviewView`:** caption drag hit-testing only when `isCaptionPlacementEditable` (Captions tab)
+- **`EditorImageOverlayPreview`:** drag on preview (Edit tab), dashed chrome, normalized position callbacks
+- **`EditorTracksView`:** draggable imported-audio clip on audio lane → `updateImportedAudioStart`
+- **`EditorView`:** wired overlay/audio drag; hints for caption vs image drag
+
+### Export style path
+`EditorViewModel.saveCaptionsBeforeExport()` saves in-memory `selectedStyle` to sidecar before export (unchanged; sufficient after Y fix).
+
+### Build
+- `xcodebuild -scheme FrameFlow -destination 'platform=macOS' build` — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: align caption export placement with preview; draggable overlay and audio (Day 40.3)
+```
+
+---
+
+## Blueprint Day 41 — Editor 3.0 contextual flow (2026-06-09)
+
+### Problem
+Editor 2.0 Filmora-style 4-panel IA fought the job (record → trim → captions → export): permanent project bin for 1 image + 1 audio, Export tab vs toolbar split, hidden Captions for Free, split import/controls, silent Dashboard re-export of full clip.
+
+### Implemented
+- **`EditorShellLayout`:** 2-column preview | inspector + full-width tracks (bin column removed)
+- **`EditorSelection` + `EditorInspectorPanel`:** selection-driven controls (timeline, image, audio, captions, segment)
+- **`EditorExportSheet`:** single export surface — summary, resolution, caption/SRT toggles, progress, Export button
+- **`EditorViewModel.exportSummary`:** “What’s included” lines before export
+- **Captions mode:** always in inspector bar; Free → Pro gate (Apple-style locked state)
+- **Caption drag:** Pro + segments visible + not editing image (any inspector mode)
+- **`EditorTracksView`:** Import menu; overlay/audio lane tap → select; “Clear all cuts”; per-cut remove via inspector
+- **`EditTimelineModel.removeRemovedRange(at:)`**
+- **`RecordingDetailView`:** “Re-export original…” + confirmation (honest full-clip path)
+
+### Deferred
+- Persist `EditorProjectModel` to disk for Dashboard re-edit
+- Full undo/redo stack
+- Timeline zoom
+
+### Build
+- `xcodebuild -scheme FrameFlow -destination 'platform=macOS' build` — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+refactor: Editor contextual flow with export sheet and re-export trust fixes (Day 41)
+```
+
+---
+
+## Blueprint Day 41.5 — Timeline clip timing for image + audio (2026-06-09)
+
+### Problem
+Image overlay and imported audio used full-trim/full-file timing: import wiped to trim span, preview always visible, export used infinite CALayer duration and full audio file.
+
+### Implemented
+- **`EditorTimelineClipView`:** reusable clip block — drag body, trim in/out handles
+- **`EditorImageOverlay`:** `contains(playhead:)`, `clampedInterval`, default 5s at playhead on import (source timeline)
+- **`EditorImportedAudio`:** `timelineEndSeconds`, `playDuration`, default 10s clip on export timeline
+- **`EditorViewModel`:** `updateImageStart/End/ClipMove`, `updateAudioStart/End/ClipMove`; `clampImageOverlayToTrim` replaces `syncImageOverlayTimes`
+- **Preview:** image hidden outside source interval
+- **`EditorCompositionBuilder`:** image layers per kept-range export interval (Option B); audio insert uses clip duration clamped to composition
+- **Export summary:** `Image: file · 0:05–0:12`, `Audio: file · 0:08–0:35`
+
+### Build
+- `xcodebuild -scheme FrameFlow -destination 'platform=macOS' build` — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: timeline clip timing for image overlay and imported audio
+```
+
+---
+
+## Blueprint Day 41.5 — Timeline lane alignment fix (2026-06-09)
+
+### Symptom
+Preview showed image at playhead 2.0s (range 1.6–3.1s) but red playhead appeared left of IMG clip — timeline lied while preview was correct.
+
+### Root cause
+Main track used full panel width for playhead x; overlay/audio lanes used 52pt label + narrower track (`HStack spacing: 8` added extra gap). Different formulas → misaligned pixels at same timestamp.
+
+### Fix
+- **`EditorTimelineLayout`:** shared `laneLabelWidth`, row heights, `trackContentWidth`
+- **`TimelineGeometry`:** shared `xPosition` / `timeAt` / `absoluteX`
+- **`EditorTracksView`:** single `GeometryReader`; all lanes use `HStack(spacing: 0)` + fixed `trackWidth`
+- **Unified playhead** in `ZStack` at `laneLabelWidth + xPosition(sourceTime)`
+- Secondary blue playhead on audio row when export-mapped time differs (trim/cuts)
+- **`EditorTimelineView` / `EditorTimelineClipView`:** accept explicit `trackWidth`; main track hides per-row playhead
+
+### Build
+- `xcodebuild -scheme FrameFlow -destination 'platform=macOS' build` — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: align overlay/audio timeline clips with main playhead column
+```
+
+---
+
+## Blueprint Day 40.1 Phase D — Middle-chunk delete (2026-06-02)
+
+### Context
+- Phase B in/out trim only keeps one contiguous range (drop start and/or end)
+- User request: **remove a chunk from the middle** (e.g. delete 20s–40s, keep 0–20s + 40–60s) while **captions still match** the stitched video
+
+### Decision
+- Add as **Day 40.1 Phase D** (not post-MVP) on branch `editor`
+- Middle delete alone breaks caption timing unless segments are remapped — Phase D includes a shared **`CaptionTimelineMapper`** (or extend `TrimHelpers`) used by preview, `CaptionRenderer`, and SRT export
+
+### Remap rules (source → export timeline)
+- Drop segments fully inside removed range
+- Clip segments overlapping cut boundaries
+- Shift segments after cut by `−(cutEnd − cutStart)` (cumulative for multiple cuts in v2)
+- Preview scrubber uses export timeline (head → tail jump over deleted section)
+
+### Planned deliverables
+| Area | Work |
+|------|------|
+| Model | `EditTimelineModel` — trim in/out + `RemovedRange`(s) → export duration + kept ranges |
+| Mapper | `CaptionTimelineMapper` — segment filter/clip/shift; source ↔ export time |
+| UI | `EditorTimelineView` — select region + delete; dim removed zone; export duration readout |
+| Export | `ExportService` — multi `insertTimeRange` stitch; remapped segments for burn-in/SRT |
+| Tier | Free + Pro (Edit tab); Pro captions/SRT use remapped times |
+
+### Out of scope
+- Ripple edit, multi-clip library, re-transcribe after cut
+- Dashboard `ExportView` re-export (still full source clip)
+
+### Acceptance (when implemented)
+- Delete one middle chunk → exported duration correct; audio/video continuous at stitch point
+- Pro: burned captions and optional SRT aligned to export timeline
+- Works combined with Phase B in/out trim
+
+### Suggested commit (when implemented)
+```
+feat: editor middle-chunk delete with caption remap (Day 40.1 Phase D)
+```
+
+---
+
 ## Blueprint Day 40.1 Phase C — Caption polish (2026-06-02)
 
 ### Implemented
@@ -1947,6 +2130,60 @@ feat: free-form window layout and single-cursor composite rendering
 ### Suggested commit
 ```
 feat: editor caption placement and SRT export (Day 40.1 Phase C)
+```
+
+---
+
+## Blueprint Day 40.1 Phase D — Middle-chunk delete + caption remap (2026-06-02)
+
+### Implemented
+- **`EditTimelineModel`:** trim window (Phase B) + optional single `RemovedRange`; computes `keptSourceRanges` and `exportDurationSeconds`; invalidates cut when trim handles move; min 0.5s removed span and min 0.5s head/tail within trim
+- **`CaptionTimelineMapper`:** source ↔ export time mapping; `segmentsForExportTimeline` (SRT + preview overlay); `segmentsForSourceBurnIn` (absolute clipped times on full source before stitch); `snapToKeptSourceTime` for scrub/seek
+- **`EditorTimelineView`:** orange selection handles (distinct from trim); hatched red removed zone; export duration readout when middle delete active
+- **`EditorView` Edit tab:** Select region / Delete selection / Undo delete; export length readout
+- **`EditorViewModel`:** owns `editTimeline`; selection + delete APIs; passes `editTimeline` + `exportDurationOverride` to export; SRT via export-timeline segments
+- **`CaptionEditorViewModel`:** export-aware playback — skips removed zone, jumps between kept ranges, pauses at export end; caption overlay uses export-timeline lookup when edits applied
+- **`ExportService`:** `ExportOptions.editTimeline`; burn-in on full source with clipped absolute segments; `writeEncodedExport` stitches multiple `insertTimeRange` calls for video + audio
+- **`ExportViewModel`:** `editTimeline` + `exportDurationOverride`; standalone Dashboard re-export unchanged (`editTimeline = nil` → full clip)
+- **Sidecar:** source segment times unchanged; remapping only at preview/export
+
+### Export pipeline (trim + middle delete)
+1. Load captions → `segmentsForSourceBurnIn` (absolute times on source file, clipped to kept ranges)
+2. `burnInCaptions` on **full** source (gaps = no captions in removed zone)
+3. `writeEncodedExport` loops kept ranges into composition at t=0, t+range1.duration, …
+4. SRT: `segmentsForExportTimeline` (export-relative, t=0 at export start)
+
+### Build
+- `xcodebuild -scheme FrameFlow -destination 'platform=macOS' build` — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: editor middle-chunk delete with caption remap (Day 40.1 Phase D)
+```
+
+---
+
+## Blueprint Day 40.1 Phase D — Export stitch bugfix (2026-06-02)
+
+### Symptom
+Middle delete UI worked (red dashed zone, timeline readout e.g. "Export: 32.2s (removed 3.7s)") but toolbar Export produced a **full uncut** MP4. Export tab rounded export/source to the same whole second (0:32 vs 0:32).
+
+### Root cause
+`EditTimelineModel.keptSourceRanges` and `exportDurationSeconds` were **`private(set)` cached fields** populated by `recompute()`. When the struct was copied into async `ExportOptions` / `ExportService`, the encode path could receive **stale or empty kept ranges**, causing `writeEncodedExport` to fall back to `[KeptSourceRange(start: 0, end: fullDuration)]` — a single full-source range with no stitch.
+
+### Fix
+- **`EditTimelineModel`:** `keptSourceRanges` + `exportDurationSeconds` are now **computed** from trim + `removedRange`; added `preparedForExport()`, `requiresStitchExport`
+- **`EditorViewModel.exportRecording`:** always passes `editTimeline.preparedForExport()`; DEBUG log of kept ranges
+- **`ExportService.writeEncodedExport`:** calls `preparedForExport()` at encode start; uses `requiresStitchExport`; **post-export duration check** throws if output differs from expected by >1s
+- **`ExportViewModel`:** passes prepared timeline in `ExportOptions`; metadata duration from override/timeline
+- **UI:** `formatExportDurationDisplay` shows fractional seconds when export is within 10s of source; Export tab shows **Removed:** span
+
+### Build
+- `xcodebuild -scheme FrameFlow -destination 'platform=macOS' build` — **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+fix: apply middle-delete stitch on export (Day 40.1 Phase D)
 ```
 
 ---
@@ -2023,7 +2260,8 @@ feat: unified post-record editor (Day 40.1 Phase A)
 |-------|-------------|
 | A | `EditorView` shell, three tabs, wire Stop → `.editor`, remove in-editor export |
 | B | Timeline trim in/out |
-| C | Draggable caption box, editable segment times |
+| C | Draggable caption box, editable segment times, optional SRT |
+| D | Middle-chunk delete + caption time remapping for preview/export/SRT |
 
 ### Files to create/modify (implementation — not started)
 - `EditorView.swift`, `EditorViewModel.swift`
@@ -2038,4 +2276,93 @@ feat: unified post-record editor (Day 40.1 Phase A)
 ### Suggested commit (docs only)
 ```
 docs: add Blueprint Day 40.1 post-record editor flow
+```
+
+---
+
+## Razor cut — iMovie Blade (timeline interaction)
+
+### Completed
+- Replaced scissors → range-select → popover with **razor mode** toggle (filled yellow icon when active)
+- Click video lane in razor mode → instant `splitPoints` add at source time (snapped via `CaptionTimelineMapper`)
+- Segment-based clip rendering with yellow borders + per-split trim handles; drag shared boundary moves split (no gap until `removedRanges`)
+- Keyboard: **⌘B** blade at playhead; **S** toggles razor mode; **Escape** exits razor mode
+- Removed playhead drag range-selection overlay + action popover
+- Toolbar trash + `deleteSelection()` unchanged (secondary delete workflow)
+
+### Files
+- `EditTimelineModel.swift` — `VideoClipSegment`, `moveSplitPoint`, `videoClipSegments()`
+- `EditorViewModel.swift` — `razorModeActive`, `splitAtPoint`, `moveSplitPoint`
+- `EditorTimelineView.swift` — segment clips, razor tap, split handle drag
+- `EditorTracksView.swift` — razor toolbar, hover line, Escape
+- `EditorView.swift` — keyboard wiring
+
+### Notes
+- `splitPoints` remain visual markers; export gaps still driven by `removedRanges[]`
+- Build verified: **BUILD SUCCEEDED**
+
+### Suggested commit
+```
+feat: iMovie-style razor cut with segment clips and movable split boundaries
+```
+
+---
+
+## Segment trim + ripple gap close
+
+### Completed
+- Extended `VideoClipSegment` with `effectiveStart/End`, `hasGapBefore/After`
+- Segment mutations: `trimSegmentIn/Out`, `extendSegmentIn/Out`, `rippleCloseGap`
+- Relaxed `pruneInvalidRemovedRanges` for segment-level gaps between splits
+- Bilateral yellow handles per segment in `EditorTimelineView`; drag routes to trim/extend/ripple/moveSplit
+- ViewModel: `trimVideoSegmentOut/In`, `extendVideoSegmentOut/In`, `rippleCloseVideoGap`, `moveVideoSplitBoundary`
+- 6 unit tests in `FrameFlowTests` — all passing
+
+### Suggested commit
+```
+feat: iMovie segment trim with export-aware gaps and ripple gap close
+```
+
+---
+
+## Filmstrip timeline UI
+
+### Completed
+- `ThumbnailStripGenerator` actor — async AVAssetImageGenerator strip with cache (reuses SecurityScopedFileAccess pattern from dashboard thumbnails)
+- `EditorFilmstripClipView` — tiled thumbnails, 2pt yellow border, loading placeholder, pill label when width > 80pt
+- `EditorWaveformBar` — seeded procedural amplitude bars (14pt)
+- Video lane 72pt (54pt filmstrip + 14pt waveform); `EditorFilmstripTrimHandle` 12pt with 3 grip lines
+- `EditorTimelinePlayheadMarker` — white 1.5pt line + 12×10 downward triangle
+- Removed left label column; full-width tracks; timeline bg `rgb(0.12)`; alternating lane rows
+
+### Suggested commit
+```
+feat: iMovie filmstrip timeline with thumbnails, waveform, and chunky trim handles
+```
+
+---
+
+## Filmora-style timeline toolbar + lane controls + preview transport
+
+### Completed
+- **Two-row toolbar** in `EditorTracksView`: undo/redo, delete, razor (yellow when active), stub edit tools; magnetic snap + auto-ripple toggles; zoom slider (0.5–4×) with +/- buttons
+- **TimelineRulerView** — zoom-aware tick marks + HH:MM:SS labels above lanes
+- **LaneControlBar** — 80pt left column per lane: name, lock, mute, eye; lock disables drag/trim; mute silences audio preview track; hide grays clip content
+- **FilmoraPlayheadView** — red vertical line + draggable round handle for seek
+- **AudioWaveformGenerator** + **AudioWaveformView** — real AVAssetReader amplitude data, cyan Canvas bars on audio lane
+- **PreviewTransportBar** in `CaptionPreviewView` — timecode, quality picker, red scrubber, transport buttons; wired to `jumpToStart`, `togglePlayback`, `stopPreview`, in/out trim, snapshot to Downloads
+- **EditorViewModel** — `timelineZoom`, lane state, `deleteSelectedClip()`, undo/redo, stub toasts, `snapshotCurrentFrame()`
+
+### Files (new)
+- `AudioWaveformGenerator.swift`, `AudioWaveformView.swift`, `FilmoraPlayheadView.swift`, `TimelineRulerView.swift`, `LaneControlBar.swift`, `PreviewTransportBar.swift`
+
+### Stubs (intentional)
+- Magnetic snap / auto-ripple behavior; detach audio, text, crop, color, stabilise; slow motion, fullscreen, layout toggle; undo/redo toast when NSUndoManager unavailable
+
+### Build
+- **BUILD SUCCEEDED** (macOS 14+)
+
+### Suggested commit
+```
+feat: Filmora-style timeline toolbar, lane controls, playhead, and preview transport
 ```

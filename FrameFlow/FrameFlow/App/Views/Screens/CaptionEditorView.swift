@@ -103,10 +103,12 @@ struct CaptionEditorView: View {
             }
 
             if captionState.videoURL != nil {
+                let previewAspect = captionState.recordingMetadata?.previewAspectRatio ?? (16.0 / 9.0)
                 CaptionPreviewView(
                     player: viewModel.player,
                     currentTime: $viewModel.currentPlaybackTime,
                     duration: viewModel.videoDuration,
+                    previewAspectRatio: previewAspect,
                     style: viewModel.selectedStyle,
                     displayText: viewModel.overlayDisplayText,
                     highlightedWord: viewModel.highlightedWordInOverlay,

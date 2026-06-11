@@ -50,9 +50,31 @@ enum TrimHelpers {
     }
 
     static func formatDurationClock(_ seconds: Double) -> String {
-        let total = max(0, Int(seconds.rounded()))
-        let minutes = total / 60
-        let secs = total % 60
-        return String(format: "%d:%02d", minutes, secs)
+        formatExportDurationDisplay(seconds, sourceDuration: nil)
+    }
+
+    /// Shows fractional seconds when export length is close to source so small cuts remain visible.
+    static func formatExportDurationDisplay(_ exportSeconds: Double, sourceDuration: Double?) -> String {
+        let export = max(0, exportSeconds)
+        let minutes = Int(export) / 60
+        let secs = export.truncatingRemainder(dividingBy: 60)
+
+        let showFraction: Bool = {
+            guard let sourceDuration, sourceDuration > 0 else { return export < 60 }
+            let delta = abs(sourceDuration - export)
+            return delta > 0.05 && delta < 10
+        }()
+
+        if showFraction {
+            if minutes > 0 {
+                return String(format: "%d:%05.2f", minutes, secs)
+            }
+            return String(format: "0:%05.2f", secs)
+        }
+
+        let total = max(0, Int(export.rounded()))
+        let roundedMinutes = total / 60
+        let roundedSecs = total % 60
+        return String(format: "%d:%02d", roundedMinutes, roundedSecs)
     }
 }

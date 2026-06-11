@@ -23,6 +23,11 @@ final class ExportViewModel {
     var trimStartSeconds: Double?
     var trimEndSeconds: Double?
     var alsoSaveSRT = false
+    var editTimeline: EditTimelineModel?
+    var editorProject: EditorProjectModel?
+    var exportDurationOverride: Double?
+
+    var isExportSheetPresented = false
 
     let player = AVPlayer()
 
@@ -61,6 +66,10 @@ final class ExportViewModel {
         trimStartSeconds = nil
         trimEndSeconds = nil
         alsoSaveSRT = false
+        editTimeline = nil
+        editorProject = nil
+        exportDurationOverride = nil
+        isExportSheetPresented = false
 
         if let recording {
             let url = URL(fileURLWithPath: recording.filePath)
@@ -167,6 +176,8 @@ final class ExportViewModel {
             resolution: selectedResolution,
             isFirstExport: isPendingExport
         )
+        let preparedProject = editorProject?.preparedForExport()
+            ?? editTimeline.map { EditorProjectModel(timeline: $0.preparedForExport()) }?.preparedForExport()
         let options = ExportOptions(
             sourceVideoURL: sourceURL,
             recordingID: recording.id,
@@ -175,8 +186,8 @@ final class ExportViewModel {
             applyCaptionsIfAvailable: applyCaptions && hasCaptionsAvailable,
             captionStyle: style,
             outputFilename: outputFilename,
-            trimStartSeconds: trimStartSeconds,
-            trimEndSeconds: trimEndSeconds
+            editTimeline: preparedProject?.timeline,
+            editorProject: preparedProject
         )
 
         do {
@@ -270,7 +281,11 @@ final class ExportViewModel {
         if applyCaptions && hasCaptionsAvailable {
             metadata.hasCaptions = true
         }
-        if let trimStart = trimStartSeconds,
+        if let exportDuration = exportDurationOverride, exportDuration > 0 {
+            metadata.durationSeconds = max(1, Int(exportDuration.rounded(.toNearestOrAwayFromZero)))
+        } else if let timeline = editTimeline, timeline.requiresStitchExport {
+            metadata.durationSeconds = max(1, Int(timeline.exportDurationSeconds.rounded(.toNearestOrAwayFromZero)))
+        } else if let trimStart = trimStartSeconds,
            let trimEnd = trimEndSeconds,
            trimEnd > trimStart {
             metadata.durationSeconds = max(1, Int((trimEnd - trimStart).rounded()))

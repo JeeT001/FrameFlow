@@ -95,7 +95,9 @@ final class TranscriptionService: @unchecked Sendable {
 
         progress?(0.9, "Building caption segments…")
 
-        let segments = mapResultsToSegments(results)
+        let segments = WhisperTranscriptSanitizer.sanitizedSegments(
+            from: mapResultsToSegments(results)
+        )
         guard !segments.isEmpty else {
             throw TranscriptionServiceError.emptyTranscript
         }
@@ -131,20 +133,25 @@ final class TranscriptionService: @unchecked Sendable {
 
         for result in results {
             for segment in result.segments {
-                let trimmed = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty else { continue }
-
-                if let words = segment.words, words.count >= 2 {
-                    output.append(contentsOf: mergeWordsIntoPhrases(words))
-                } else {
-                    output.append(
-                        CaptionSegment(
-                            text: trimmed,
-                            startTime: Double(segment.start),
-                            endTime: Double(segment.end)
-                        )
-                    )
+                let speechWords = segment.words?.compactMap { word -> WordTiming? in
+                    guard WhisperTranscriptSanitizer.speechText(from: word.word) != nil else { return nil }
+                    return word
                 }
+
+                if let speechWords, speechWords.count >= 2 {
+                    output.append(contentsOf: mergeWordsIntoPhrases(speechWords))
+                    continue
+                }
+
+                guard let trimmed = WhisperTranscriptSanitizer.speechText(from: segment.text) else { continue }
+
+                output.append(
+                    CaptionSegment(
+                        text: trimmed,
+                        startTime: Double(segment.start),
+                        endTime: Double(segment.end)
+                    )
+                )
             }
         }
 
@@ -169,7 +176,10 @@ final class TranscriptionService: @unchecked Sendable {
 
             let endIndex = index + chunkSize
             let chunk = Array(words[index..<endIndex])
-            let text = chunk.map(\.word).joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = chunk
+                .compactMap { WhisperTranscriptSanitizer.speechText(from: $0.word) }
+                .joined(separator: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             if !text.isEmpty, let first = chunk.first, let last = chunk.last {
                 phrases.append(
                     CaptionSegment(

@@ -7,7 +7,42 @@ All notable changes to FrameFlow are documented in this file.
 ### Planned (Blueprint Day 40.1)
 - **Post-Record Editor** — unified screen after Stop with Edit / Captions (Pro) / Export tabs
 - Replaces post-record `Caption Editor → Export` hop; keeps standalone `ExportView` for Dashboard re-export
-- Phase A: flow refactor; Phase B: basic trim; Phase C: draggable captions + segment time edit
+- Phase A: flow refactor *(shipped)*
+- Phase B: basic in/out trim *(shipped)*
+- Phase C: draggable captions + segment time edit + optional SRT *(shipped)*
+- Phase D: middle-chunk delete *(shipped)*
+
+### Fixed (Blueprint Day 41.5 — timeline alignment)
+- Unified timeline grid: playhead and overlay/audio clips use same `trackWidth` and 52pt label gutter
+- `EditorTimelineLayout` + `TimelineGeometry`; single playhead spanning all lanes
+- IMG clip highlights when playhead is inside source-time range
+
+### Added (Blueprint Day 41.5 — clip timing)
+- `EditorTimelineClipView` — draggable clip blocks with in/out handles on overlay and audio lanes
+- Image overlay: default ~5s clip at playhead (source timeline); preview shows only inside interval; export uses per-kept-range CALayer timing
+- Imported audio: default ~10s clip on export timeline; start + end on audio lane; insert duration matches clip
+- Trim/cut clamps clip timing without wiping user edits; export summary shows in/out ranges
+
+### Added (Blueprint Day 41 — Editor 3.0)
+- Contextual inspector driven by `EditorSelection` (timeline, image, audio, captions)
+- 2-column editor layout — preview + inspector; full-width tracks; no permanent project bin
+- **Export…** sheet replaces Export tab (resolution, captions, SRT, progress, “What’s included” summary)
+- Captions mode always visible; Free users see Pro upgrade (not hidden tab)
+- Per-cut remove in inspector; “Clear all cuts” (honest label)
+- Dashboard **Re-export original…** with confirmation dialog (full clip, no editor changes)
+- Caption drag when overlay visible (not gated to Captions mode only)
+
+### Fixed (Blueprint Day 40.3 — Editor polish)
+- Caption burn-in export placement now matches preview (Top/Middle/Bottom + drag offset) — fixed inverted Y math in `captionOriginY` for geometry-flipped CALayer
+- Image overlay: drag directly on preview (Edit tab) with dashed selection chrome; sliders stay in sync
+- Imported audio: draggable clip block on timeline audio lane updates start time
+- Caption drag limited to Captions tab (Pro); image overlay does not steal hit tests when editing captions
+
+### Added (Blueprint Day 40.2 — Editor 2.0)
+- Filmora-inspired editor shell: project bin, preview, inspector tabs, multi-track timeline panel
+- Multi-cut timeline (`removedRanges[]`), split at playhead, export stitch with duration verification
+- Import one image overlay (opacity/position) and one audio track (volume/start) per edit session
+- `EditorProjectModel`, `EditorCompositionBuilder`; recording/Dashboard flows unchanged
 
 ### Added
 - Swift Package Manager dependencies: Supabase, RevenueCat, WhisperKit, Sparkle, Sentry (linked to FrameFlow target)

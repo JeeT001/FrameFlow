@@ -27,8 +27,9 @@ final class CaptionRenderer: @unchecked Sendable {
     private init() {}
 
     func writeSRT(segments: [CaptionSegment], to url: URL) throws {
+        let cleaned = WhisperTranscriptSanitizer.sanitizedSegments(from: segments)
         var lines: [String] = []
-        for (index, segment) in segments.enumerated() {
+        for (index, segment) in cleaned.enumerated() {
             let number = index + 1
             let start = srtTimestamp(segment.startTime)
             let end = srtTimestamp(segment.endTime)
@@ -50,6 +51,7 @@ final class CaptionRenderer: @unchecked Sendable {
         style: CaptionStyleConfig,
         outputURL: URL
     ) async throws {
+        let cleaned = WhisperTranscriptSanitizer.sanitizedSegments(from: segments)
         let asset = AVURLAsset(url: videoURL)
         let sourceVideoTracks = try await asset.loadTracks(withMediaType: .video)
         guard let sourceVideoTrack = sourceVideoTracks.first else {
@@ -100,7 +102,7 @@ final class CaptionRenderer: @unchecked Sendable {
         parentLayer.addSublayer(videoLayer)
 
         let effectiveStyle = resolvedStyle(style)
-        addCaptionLayers(to: parentLayer, segments: segments, style: effectiveStyle, renderSize: renderSize)
+        addCaptionLayers(to: parentLayer, segments: cleaned, style: effectiveStyle, renderSize: renderSize)
 
         let videoComposition = AVMutableVideoComposition()
         videoComposition.renderSize = renderSize

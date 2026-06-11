@@ -31,8 +31,11 @@ final class CaptionEditorViewModel {
     var showExportSuccessAlert = false
     var exportedPaths: [URL] = []
 
-    /// When set, preview playback and seeks are constrained to this range (Editor trim).
+    /// When set, preview playback and seeks are constrained to this range (Editor trim without middle delete).
     var playbackRange: ClosedRange<Double>?
+
+    /// Export-aware timeline (trim + optional middle delete).
+    var editTimeline: EditTimelineModel?
 
     let player = AVPlayer()
 
@@ -42,24 +45,65 @@ final class CaptionEditorViewModel {
     private var recordingMetadata: RecordingMetadata?
 
     var activeSegment: CaptionSegment? {
-        segments.first { currentPlaybackTime >= $0.startTime && currentPlaybackTime <= $0.endTime }
+        activeSegmentContext()?.segment
     }
 
     var overlayDisplayText: String? {
-        guard let segment = activeSegment else { return nil }
+        guard let context = activeSegmentContext() else { return nil }
+        let segment = context.segment
+        guard WhisperTranscriptSanitizer.speechText(from: segment.text) != nil else { return nil }
+        let lookupTime = context.lookupTime
         switch selectedStyle.preset {
         case .tiktokBold:
-            return tiktokWord(at: currentPlaybackTime, in: segment)
+            return tiktokWord(at: lookupTime, in: segment)
         case .highlightedWord:
-            return highlightedPhrase(at: currentPlaybackTime, in: segment)
+            return highlightedPhrase(at: lookupTime, in: segment)
         default:
             return segment.text
         }
     }
 
     var highlightedWordInOverlay: String? {
-        guard selectedStyle.preset == .highlightedWord, let segment = activeSegment else { return nil }
-        return highlightedWord(at: currentPlaybackTime, in: segment)
+        guard selectedStyle.preset == .highlightedWord,
+              let context = activeSegmentContext() else { return nil }
+        return highlightedWord(at: context.lookupTime, in: context.segment)
+    }
+
+    private func activeSegmentContext() -> (segment: CaptionSegment, lookupTime: Double)? {
+        if let timeline = editTimeline, !timeline.isFullSourceExport {
+            guard let exportTime = CaptionTimelineMapper.exportTime(
+                fromSourceTime: currentPlaybackTime,
+                editTimeline: timeline
+            ) else {
+                return nil
+            }
+            let exportSegments = CaptionTimelineMapper.segmentsForExportTimeline(
+                from: segments,
+                editTimeline: timeline
+            )
+            guard let segment = exportSegments.first(where: {
+                exportTime >= $0.startTime && exportTime <= $0.endTime
+            }) else {
+                return nil
+            }
+            return (segment, exportTime)
+        }
+
+        guard let segment = segments.first(where: {
+            currentPlaybackTime >= $0.startTime && currentPlaybackTime <= $0.endTime
+        }) else {
+            return nil
+        }
+        return (segment, currentPlaybackTime)
+    }
+
+    func applyEditTimeline(_ timeline: EditTimelineModel) {
+        editTimeline = timeline.isFullSourceExport ? nil : timeline
+        if timeline.hasRemovedRegions {
+            playbackRange = nil
+        } else {
+            playbackRange = timeline.trimStartSeconds...timeline.trimEndSeconds
+        }
     }
 
     func sync(from state: CaptionGenerationState) {
@@ -164,7 +208,9 @@ final class CaptionEditorViewModel {
 
     func seek(to time: Double) {
         var clamped = max(0, min(time, max(videoDuration, 0.1)))
-        if let range = playbackRange {
+        if let timeline = editTimeline {
+            clamped = CaptionTimelineMapper.snapToKeptSourceTime(clamped, editTimeline: timeline)
+        } else if let range = playbackRange {
             clamped = min(max(clamped, range.lowerBound), range.upperBound)
         }
         currentPlaybackTime = clamped
@@ -182,10 +228,19 @@ final class CaptionEditorViewModel {
         if player.rate > 0 {
             player.pause()
         } else {
-            let rangeEnd = playbackRange?.upperBound ?? videoDuration
-            let rangeStart = playbackRange?.lowerBound ?? 0
-            if currentPlaybackTime >= rangeEnd - 0.05 {
-                seek(to: rangeStart)
+            if let timeline = editTimeline, !timeline.isFullSourceExport {
+                let firstStart = timeline.keptSourceRanges.first?.start ?? timeline.trimStartSeconds
+                let lastEnd = timeline.keptSourceRanges.last?.end ?? timeline.trimEndSeconds
+                if currentPlaybackTime >= lastEnd - 0.05
+                    || CaptionTimelineMapper.exportTime(fromSourceTime: currentPlaybackTime, editTimeline: timeline) == nil {
+                    seek(to: firstStart)
+                }
+            } else {
+                let rangeEnd = playbackRange?.upperBound ?? videoDuration
+                let rangeStart = playbackRange?.lowerBound ?? 0
+                if currentPlaybackTime >= rangeEnd - 0.05 {
+                    seek(to: rangeStart)
+                }
             }
             player.play()
         }
@@ -302,6 +357,7 @@ final class CaptionEditorViewModel {
         }
         player.replaceCurrentItem(with: nil)
         playbackRange = nil
+        editTimeline = nil
     }
 
     private func configurePlayer(url: URL) {
@@ -324,7 +380,10 @@ final class CaptionEditorViewModel {
             guard let self else { return }
             Task { @MainActor in
                 var seconds = CMTimeGetSeconds(time)
-                if let range = self.playbackRange {
+
+                if let timeline = self.editTimeline, timeline.hasRemovedRegions {
+                    seconds = self.enforceRemovedRegionsPlayback(at: seconds, timeline: timeline)
+                } else if let range = self.playbackRange {
                     if seconds >= range.upperBound {
                         self.player.pause()
                         seconds = range.upperBound
@@ -332,9 +391,52 @@ final class CaptionEditorViewModel {
                         seconds = range.lowerBound
                     }
                 }
+
                 self.currentPlaybackTime = seconds
             }
         }
+    }
+
+    private func enforceRemovedRegionsPlayback(at seconds: Double, timeline: EditTimelineModel) -> Double {
+        for removed in timeline.sortedRemovedRanges {
+            if seconds >= removed.startSeconds, seconds < removed.endSeconds - 0.02 {
+                let jumpTo = removed.endSeconds
+                player.seek(
+                    to: CMTime(seconds: jumpTo, preferredTimescale: 600),
+                    toleranceBefore: .zero,
+                    toleranceAfter: .zero
+                )
+                return jumpTo
+            }
+        }
+
+        if let last = timeline.keptSourceRanges.last, seconds >= last.end - 0.05 {
+            player.pause()
+            return last.end
+        }
+
+        for (index, range) in timeline.keptSourceRanges.enumerated() {
+            if seconds >= range.start, seconds < range.end {
+                return seconds
+            }
+            if index + 1 < timeline.keptSourceRanges.count {
+                let next = timeline.keptSourceRanges[index + 1]
+                if seconds >= range.end, seconds < next.start {
+                    player.seek(
+                        to: CMTime(seconds: next.start, preferredTimescale: 600),
+                        toleranceBefore: .zero,
+                        toleranceAfter: .zero
+                    )
+                    return next.start
+                }
+            }
+        }
+
+        if let first = timeline.keptSourceRanges.first, seconds < first.start {
+            return first.start
+        }
+
+        return seconds
     }
 
     private func tiktokWord(at time: Double, in segment: CaptionSegment) -> String {

@@ -3,6 +3,7 @@
 //  FrameFlow
 //
 
+import AppKit
 import SwiftUI
 
 struct EditorView: View {
@@ -26,23 +27,59 @@ struct EditorView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .navigationTitle("Editor")
+        .navigationTitle("")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Discard") {
                     discardAndLeave()
                 }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+            }
+            ToolbarItem(placement: .principal) {
+                Text(exportVM.recording?.name ?? "Editor")
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
             }
             ToolbarItem(placement: .primaryAction) {
-                Button("Export") {
-                    Task { await viewModel.exportRecording(isPro: appState.isPro, appState: appState) }
+                Button {
+                    exportVM.isExportSheetPresented = true
+                } label: {
+                    Label("Export Video", systemImage: "square.and.arrow.up.fill")
                 }
-                .disabled(exportVM.isExporting || exportVM.recording == nil)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
+                .disabled(exportVM.recording == nil)
             }
+        }
+        .sheet(isPresented: Binding(
+            get: { exportVM.isExportSheetPresented },
+            set: { exportVM.isExportSheetPresented = $0 }
+        )) {
+            EditorExportSheet(
+                recordingName: exportVM.recording?.name,
+                exportSummary: viewModel.exportSummary(
+                    isPro: appState.isPro,
+                    applyCaptions: exportVM.applyCaptions,
+                    alsoSaveSRT: exportVM.alsoSaveSRT,
+                    resolution: exportVM.selectedResolution
+                ),
+                exportVM: exportVM,
+                isPro: appState.isPro,
+                onExport: {
+                    Task {
+                        await viewModel.exportRecording(isPro: appState.isPro, appState: appState)
+                    }
+                },
+                onShowProGate: { feature, description in
+                    proGateFeature = feature
+                    proGateDescription = description
+                    showProGate = true
+                }
+            )
         }
         .onAppear {
             viewModel.load(appState: appState, isPro: appState.isPro)
-            ensureValidTabSelection()
         }
         .onDisappear {
             viewModel.teardown()
@@ -62,11 +99,19 @@ struct EditorView: View {
                 captionVM.sync(from: captionState)
             }
         }
-        .onChange(of: appState.isPro) { _, isPro in
-            ensureValidTabSelection(isPro: isPro)
-        }
         .onChange(of: captionVM.videoDuration) { _, duration in
             viewModel.onVideoDurationLoaded(duration)
+        }
+        .onChange(of: captionVM.currentPlaybackTime) { _, _ in
+            viewModel.onPreviewTimeTick()
+        }
+        .onChange(of: viewModel.project.importedAudioTracks) { _, _ in
+            viewModel.refreshAudioPreview()
+        }
+        .onChange(of: exportVM.showSuccessAlert) { _, succeeded in
+            if succeeded {
+                exportVM.isExportSheetPresented = false
+            }
         }
         .alert("Export complete", isPresented: Binding(
             get: { exportVM.showSuccessAlert },
@@ -94,370 +139,240 @@ struct EditorView: View {
     // MARK: - Layout
 
     private var editorLayout: some View {
-        VStack(spacing: 16) {
-            GeometryReader { geometry in
-                HStack(alignment: .top, spacing: 20) {
-                    previewPanel
-                        .frame(width: geometry.size.width * 0.55, height: geometry.size.height)
-
-                    inspectorPanel
-                        .frame(width: geometry.size.width * 0.45 - 20, height: geometry.size.height)
-                }
-            }
-
-            EditorTimelineView(
-                duration: viewModel.sourceDurationSeconds,
-                trimStart: viewModel.trimStartSeconds,
-                trimEnd: viewModel.trimEndSeconds,
-                currentTime: captionVM.currentPlaybackTime,
-                onTrimStartChange: { viewModel.updateTrimStart($0) },
-                onTrimEndChange: { viewModel.updateTrimEnd($0) },
-                onSeek: { captionVM.seek(to: $0) }
-            )
-            .frame(height: 80)
-        }
-        .padding(20)
-    }
-
-    private var isCaptionPlacementEditable: Bool {
-        appState.isPro && viewModel.selectedTab == .captions && !captionVM.segments.isEmpty
-    }
-
-    private var previewPanel: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let name = exportVM.recording?.name {
-                Text(name)
-                    .font(.headline)
-                    .lineLimit(1)
-            }
-
-            let aspect = exportVM.recording?.previewAspectRatio ?? (16.0 / 9.0)
-
-            CaptionPreviewView(
-                player: captionVM.player,
-                currentTime: Binding(
-                    get: { captionVM.currentPlaybackTime },
-                    set: { captionVM.currentPlaybackTime = $0 }
-                ),
-                duration: captionVM.videoDuration,
-                style: captionVM.selectedStyle,
-                displayText: showCaptionOverlay ? captionVM.overlayDisplayText : nil,
-                highlightedWord: showCaptionOverlay ? captionVM.highlightedWordInOverlay : nil,
-                isCaptionPlacementEditable: isCaptionPlacementEditable,
-                onSeek: { captionVM.seek(to: $0) },
-                onCaptionVerticalOffsetChange: { captionVM.updateCaptionVerticalOffset($0) }
-            )
-            .aspectRatio(aspect, contentMode: .fit)
-
-            if isCaptionPlacementEditable {
-                Text("Drag the caption box vertically to fine-tune placement.")
-                    .font(.caption)
-                    .foregroundStyle(AppColors.textSecondary)
-            }
-
-            Button {
-                captionVM.togglePlayback()
-            } label: {
-                Label("Play / Pause", systemImage: "playpause.fill")
-            }
-            .buttonStyle(.bordered)
-        }
-        .frame(minWidth: 360)
-    }
-
-    private var showCaptionOverlay: Bool {
-        appState.isPro && viewModel.selectedTab != .export && !captionVM.segments.isEmpty
-    }
-
-    private var inspectorPanel: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Picker("Section", selection: $viewModel.selectedTab) {
-                ForEach(EditorViewModel.tabs(isPro: appState.isPro)) { tab in
-                    Text(tab.rawValue).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            Group {
-                switch viewModel.selectedTab {
-                case .edit:
-                    editTab
-                case .captions:
-                    captionsTab
-                case .export:
-                    exportTab
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        }
-        .frame(minWidth: 320)
-    }
-
-    // MARK: - Tabs
-
-    private var editTab: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Drag the timeline handles below to trim the start and end of your clip.")
-                .font(.subheadline)
-                .foregroundStyle(AppColors.textSecondary)
-
-            if viewModel.hasTrimApplied {
-                Label("Trimmed length: \(viewModel.formattedTrimDuration)", systemImage: "scissors")
-                    .font(.caption)
-                    .foregroundStyle(AppColors.textSecondary)
-            }
-
-            Spacer()
-        }
-    }
-
-    @ViewBuilder
-    private var captionsTab: some View {
-        if !appState.isPro {
-            captionsProGate
-        } else {
-            captionsEditorContent
-        }
-    }
-
-    private var captionsProGate: some View {
-        ContentUnavailableView {
-            Label("Pro feature", systemImage: "star.fill")
-        } description: {
-            Text("Auto captions and caption styling require FrameFlow Pro.")
-        } actions: {
-            Button("Upgrade") {
-                proGateFeature = "Auto Captions"
-                proGateDescription = "WhisperKit transcription and caption editing require FrameFlow Pro."
-                showProGate = true
-            }
-            .buttonStyle(.borderedProminent)
-        }
-    }
-
-    @ViewBuilder
-    private var captionsEditorContent: some View {
-        if captionState.isTranscribing {
-            VStack(alignment: .leading, spacing: 12) {
-                Label("Generating captions…", systemImage: "waveform")
-                    .font(.headline)
-
-                ProgressView(value: captionState.progress)
-                    .progressViewStyle(.linear)
-
-                Text(captionState.statusMessage)
-                    .font(.caption)
-                    .foregroundStyle(AppColors.textSecondary)
-
-                Text("First run may download the on-device Whisper model.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-        } else if let error = captionState.errorMessage, captionState.segments.isEmpty, captionVM.segments.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Label("Transcription failed", systemImage: "exclamationmark.triangle")
-                    .font(.headline)
-                    .foregroundStyle(AppColors.proGold)
-
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(AppColors.textSecondary)
-                    .textSelection(.enabled)
-
-                Button("Retry") {
-                    captionState.retry()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        } else if captionState.segments.isEmpty && captionVM.segments.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("No captions yet")
-                    .font(.headline)
-
-                Text("Generate captions from speech in your recording.")
-                    .font(.subheadline)
-                    .foregroundStyle(AppColors.textSecondary)
-
-                Button("Generate captions") {
+        EditorShellLayout {
+            previewPanel
+        } inspector: {
+            EditorInspectorPanel(
+                viewModel: viewModel,
+                captionVM: captionVM,
+                captionState: captionState,
+                exportVM: exportVM,
+                isPro: appState.isPro,
+                recording: exportVM.recording,
+                onShowProGate: { feature, description in
+                    proGateFeature = feature
+                    proGateDescription = description
+                    showProGate = true
+                },
+                onGenerateCaptions: {
                     if let metadata = exportVM.recording {
                         captionState.begin(with: metadata)
                     }
+                },
+                onRetryTranscription: {
+                    captionState.retry()
                 }
-                .buttonStyle(.borderedProminent)
+            )
+        } tracks: {
+            tracksPanel
+        }
+        .focusable()
+        .onKeyPress(.upArrow) {
+            viewModel.jumpToStart()
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            viewModel.jumpToEnd()
+            return .handled
+        }
+        .onKeyPress(.space) {
+            viewModel.togglePlayback()
+            return .handled
+        }
+        .onKeyPress(keys: [.init("b")], phases: .down) { press in
+            guard press.modifiers.contains(.command) else { return .ignored }
+            viewModel.splitAtPoint(viewModel.sourceTimeAtPlayhead())
+            return .handled
+        }
+        .onKeyPress("s") {
+            viewModel.razorModeActive.toggle()
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            if viewModel.razorModeActive {
+                viewModel.razorModeActive = false
+                return .handled
             }
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Caption style")
-                        .font(.subheadline.weight(.semibold))
+            return .ignored
+        }
+        .onAppear {
+            NSApp.keyWindow?.makeFirstResponder(nil)
+        }
+    }
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(CaptionStylePreset.allCases, id: \.self) { preset in
-                                CaptionStyleCard(
-                                    preset: preset,
-                                    isSelected: captionVM.selectedStyle.preset == preset,
-                                    onSelect: { captionVM.selectStyle(preset) }
+    private var tracksPanel: some View {
+        EditorTracksView(
+            viewModel: viewModel,
+            videoURL: URL(fileURLWithPath: exportVM.recording?.filePath ?? ""),
+            duration: viewModel.sourceDurationSeconds,
+            trimStart: viewModel.trimStartSeconds,
+            trimEnd: viewModel.trimEndSeconds,
+            exportDurationSeconds: viewModel.project.exportDurationSeconds,
+            masterTimelineDuration: viewModel.project.masterTimelineDurationSeconds,
+            videoExportDuration: viewModel.project.videoExportDurationSeconds,
+            masterPlayheadSeconds: viewModel.masterPlayheadSeconds,
+            hasAudioTimelineExtension: viewModel.project.hasAudioTimelineExtension,
+            removedRanges: viewModel.editTimeline.removedRanges,
+            splitPoints: viewModel.editTimeline.splitPoints,
+            selectionStart: viewModel.selectionStartSeconds,
+            selectionEnd: viewModel.selectionEndSeconds,
+            currentTime: captionVM.currentPlaybackTime,
+            currentExportTime: viewModel.masterPlayheadSeconds,
+            imageClips: viewModel.imageClipLaneItems(),
+            audioClips: viewModel.audioClipLaneItems(),
+            videoClipLabel: exportVM.recording?.name ?? "Video",
+            onTrimStartChange: { viewModel.updateTrimStart($0) },
+            onTrimEndChange: { viewModel.updateTrimEnd($0) },
+            onSelectionStartChange: { viewModel.updateSelectionStart($0) },
+            onSelectionEndChange: { viewModel.updateSelectionEnd($0) },
+            onSeek: { viewModel.seekPreviewOnMasterTimeline($0) },
+            onImageStartChange: { viewModel.updateImageStart($1, id: $0) },
+            onImageEndChange: { viewModel.updateImageEnd($1, id: $0) },
+            onImageClipMove: { viewModel.updateImageClipMove(toStart: $1, id: $0) },
+            onAudioStartChange: { viewModel.updateImportedAudioStart($1, id: $0) },
+            onAudioEndChange: { viewModel.updateImportedAudioEnd($1, id: $0) },
+            onAudioClipMove: { viewModel.updateImportedAudioClipMove(toStart: $1, id: $0) },
+            onImportImage: { viewModel.importImage() },
+            onImportAudio: { viewModel.importAudio() },
+            onSelectOverlay: { viewModel.selectImageOverlay(id: $0) },
+            onSelectAudio: { viewModel.selectImportedAudio(id: $0) },
+            onSelectTimeline: { viewModel.selectTimeline() },
+            onDeleteSelection: { viewModel.deleteSelection() },
+            onClearDeletes: { viewModel.clearRemovedRegions() },
+            canDeleteSelection: viewModel.canDeleteSelection,
+            hasRemovedRegions: viewModel.hasRemovedRegions
+        )
+        .frame(height: viewModel.tracksPanelHeight)
+    }
+
+    private var selectedImageOverlayID: UUID? {
+        viewModel.selectedImageOverlayID
+    }
+
+    private var isImageOverlayEditable: Bool {
+        selectedImageOverlayID != nil
+    }
+
+    private var isCaptionPlacementEditable: Bool {
+        appState.isPro
+            && !captionVM.segments.isEmpty
+            && showCaptionOverlay
+            && selectedImageOverlayID == nil
+    }
+
+    private var showCaptionPlacementChrome: Bool {
+        isCaptionPlacementEditable
+            && (viewModel.inspectorMode == .captions || viewModel.selection.isCaptionRelated)
+    }
+
+    private var previewPanel: some View {
+        GeometryReader { geometry in
+            let aspect = exportVM.recording?.previewAspectRatio ?? (16.0 / 9.0)
+            let hintReserve: CGFloat = 32
+            let scrubberReserve: CGFloat = 130
+            let videoAvailable = CGSize(
+                width: geometry.size.width,
+                height: max(120, geometry.size.height - hintReserve - scrubberReserve)
+            )
+            let fittedVideo = PreviewCanvasFitting.fittedSize(in: videoAvailable, aspectRatio: aspect)
+
+            VStack(spacing: 8) {
+                Spacer(minLength: 0)
+
+                CaptionPreviewView(
+                    player: captionVM.player,
+                    currentTime: Binding(
+                        get: { viewModel.masterPlayheadSeconds },
+                        set: { viewModel.seekPreviewOnMasterTimeline($0) }
+                    ),
+                    duration: viewModel.project.masterTimelineDurationSeconds,
+                    previewAspectRatio: aspect,
+                    videoEndSeconds: viewModel.project.hasAudioTimelineExtension
+                        ? viewModel.project.videoExportDurationSeconds
+                        : nil,
+                    isPlayheadPastVideo: viewModel.isPlayheadInAudioOnlyRegion,
+                    isPreviewPlaying: viewModel.isPreviewPlaying,
+                    style: captionVM.selectedStyle,
+                    displayText: showCaptionOverlay ? captionVM.overlayDisplayText : nil,
+                    highlightedWord: showCaptionOverlay ? captionVM.highlightedWordInOverlay : nil,
+                    isCaptionPlacementEditable: isCaptionPlacementEditable,
+                    showsPlacementChrome: showCaptionPlacementChrome,
+                    onSeek: { viewModel.seekPreviewOnMasterTimeline($0) },
+                    onTogglePlayback: { viewModel.togglePlayback() },
+                    onCaptionVerticalOffsetChange: { captionVM.updateCaptionVerticalOffset($0) },
+                    onSkipBack: { viewModel.jumpToStart() },
+                    onSlowMotion: { viewModel.showComingSoon("Slow motion") },
+                    onStop: { viewModel.stopPreview() },
+                    onSetInPoint: { viewModel.setInPointAtPlayhead() },
+                    onSetOutPoint: { viewModel.setOutPointAtPlayhead() },
+                    onSnapshot: {
+                        Task { await viewModel.snapshotCurrentFrame() }
+                    },
+                    onFullscreen: { viewModel.showComingSoon("Fullscreen") },
+                    previewOverlay: {
+                        ForEach(viewModel.project.imageOverlays) { overlay in
+                            let isSelected = viewModel.selectedImageOverlayID == overlay.id
+                            let isVisible = overlay.contains(playhead: captionVM.currentPlaybackTime)
+                            if isVisible || isSelected {
+                                EditorImageOverlayPreview(
+                                    overlay: overlay,
+                                    containerAspect: aspect,
+                                    currentPlayhead: captionVM.currentPlaybackTime,
+                                    isEditable: isSelected && isImageOverlayEditable,
+                                    onPositionChange: { viewModel.updateImagePosition(x: $0, y: $1, id: overlay.id) },
+                                    onSizeChange: { viewModel.updateImageWidth($0, id: overlay.id) },
+                                    onSelect: { viewModel.selectImageOverlay(id: overlay.id) }
                                 )
                             }
                         }
-                        .padding(.vertical, 4)
                     }
+                )
+                .frame(width: fittedVideo.width)
+                .clipped()
 
-                    Picker("Position", selection: captionPositionBinding) {
-                        Text("Top").tag(CaptionVerticalPosition.top)
-                        Text("Middle").tag(CaptionVerticalPosition.middle)
-                        Text("Bottom").tag(CaptionVerticalPosition.bottom)
-                    }
-                    .pickerStyle(.segmented)
+                previewHint
+                    .frame(width: fittedVideo.width, alignment: .leading)
 
-                    Text("Segments")
-                        .font(.subheadline.weight(.semibold))
-
-                    LazyVStack(spacing: 8) {
-                        ForEach(captionVM.segments) { segment in
-                            CaptionSegmentRow(
-                                segment: segment,
-                                isSelected: captionVM.selectedSegmentID == segment.id,
-                                allowsTimeEditing: true,
-                                onTextChange: { captionVM.updateSegmentText(id: segment.id, text: $0) },
-                                onStartTimeChange: { captionVM.updateSegmentTimes(id: segment.id, start: $0, end: nil) },
-                                onEndTimeChange: { captionVM.updateSegmentTimes(id: segment.id, start: nil, end: $0) },
-                                onSelect: { captionVM.selectSegment(segment) }
-                            )
-                        }
-                    }
-                }
+                Spacer(minLength: 0)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+        .frame(minWidth: 280)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if viewModel.project.imageOverlays.isEmpty {
+                viewModel.clearSelection()
             }
         }
     }
 
-    private var exportTab: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                if let recording = exportVM.recording {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 16) {
-                            if viewModel.hasTrimApplied {
-                                Text("Export length: \(viewModel.formattedTrimDuration)")
-                                    .fontWeight(.medium)
-                            } else {
-                                Text(recording.formattedDuration)
-                            }
-                            Text(recording.formattedFileSize)
-                                .foregroundStyle(AppColors.textSecondary)
-                        }
-                        if viewModel.hasTrimApplied {
-                            Text("Source: \(recording.formattedDuration)")
-                                .font(.caption)
-                                .foregroundStyle(AppColors.textSecondary)
-                        }
-                    }
-                    .font(.subheadline)
-                }
-
-                exportResolutionSection
-
-                if exportVM.hasCaptionsAvailable {
-                    Toggle("Include captions in export", isOn: Binding(
-                        get: { exportVM.applyCaptions },
-                        set: { exportVM.applyCaptions = $0 }
-                    ))
-
-                    if appState.isPro {
-                        Toggle("Also save SRT file", isOn: Binding(
-                            get: { exportVM.alsoSaveSRT },
-                            set: { exportVM.alsoSaveSRT = $0 }
-                        ))
-                        Text("SRT saved next to exported MP4 in your save folder.")
-                            .font(.caption)
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
-                }
-
-                if exportVM.showsCaptionsBadge {
-                    Label("Captions included", systemImage: "captions.bubble.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppColors.successGreen)
-                }
-
-                if !appState.isPro {
-                    Label("Free exports include a FrameFlow watermark", systemImage: "info.circle")
-                        .font(.caption)
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-
-                Text("Use the toolbar Export button when ready.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-
-                if let exportError = exportVM.exportError {
-                    Text(exportError)
-                        .font(.subheadline)
-                        .foregroundStyle(AppColors.recRed)
-                }
-
-                if exportVM.isExporting {
-                    ProgressView(value: exportVM.progress)
-                    Text(exportVM.statusMessage)
-                        .font(.caption)
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-            }
+    @ViewBuilder
+    private var previewHint: some View {
+        if viewModel.isPlayheadInAudioOnlyRegion {
+            Text(
+                viewModel.isPreviewPlaying
+                    ? "Playing imported audio — video has ended."
+                    : "Past video end — press Play to hear imported audio."
+            )
+            .font(.caption)
+            .foregroundStyle(AppColors.primary)
+        } else if isCaptionPlacementEditable {
+            Text("Drag the caption box vertically to fine-tune placement.")
+                .font(.caption)
+                .foregroundStyle(AppColors.textSecondary)
+        } else if isImageOverlayEditable {
+            Text("Drag to move the image · use the corner handle or Size slider to resize.")
+                .font(.caption)
+                .foregroundStyle(AppColors.textSecondary)
+        } else if viewModel.project.hasAudioTimelineExtension {
+            Text("Playback continues on imported audio after the video ends.")
+                .font(.caption)
+                .foregroundStyle(AppColors.textSecondary)
         }
     }
 
-    private var exportResolutionSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Resolution")
-                .font(.subheadline.weight(.semibold))
-
-            ForEach(ExportResolution.allCases) { resolution in
-                exportResolutionRow(resolution)
-            }
-        }
-    }
-
-    private func exportResolutionRow(_ resolution: ExportResolution) -> some View {
-        let isLocked = !exportVM.canSelectResolution(resolution, isPro: appState.isPro)
-        let isSelected = exportVM.selectedResolution == resolution
-
-        return Button {
-            if isLocked {
-                proGateFeature = resolution == .p4K ? "4K Export" : "1080p Export"
-                proGateDescription = exportVM.lockReason(for: resolution, isPro: appState.isPro)
-                    ?? "HD export requires FrameFlow Pro."
-                showProGate = true
-            } else {
-                exportVM.selectedResolution = resolution
-            }
-        } label: {
-            HStack {
-                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .foregroundStyle(isSelected ? AppColors.primary : AppColors.textSecondary)
-
-                Text(resolution.displayName)
-                    .foregroundStyle(AppColors.textPrimary)
-
-                Spacer()
-
-                if isLocked {
-                    Image(systemName: "lock.fill")
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-            }
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(exportVM.lockReason(for: resolution, isPro: appState.isPro) ?? "")
-    }
-
-    private var captionPositionBinding: Binding<CaptionVerticalPosition> {
-        Binding(
-            get: { captionVM.selectedStyle.verticalPosition },
-            set: { captionVM.setPosition($0) }
-        )
+    private var showCaptionOverlay: Bool {
+        appState.isPro && !captionVM.segments.isEmpty
     }
 
     private var missingRecordingView: some View {
@@ -479,12 +394,15 @@ struct EditorView: View {
         viewModel.discard(appState: appState)
         router.navigate(to: .dashboard)
     }
+}
 
-    private func ensureValidTabSelection(isPro: Bool? = nil) {
-        let pro = isPro ?? appState.isPro
-        let allowed = EditorViewModel.tabs(isPro: pro)
-        if !allowed.contains(viewModel.selectedTab) {
-            viewModel.selectedTab = .edit
+private extension EditorSelection {
+    var isCaptionRelated: Bool {
+        switch self {
+        case .captions, .captionSegment:
+            return true
+        default:
+            return false
         }
     }
 }
