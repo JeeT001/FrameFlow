@@ -26,4 +26,6 @@ struct CaptionSidecar: Codable, Sendable {
     var stylePreset: String?
     var styleVerticalPosition: String?
     var customVerticalOffsetNormalized: Double?
+    /// Audio lead at first video frame (seconds); aligns Whisper timestamps to video playback.
+    var captionAudioLeadSeconds: Double?
 }

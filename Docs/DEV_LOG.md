@@ -2366,3 +2366,252 @@ feat: iMovie filmstrip timeline with thumbnails, waveform, and chunky trim handl
 ```
 feat: Filmora-style timeline toolbar, lane controls, playhead, and preview transport
 ```
+
+---
+
+## Editor MVP trim-down (blueprint Screen 11)
+
+### Decision (updated)
+- **Cut workflow: razor only** — scissors toggle + click lane → `splitAtPoint` / `splitPoints[]`. **Removed** select-region + Delete middle-cut UX. Razor splits are visual markers; export shortens via global trim only (not splits alone).
+
+### Completed
+- **EditorTracksView** — scissors toggle (yellow when active), Clear splits, timecode; one video lane + 24px ruler
+- **EditorTimelineView** — per-segment bodies after razor; global in/out handles; movable split boundaries; razor tap + crosshair; white playhead; lane scrub
+- **EditorView** — simplified preview (play + scrub only); source-time playhead; removed razor/overlay/audio wiring
+- **EditorInspectorPanel** — Edit tab: trim + razor hints only (no Select region, no removed-sections list)
+- **CaptionPreviewView** — minimal transport (play/pause + slider + times); removed stub transport buttons
+- **EditorViewModel** — removed NLE surface state (razor, zoom, lane lock, stub tools)
+- **ExportService** — stitch via `keptSourceRanges` (middle-delete truth)
+
+### Retained (unchanged)
+- `EditorShellLayout` 58/42 + tracks below
+- Toolbar Discard / title / Export + `EditorExportSheet`
+- Captions tab (Pro) + Whisper flow
+- `CaptionTimelineMapper`, export stitch algorithm
+
+### Suggested commit
+```
+refactor: MVP editor — single video lane, razor-only cuts, remove range delete and NLE chrome
+```
+
+---
+
+## Editor simplified — preview, captions, info, export only
+
+### Decision
+- Post-record **Screen 11** is a single view: no bottom timeline, no trim handles, no razor/scissors, no import lanes. Export always uses the **full captured recording** (`editorProject` / `editTimeline` nil on export).
+
+### Completed
+- **EditorShellLayout** — preview + sidebar only (dropped `tracks` panel; 58/42 split)
+- **EditorView** — toolbar Discard | title | Export Video; `CaptionPreviewView` + Space play/pause; removed timeline key handlers (↑↓, ⌘B, S, Esc)
+- **EditorInspectorPanel** — one scrollable sidebar: Video info → Captions → Export hint; removed Edit | Captions segmented toggle and timeline/import/overlay sections
+- **EditorClipInfoSection** — duration, resolution, format, file size, audio mode, layout (no trim/export-duration/split stats)
+- **EditorViewModel** — `exportRecording` passes nil `editorProject` / `editTimeline` / `exportDurationOverride`; caption preview uses full source; removed `razorModeActive` and `tracksPanelHeight` from UI path
+- **EditorTracksView** — excluded from Xcode target (`membershipExceptions`); timeline components left on disk unlinked
+
+### Retained
+- Stop → Editor navigation; `CaptionGenerationState.begin` / Generate / Retry; `EditorExportSheet` + `ExportViewModel` + `ExportService`; Pro gates; Discard → staging cleanup; `SecurityScopedFileAccess`
+
+### Deferred (post-MVP)
+- Timeline lane, razor, trim, middle-delete, overlay/audio import, filmstrip, Dashboard re-edit from library
+
+### Build
+- **BUILD SUCCEEDED** (macOS 14+)
+
+### Suggested commit
+```
+feat: simplify editor to preview, captions, info, and export only
+```
+
+### Docs
+- **FrameFlow_Master_Blueprint.md** — Day 40.1 rewritten: phases A–D = Flow, Simple layout, Captions, Export; trim/cut/timeline moved to post-MVP; Screen 11 + Day 41 checklist updated
+- **CURRENT_STATUS.md** — aligned with simplified Day 40.1 scope
+- **FrameFlow_Master_Blueprint.md** — **Day 45.1 UI Enhancement** added after Day 45 (professional redesign pass before Phase 17 distribution)
+- **FrameFlow_Master_Blueprint.md** — **Day 41.2** = platform preview guides (Shorts/TikTok/Reels) on Layout Picker only; Day 40.2 retired; removed incorrect “layout improvement” 41.2 scope
+
+---
+
+## Day 41.2 — Platform preview guides (Layout Picker)
+
+### Scope
+- **Layout Picker only** — mock Shorts / TikTok / Reels UI on 9:16 live composite preview before recording
+- **Preview decoration only** — not in `CompositeEngine`, `RecordingEngine`, export, Editor, or Recording Detail
+
+### Completed
+- **`PlatformPreviewOverlay`** — `.none`, `.youtubeShorts`, `.tiktok`, `.instagramReels`
+- **`PlatformSafeZoneOverlayView`** — SF Symbols + placeholder text; semi-transparent panels; scales with canvas; `.allowsHitTesting(false)`
+- **`LayoutPickerViewModel`** — `platformPreviewOverlay` (session-only); resets to `.none` when leaving 9:16
+- **`LayoutPickerView`** — segmented picker + “Guide only — not included in your video”; 16:9 shows disabled hint
+- **`LayoutLivePreviewStack`** / **`LayoutPreviewCanvas`** — overlay drawn above composite + PiP in preview ZStack
+
+### Preserved
+- Live preview start/stop; Pro gate on 9:16; layout presets; PiP drag/resize; window placement; recording output unchanged
+
+### Build
+- **BUILD SUCCEEDED** (macOS 14+)
+
+### Suggested commit
+```
+feat: platform preview guides for Shorts, TikTok, and Reels on layout picker (Day 41.2)
+```
+
+---
+
+## Day 41.2a — YouTube Shorts preview guide (iPhone reference)
+
+### Scope
+- **YouTube Shorts only** on Layout Picker 9:16 live preview — TikTok/Reels deferred to 41.2b
+- Mock iPhone YouTube Shorts chrome: bottom nav, bottom-left metadata, right action column
+- Preview decoration only — not in `CompositeEngine`, recording, or export
+
+### Completed
+- **`PlatformPreviewOverlay`** — `.none`, `.youtubeShorts` only
+- **`YouTubeShortsGuideOverlayView`** — bottom nav (Home / Shorts / Create / Subscriptions / Library); progress bar; song pill; description; channel + Subscribe; “Use this sound”; right column (like/dislike/comments/share/remix + music thumbnail)
+- **`PlatformSafeZoneOverlayView`** — routes to `YouTubeShortsGuideOverlayView`
+- **`LayoutPickerView`** — segmented **None | YouTube Shorts** + guide caption when 9:16
+
+### Build
+- **BUILD SUCCEEDED** (macOS 14+)
+
+### Suggested commit
+```
+feat: YouTube Shorts preview guide overlay on layout picker (Day 41.2a)
+```
+
+---
+
+## Day 41.2a polish — iPhone 11 sizing calibration
+
+### Problem
+Initial overlay used `width / 720` scaling and heuristic padding (`navBar + 14% height` for right column), making icons ~40% too small and pushing the action column too high vs real iPhone 11 Shorts.
+
+### Fix
+- **`YouTubeShortsLayoutMetrics`** — iPhone 11 reference (414×896 pt); `ptWidth` / `ptHeight` map to any 9:16 canvas
+- **`YouTubeShortsGuideOverlayView`** — anchored layout: nav ~6.3% height, 2pt progress bar, left stack at 62pt from bottom, right column at 68pt from bottom, ~26pt action icons
+- Previews at **720×1280** (recording canvas) and **414×896** (iPhone 11)
+
+### Build
+- **BUILD SUCCEEDED** (macOS 14+)
+
+### Suggested commit
+```
+fix: calibrate YouTube Shorts guide overlay to iPhone 11 proportions
+```
+
+---
+
+## Day 41.2b — Instagram Reels preview guide (iPhone 11)
+
+### Scope
+- Instagram Reels mock chrome on Layout Picker 9:16 live preview — TikTok still deferred
+- iPhone 11 proportions via `InstagramReelsLayoutMetrics` (414×896 pt)
+- Preview decoration only — not in recording or export
+
+### Completed
+- **`PlatformPreviewOverlay.instagramReels`** — picker label **Reels** (segmented: None | YouTube Shorts | Reels)
+- **`InstagramReelsLayoutMetrics`** — nav, action column, profile/caption offsets
+- **`InstagramReelsGuideOverlayView`** — bottom nav (Home / Reels / Create / Search / Profile); right column (heart, comment, share, remix counts, ellipsis, audio thumb); bottom-left profile ring + username + verified + Follow + caption
+- **`PlatformSafeZoneOverlayView`** — routes to Reels overlay
+
+### Build
+- **BUILD SUCCEEDED** (macOS 14+)
+
+### Suggested commit
+```
+feat: Instagram Reels preview guide overlay on layout picker (Day 41.2b)
+```
+
+---
+
+## Day 41.2b — TikTok preview guide (iPhone 11)
+
+### Scope
+- TikTok For You mock chrome on Layout Picker 9:16 live preview — completes Day 41.2b
+- iPhone 11 proportions via `TikTokLayoutMetrics` (414×896 pt)
+- Preview decoration only — not in recording or export
+
+### Completed
+- **`PlatformPreviewOverlay.tiktok`** — menu picker: None | YouTube Shorts | Reels | TikTok
+- **`TikTokLayoutMetrics`** — top tabs, action column, feedback pills, nav offsets
+- **`TikTokGuideOverlayView`** — top tabs (Explore / Following / For You) + search; right column (profile + badge, like, comment, bookmark, share, music disc); bottom-left username + caption; feedback pills; bottom nav with TikTok-style create button
+- **`LayoutPickerView`** — platform picker switched to `.menu` (4 options)
+- **`PlatformSafeZoneOverlayView`** — routes to TikTok overlay
+
+### Build
+- **BUILD SUCCEEDED** (macOS 14+)
+
+### Suggested commit
+```
+feat: TikTok preview guide overlay on layout picker (Day 41.2b)
+```
+
+---
+
+## Editor platform preview guides (9:16 post-record)
+
+### Scope
+- Reuse Layout Picker platform mock UI on **EditorView** video preview for vertical recordings only
+- Shift caption preview into platform safe zones via `PlatformCaptionPreviewInsets` — preview only, export unchanged
+
+### Completed
+- **`EditorViewModel.platformPreviewOverlay`** — session state; reset on 16:9 load
+- **`EditorInspectorPanel`** — Platform preview menu (9:16 only)
+- **`EditorView`** — `PlatformSafeZoneOverlayView` via `CaptionPreviewView.previewOverlay`
+- **`PlatformCaptionPreviewInsets`** — per-platform edge insets for caption overlay
+- **`CaptionPreviewView` / `CaptionOverlayView`** — `platformPreviewOverlay` + `additionalPreviewInsets`
+
+### Build
+- **BUILD SUCCEEDED** (macOS 14+)
+
+### Suggested commit
+```
+feat: platform preview guides on post-record editor for 9:16 videos
+```
+
+---
+
+## Caption preview WYSIWYG fix (Editor + platform guides)
+
+### Problem
+- Platform guide active → captions shifted in preview via asymmetric insets but export used full-frame `captionOriginY` → burn-in appeared lower than preview
+- Asymmetric leading/trailing insets broke horizontal centering when a platform preset was selected
+
+### Fix
+- Removed `PlatformCaptionPreviewInsets` from caption layout (platform chrome stays decorative only)
+- Added **`CaptionLayoutMath`** — shared box height + frame math for preview and `CaptionRenderer`
+- Refactored **`CaptionOverlayView`** to position via `captionFrame` (88% width centered, 8% margin via `captionOriginY`)
+- Preview fonts scale with `containerHeight / 1080` like export
+- Updated Editor hint: caption placement matches export
+
+### Build
+- **BUILD SUCCEEDED** (macOS 14+)
+
+### Suggested commit
+```
+fix: align editor caption preview with export burn-in positioning
+```
+
+---
+
+## Caption generation speed + progress fix
+
+### Problem
+- Post-record caption generation felt slow/stuck on "Transcribing…"
+- `CaptionEngine.generateCaptions` always burned captions into MP4 after Whisper — redundant for Editor (SwiftUI overlay + export-time burn-in)
+- Whisper progress could regress to 25% via `transcriptionStateCallback`, making the bar look frozen
+- Cancelled generation tasks could leave `isTranscribing` stuck true
+
+### Fix
+- **`CaptionEngine.generateCaptions`** — `burnIn: Bool = false`; Editor path skips burn-in (sidecar + SRT only)
+- **`CaptionGenerationState`** — run token guards; throttled monotonic progress; clears state on cancellation; runs Whisper off MainActor; elapsed seconds in status after 3s
+- **`TranscriptionService`** — monotonic progress; explicit `openai_whisper-base.en` model; background `prepareModelInBackground()` on app launch / Layout Picker for Pro; model-state progress labels
+- **`EditorViewModel` / `CaptionEditorViewModel`** — defer `AVPlayer` load while transcription runs to reduce CPU contention
+- **`EditorView`** — hide 9:16 platform guide overlay during transcription
+
+### Build
+- **BUILD SUCCEEDED** (macOS 14+)
+
+### Suggested commit
+```
+fix: speed up editor caption generation and fix stuck transcribing progress
+```

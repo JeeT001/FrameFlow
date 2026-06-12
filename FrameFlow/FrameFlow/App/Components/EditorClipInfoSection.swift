@@ -8,11 +8,6 @@ import SwiftUI
 struct EditorClipInfoSection: View {
     let recording: RecordingMetadata
     let sourceDurationSeconds: Double
-    let exportDurationSeconds: Double
-    let masterTimelineDurationSeconds: Double
-    let hasTrimApplied: Bool
-    let hasRemovedRegions: Bool
-    let formattedExportDuration: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -39,25 +34,12 @@ struct EditorClipInfoSection: View {
                 alignment: .leading,
                 spacing: 10
             ) {
-                infoTile(icon: "clock", title: "Source", value: formatDuration(sourceDurationSeconds))
-                infoTile(
-                    icon: "scissors",
-                    title: hasTrimApplied || hasRemovedRegions ? "Export" : "Length",
-                    value: formattedExportDuration
-                )
+                infoTile(icon: "clock", title: "Duration", value: formatDuration(sourceDurationSeconds))
                 infoTile(icon: "aspectratio", title: "Resolution", value: recording.resolution)
-                infoTile(icon: "doc", title: "File size", value: recording.formattedFileSize)
                 infoTile(icon: "film", title: "Format", value: recording.format)
+                infoTile(icon: "doc", title: "File size", value: recording.formattedFileSize)
+                infoTile(icon: "waveform", title: "Audio", value: audioModeLabel)
                 infoTile(icon: "square.grid.2x2", title: "Layout", value: layoutLabel)
-            }
-
-            if masterTimelineDurationSeconds > exportDurationSeconds + 0.05 {
-                Label(
-                    "Timeline \(TrimHelpers.formatTimelineTime(masterTimelineDurationSeconds)) incl. imported audio",
-                    systemImage: "waveform"
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -65,6 +47,10 @@ struct EditorClipInfoSection: View {
 
     private var layoutLabel: String {
         recording.layout.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    private var audioModeLabel: String {
+        recording.audioMode.replacingOccurrences(of: "_", with: " ").capitalized
     }
 
     private func infoTile(icon: String, title: String, value: String) -> some View {

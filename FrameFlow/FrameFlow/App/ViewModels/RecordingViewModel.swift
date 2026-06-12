@@ -130,7 +130,8 @@ final class RecordingViewModel {
             hasCamera: PiPController.shared.isCameraEnabled,
             audioMode: SettingsStore.shared.defaultAudioMode,
             createdAt: Date(),
-            fileSizeBytes: fileSize
+            fileSizeBytes: fileSize,
+            captionAudioLeadSeconds: coordinator.engine.captionAudioLeadSeconds
         )
     }
 

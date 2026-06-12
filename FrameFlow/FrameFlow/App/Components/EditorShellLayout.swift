@@ -5,39 +5,30 @@
 
 import SwiftUI
 
-/// Editor 3.0 shell: preview | contextual inspector, with full-width tracks below.
-struct EditorShellLayout<Preview: View, Inspector: View, Tracks: View>: View {
+/// Post-record editor shell: preview (left) + sidebar (right).
+struct EditorShellLayout<Preview: View, Sidebar: View>: View {
     let preview: Preview
-    let inspector: Inspector
-    let tracks: Tracks
+    let sidebar: Sidebar
 
     init(
         @ViewBuilder preview: () -> Preview,
-        @ViewBuilder inspector: () -> Inspector,
-        @ViewBuilder tracks: () -> Tracks
+        @ViewBuilder sidebar: () -> Sidebar
     ) {
         self.preview = preview()
-        self.inspector = inspector()
-        self.tracks = tracks()
+        self.sidebar = sidebar()
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            GeometryReader { geometry in
-                HStack(alignment: .top, spacing: 0) {
-                    preview
-                        .frame(width: geometry.size.width * 0.58, height: geometry.size.height, alignment: .center)
+        GeometryReader { geometry in
+            HStack(alignment: .top, spacing: 0) {
+                preview
+                    .frame(width: geometry.size.width * 0.58, height: geometry.size.height, alignment: .center)
 
-                    Divider()
+                Divider()
 
-                    inspector
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                }
+                sidebar
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-
-            Divider()
-
-            tracks
         }
         .background(Color(nsColor: .windowBackgroundColor))
     }

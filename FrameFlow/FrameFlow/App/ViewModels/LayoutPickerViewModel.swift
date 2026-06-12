@@ -19,6 +19,7 @@ final class LayoutPickerViewModel {
 
     var format: RecordingFormat = .sixteenByNine
     var layoutPreset: LayoutPreset = .stacked
+    var platformPreviewOverlay: PlatformPreviewOverlay = .none
     var cameraEnabled = false
     var selectedCameraID: String?
     var availableCameras: [AVCaptureDevice] = []
@@ -78,6 +79,9 @@ final class LayoutPickerViewModel {
     }
 
     func handleFormatChange(from oldFormat: RecordingFormat, to newFormat: RecordingFormat, appState: AppState) {
+        if newFormat != .nineBySixteen {
+            platformPreviewOverlay = .none
+        }
         if newFormat == .nineBySixteen,
            layoutPreset == .freeForm,
            oldFormat != newFormat {

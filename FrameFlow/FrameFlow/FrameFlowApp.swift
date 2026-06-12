@@ -35,6 +35,14 @@ struct FrameFlowApp: App {
                 .onAppear {
                     subscriptionManager.configureIfNeeded()
                     SettingsStore.shared.resetExpiryBannerDismissedForLaunch()
+                    if appState.isPro {
+                        TranscriptionService.shared.prepareModelInBackground()
+                    }
+                }
+                .onChange(of: appState.isPro) { _, isPro in
+                    if isPro {
+                        TranscriptionService.shared.prepareModelInBackground()
+                    }
                 }
                 .onOpenURL { url in
                     appState.queueAuthCallbackURL(url)

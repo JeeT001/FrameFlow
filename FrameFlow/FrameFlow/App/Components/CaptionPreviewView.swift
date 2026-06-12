@@ -107,10 +107,10 @@ struct CaptionPreviewView<PreviewOverlay: View>: View {
                     CaptionOverlayView(
                         text: displayText,
                         style: style,
+                        containerSize: geometry.size,
                         highlightedWord: highlightedWord,
                         showsPlacementChrome: showsPlacementChrome
                     )
-                    .offset(y: style.swiftUIVerticalOffset(containerHeight: geometry.size.height))
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .contentShape(Rectangle())
                     .gesture(placementDragGesture(containerHeight: geometry.size.height))
@@ -148,19 +148,32 @@ struct CaptionPreviewView<PreviewOverlay: View>: View {
     }
 
     private var timelineScrubber: some View {
-        PreviewTransportBar(
-            currentTime: $currentTime,
-            duration: duration,
-            isPlaying: isPreviewPlaying,
-            onSkipBack: { onSkipBack?() ?? onSeek(0) },
-            onSlowMotion: { onSlowMotion?() },
-            onPlayPause: { onTogglePlayback?() },
-            onStop: { onStop?() },
-            onSetInPoint: { onSetInPoint?() },
-            onSetOutPoint: { onSetOutPoint?() },
-            onSnapshot: { onSnapshot?() },
-            onFullscreen: { onFullscreen?() }
-        )
+        HStack(spacing: 12) {
+            Button {
+                onTogglePlayback?()
+            } label: {
+                Image(systemName: isPreviewPlaying ? "pause.fill" : "play.fill")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .buttonStyle(.borderless)
+            .help(isPreviewPlaying ? "Pause" : "Play")
+
+            Text(formatTimeDetailed(currentTime))
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.85))
+                .frame(width: 52, alignment: .leading)
+
+            Slider(value: $currentTime, in: 0...max(duration, 0.01))
+                .tint(.white.opacity(0.85))
+
+            Text(formatTimeDetailed(duration))
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.55))
+                .frame(width: 52, alignment: .trailing)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(red: 0.1, green: 0.1, blue: 0.1))
     }
 
     private func placementDragGesture(containerHeight: CGFloat) -> some Gesture {
@@ -248,69 +261,72 @@ extension CaptionPreviewView where PreviewOverlay == EmptyView {
 struct CaptionOverlayView: View {
     let text: String
     let style: CaptionStyleConfig
+    let containerSize: CGSize
     var highlightedWord: String?
     var showsPlacementChrome: Bool = false
 
     var body: some View {
-        VStack {
-            overlayContent
-                .padding(.horizontal, 16)
-                .padding(.vertical, style.showsBackground ? 8 : 4)
-                .background {
-                    if let background = style.swiftUIBackgroundColor {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(background.opacity(0.85))
-                    }
+        let frame = CaptionLayoutMath.captionFrame(style: style, containerSize: containerSize)
+        let fontSize = CaptionLayoutMath.scaledFontSize(style: style, containerHeight: containerSize.height)
+        let cornerRadius = CaptionLayoutMath.cornerRadius(style: style, containerHeight: containerSize.height)
+        let innerPadding = CaptionLayoutMath.backgroundPadding(containerHeight: containerSize.height)
+
+        overlayContent(fontSize: fontSize)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .padding(.horizontal, style.showsBackground ? innerPadding : innerPadding * 0.3)
+            .padding(.vertical, style.showsBackground ? innerPadding * 0.6 : innerPadding * 0.25)
+            .background {
+                if let background = style.swiftUIBackgroundColor {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(background.opacity(0.85))
                 }
-                .overlay {
-                    if showsPlacementChrome {
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(
-                                AppColors.primary.opacity(0.85),
-                                style: StrokeStyle(lineWidth: 1.5, dash: [5, 3])
-                            )
-                    }
+            }
+            .overlay {
+                if showsPlacementChrome {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .strokeBorder(
+                            AppColors.primary.opacity(0.85),
+                            style: StrokeStyle(lineWidth: 1.5, dash: [5, 3])
+                        )
                 }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: verticalAlignment)
-        .padding(edgeInsets)
+            }
+            .frame(width: frame.width, height: frame.height)
+            .position(x: frame.midX, y: frame.midY)
     }
 
     @ViewBuilder
-    private var overlayContent: some View {
+    private func overlayContent(fontSize: CGFloat) -> some View {
         switch style.preset {
         case .tiktokBold:
             Text(text)
-                .font(.system(size: 28, weight: .heavy))
+                .font(.system(size: fontSize, weight: .heavy))
                 .foregroundStyle(style.swiftUITextColor)
-                .multilineTextAlignment(.center)
                 .shadow(color: .black.opacity(0.6), radius: 4, y: 2)
         case .highlightedWord:
-            highlightedTextView
+            highlightedTextView(fontSize: fontSize)
         case .minimal:
             Text(text)
-                .font(.system(size: 18, weight: .regular))
+                .font(.system(size: fontSize * 0.75, weight: .regular))
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
         case .custom:
             Text(text)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: fontSize * 0.85, weight: .semibold))
                 .foregroundStyle(.white)
-                .padding(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
                         .stroke(AppColors.primary, lineWidth: 2)
                 )
         default:
             Text(text)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: fontSize * 0.85, weight: .bold))
                 .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
         }
     }
 
     @ViewBuilder
-    private var highlightedTextView: some View {
+    private func highlightedTextView(fontSize: CGFloat) -> some View {
         if let highlightedWord, text.contains(highlightedWord) {
             let parts = text.components(separatedBy: highlightedWord)
             HStack(spacing: 4) {
@@ -326,31 +342,11 @@ struct CaptionOverlayView: View {
                     }
                 }
             }
-            .font(.system(size: 20, weight: .semibold))
-            .multilineTextAlignment(.center)
+            .font(.system(size: fontSize * 0.85, weight: .semibold))
         } else {
             Text(text)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: fontSize * 0.85, weight: .semibold))
                 .foregroundStyle(.white)
-        }
-    }
-
-    private var verticalAlignment: Alignment {
-        switch style.verticalPosition {
-        case .top: .top
-        case .middle: .center
-        case .bottom: .bottom
-        }
-    }
-
-    private var edgeInsets: EdgeInsets {
-        switch style.verticalPosition {
-        case .top:
-            return EdgeInsets(top: 20, leading: 0, bottom: 0, trailing: 0)
-        case .middle:
-            return EdgeInsets()
-        case .bottom:
-            return EdgeInsets(top: 0, leading: 0, bottom: 20, trailing: 0)
         }
     }
 }

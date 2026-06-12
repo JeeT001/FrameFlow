@@ -20,7 +20,7 @@ enum EditorTimelineDesign {
     static let laneRowPrimaryBG = Color.white.opacity(0.03)
     static let laneRowSecondaryBG = Color.white.opacity(0.01)
 
-    static let videoLaneHeight: CGFloat = 72
+    static let videoLaneHeight: CGFloat = 44
     static let filmstripHeight: CGFloat = 54
     static let waveformBarHeight: CGFloat = 14
     static let overlayLaneHeight: CGFloat = 36

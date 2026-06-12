@@ -14,22 +14,9 @@ final class EditorViewModel {
     var inspectorMode: EditorInspectorMode = .edit
     var selection: EditorSelection = .none
     var project = EditorProjectModel()
+    var platformPreviewOverlay: PlatformPreviewOverlay = .none
 
-    var selectionStartSeconds: Double?
-    var selectionEndSeconds: Double?
     var importError: String?
-    var razorModeActive = false
-    var timelineZoom: Double = 1.0
-    var magneticSnapEnabled = false
-    var autoRippleEnabled = false
-    var toastMessage: String?
-    var videoLaneLocked = false
-    var videoLaneMuted = false
-    var videoLaneVisible = true
-    var overlayLaneLocked = false
-    var overlayLaneVisible = true
-    var audioLaneLocked = false
-    var mutedAudioTrackIDs: Set<UUID> = []
     var playheadFlash = false
     /// Playhead on the master/export ruler (extends past video when imported audio is longer).
     var masterPlayheadSeconds: Double = 0
@@ -97,43 +84,12 @@ final class EditorViewModel {
     ) -> [String] {
         var lines: [String] = []
 
-        if hasRemovedRegions {
-            let count = project.timeline.removedRanges.count
-            let sectionLabel = count == 1 ? "section" : "sections"
-            lines.append("Length: \(formattedExportDuration) (\(count) \(sectionLabel) removed)")
-        } else if hasTrimApplied {
-            lines.append("Length: \(formattedExportDuration)")
-        } else {
-            lines.append("Length: \(formattedExportDuration)")
-        }
-
-        if hasTrimApplied {
-            lines.append(
-                "Trim: \(TrimHelpers.formatTimelineTime(trimStartSeconds))–" +
-                "\(TrimHelpers.formatTimelineTime(trimEndSeconds))"
-            )
-        }
+        lines.append("Length: \(TrimHelpers.formatTimelineTime(sourceDurationSeconds))")
 
         if isPro, applyCaptions, exportViewModel.hasCaptionsAvailable, !captionViewModel.segments.isEmpty {
             let style = captionViewModel.selectedStyle
             let position = style.verticalPosition.rawValue.capitalized
             lines.append("Captions: burned in (\(style.displayName), \(position))")
-        }
-
-        for overlay in project.imageOverlays {
-            lines.append(
-                "Image: \(overlay.fileURL.lastPathComponent) · " +
-                "\(TrimHelpers.formatTimelineTime(overlay.startSeconds))–" +
-                "\(TrimHelpers.formatTimelineTime(overlay.endSeconds))"
-            )
-        }
-
-        for audio in project.importedAudioTracks {
-            lines.append(
-                "Audio: \(audio.fileURL.lastPathComponent) · " +
-                "\(TrimHelpers.formatTimelineTime(audio.timelineStartSeconds))–" +
-                "\(TrimHelpers.formatTimelineTime(audio.timelineEndSeconds))"
-            )
         }
 
         lines.append("Resolution: \(resolution.displayName)")
@@ -191,131 +147,6 @@ final class EditorViewModel {
         return importedAudio(id: id)
     }
 
-    func imageClipLaneItems() -> [EditorImageClipLaneItem] {
-        project.imageOverlays.map { overlay in
-            EditorImageClipLaneItem(
-                id: overlay.id,
-                start: overlay.startSeconds,
-                end: overlay.endSeconds,
-                label: shortLayerLabel(overlay.fileURL.lastPathComponent, prefix: "IMG"),
-                isSelected: selection == .imageOverlay(overlay.id)
-            )
-        }
-    }
-
-    func audioClipLaneItems() -> [EditorAudioClipLaneItem] {
-        project.importedAudioTracks.map { audio in
-            EditorAudioClipLaneItem(
-                id: audio.id,
-                start: audio.timelineStartSeconds,
-                end: audio.timelineEndSeconds,
-                label: shortLayerLabel(audio.fileURL.lastPathComponent, prefix: "♪"),
-                fileURL: audio.fileURL,
-                isSelected: selection == .importedAudio(audio.id)
-            )
-        }
-    }
-
-    func showToast(_ message: String) {
-        toastMessage = message
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            if toastMessage == message {
-                toastMessage = nil
-            }
-        }
-    }
-
-    func showComingSoon(_ feature: String) {
-        showToast("\(feature) — Coming soon")
-    }
-
-    func undo() {
-        if NSApp.sendAction(Selector(("undo:")), to: nil, from: nil) {
-            return
-        }
-        showComingSoon("Undo")
-    }
-
-    func redo() {
-        if NSApp.sendAction(Selector(("redo:")), to: nil, from: nil) {
-            return
-        }
-        showComingSoon("Redo")
-    }
-
-    func deleteSelectedClip() {
-        if canDeleteSelection {
-            deleteSelection()
-            return
-        }
-        switch selection {
-        case .imageOverlay(let id):
-            removeImageOverlay(id: id)
-        case .importedAudio(let id):
-            removeImportedAudio(id: id)
-        default:
-            showToast("Select a clip or region to delete")
-        }
-    }
-
-    func detachAudio() { showComingSoon("Detach audio") }
-    func addTextOverlay() { showComingSoon("Text overlay") }
-    func cropClip() { showComingSoon("Crop") }
-    func colorGrade() { showComingSoon("Color grade") }
-    func stabilise() { showComingSoon("Stabilise") }
-
-    func setInPointAtPlayhead() {
-        updateTrimStart(sourceTimeAtPlayhead())
-    }
-
-    func setOutPointAtPlayhead() {
-        updateTrimEnd(sourceTimeAtPlayhead())
-    }
-
-    func stopPreview() {
-        pausePreview()
-        jumpToStart()
-    }
-
-    func snapshotCurrentFrame() async {
-        guard let recording = exportViewModel.recording else { return }
-        let sourceURL = URL(fileURLWithPath: recording.filePath)
-        let time = sourceTimeAtPlayhead()
-
-        do {
-            try await SecurityScopedFileAccess.withAccess(to: sourceURL) {
-                let asset = AVURLAsset(url: sourceURL)
-                let generator = AVAssetImageGenerator(asset: asset)
-                generator.appliesPreferredTrackTransform = true
-                let cmTime = CMTime(seconds: time, preferredTimescale: 600)
-                let cgImage = try generator.copyCGImage(at: cmTime, actualTime: nil)
-                let image = NSImage(cgImage: cgImage, size: .zero)
-
-                let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
-                let filename = "FrameFlow-\(Int(Date().timeIntervalSince1970)).png"
-                let destination = downloads.appendingPathComponent(filename)
-                guard let tiff = image.tiffRepresentation,
-                      let bitmap = NSBitmapImageRep(data: tiff),
-                      let png = bitmap.representation(using: .png, properties: [:]) else {
-                    showToast("Snapshot failed")
-                    return
-                }
-                try png.write(to: destination)
-                showToast("Saved snapshot to Downloads")
-            }
-        } catch {
-            showToast("Snapshot failed: \(error.localizedDescription)")
-        }
-    }
-
-    var tracksPanelHeight: CGFloat {
-        EditorTimelineLayout.tracksPanelTotalHeight(
-            imageLaneCount: max(1, project.imageOverlays.count),
-            audioLaneCount: max(1, project.importedAudioTracks.count)
-        )
-    }
-
     private func shortLayerLabel(_ filename: String, prefix: String) -> String {
         let stem = (filename as NSString).deletingPathExtension
         if stem.count <= 8 { return prefix }
@@ -369,11 +200,19 @@ final class EditorViewModel {
         guard let recording = exportViewModel.recording else { return }
 
         let url = URL(fileURLWithPath: recording.filePath)
-        captionViewModel.loadPreview(url: url, recording: recording)
+        let deferPlayer = isPro && CaptionGenerationState.shared.isTranscribing
+        captionViewModel.loadPreview(url: url, recording: recording, deferPlayerLoad: deferPlayer)
         configureTrim(from: captionViewModel.videoDuration)
+
+        captionViewModel.editTimeline = nil
+        captionViewModel.playbackRange = nil
 
         if isPro {
             captionViewModel.sync(from: CaptionGenerationState.shared)
+        }
+
+        if recording.format != "9:16" {
+            platformPreviewOverlay = .none
         }
     }
 
@@ -381,10 +220,18 @@ final class EditorViewModel {
         configureTrim(from: duration)
     }
 
+    func onCaptionGenerationFinished(isPro: Bool) {
+        captionViewModel.loadDeferredPlayerIfNeeded()
+        if isPro {
+            captionViewModel.sync(from: CaptionGenerationState.shared)
+        }
+    }
+
     func configureTrim(from duration: Double) {
         project.configureSourceDuration(duration)
-        selectionStartSeconds = nil
-        selectionEndSeconds = nil
+        captionViewModel.editTimeline = nil
+        captionViewModel.playbackRange = nil
+        masterPlayheadSeconds = 0
         syncPlayback()
     }
 
@@ -397,43 +244,6 @@ final class EditorViewModel {
 
     func updateTrimEnd(_ value: Double) {
         project.timeline.updateTrimEnd(value)
-        clampImageOverlayToTrim()
-        clampImportedAudioTracks()
-        syncPlayback()
-    }
-
-    func updateSelectionStart(_ value: Double) {
-        selectionStartSeconds = value
-        if let end = selectionEndSeconds, value > end {
-            selectionEndSeconds = value
-        }
-    }
-
-    func updateSelectionEnd(_ value: Double) {
-        selectionEndSeconds = value
-        if let start = selectionStartSeconds, value < start {
-            selectionStartSeconds = value
-        }
-    }
-
-    func beginSelectionIfNeeded() {
-        guard selectionStartSeconds == nil || selectionEndSeconds == nil else { return }
-        let span = project.timeline.trimEndSeconds - project.timeline.trimStartSeconds
-        let inset = max(EditTimelineModel.minimumSpanSeconds * 2, span * 0.2)
-        selectionStartSeconds = project.timeline.trimStartSeconds + inset
-        selectionEndSeconds = project.timeline.trimEndSeconds - inset
-    }
-
-    var canDeleteSelection: Bool {
-        guard let start = selectionStartSeconds, let end = selectionEndSeconds else { return false }
-        return project.timeline.canApplyRemovedRange(start: start, end: end)
-    }
-
-    func deleteSelection() {
-        guard let start = selectionStartSeconds, let end = selectionEndSeconds else { return }
-        project.timeline.addRemovedRange(start: start, end: end)
-        selectionStartSeconds = nil
-        selectionEndSeconds = nil
         clampImageOverlayToTrim()
         clampImportedAudioTracks()
         syncPlayback()
@@ -536,14 +346,9 @@ final class EditorViewModel {
         }
     }
 
-    func clearRemovedRegions() {
-        project.timeline.clearRemovedRanges()
-        clampImportedAudioTracks()
+    func clearSplitPoints() {
+        project.timeline.clearSplitPoints()
         syncPlayback()
-    }
-
-    func clearMiddleDelete() {
-        clearRemovedRegions()
     }
 
     func splitAtPlayhead(currentTime: Double) {
@@ -704,7 +509,7 @@ final class EditorViewModel {
             tracks: project.importedAudioTracks,
             exportTime: masterPlayheadSeconds,
             isVideoPlaying: isVideoPlaying || isAudioOnlyPlaying,
-            mutedTrackIDs: mutedAudioTrackIDs
+            mutedTrackIDs: []
         )
     }
 
@@ -1029,23 +834,9 @@ final class EditorViewModel {
             }
         }
 
-        let prepared = project.preparedForExport()
-        #if DEBUG
-        print(
-            "[Export] removed=\(prepared.timeline.removedRanges.count) " +
-            "kept=\(prepared.timeline.keptSourceRanges) exportDur=\(prepared.exportDurationSeconds)"
-        )
-        #endif
-
-        if prepared.isFullSourceExport {
-            exportViewModel.editorProject = nil
-            exportViewModel.editTimeline = nil
-            exportViewModel.exportDurationOverride = nil
-        } else {
-            exportViewModel.editorProject = prepared
-            exportViewModel.editTimeline = prepared.timeline
-            exportViewModel.exportDurationOverride = prepared.exportDurationSeconds
-        }
+        exportViewModel.editorProject = nil
+        exportViewModel.editTimeline = nil
+        exportViewModel.exportDurationOverride = nil
 
         await exportViewModel.export(isPro: isPro, appState: appState)
 
@@ -1076,8 +867,8 @@ final class EditorViewModel {
     }
 
     private func syncPlayback() {
-        captionViewModel.applyEditTimeline(project.timeline)
-        clampPlaybackToEdit()
+        captionViewModel.editTimeline = nil
+        captionViewModel.playbackRange = nil
     }
 
     private func clampImageOverlayToTrim() {

@@ -43,6 +43,9 @@ struct LayoutPickerView: View {
             viewModel.loadCameras()
             viewModel.loadSessionState(from: appState)
             viewModel.syncPiPState()
+            if appState.isPro {
+                TranscriptionService.shared.prepareModelInBackground()
+            }
             await viewModel.startLivePreview(appState: appState)
             await viewModel.startCameraPreviewIfNeeded()
         }
@@ -108,6 +111,7 @@ struct LayoutPickerView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 formatSection
+                platformGuideSection
                 layoutSection
                 cameraSection
                 audioSection
@@ -156,6 +160,36 @@ struct LayoutPickerView: View {
                 )
             }
         )
+    }
+
+    private var platformGuideSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Platform guide")
+                .font(.headline)
+
+            if viewModel.format == .nineBySixteen {
+                Picker("Platform guide", selection: Bindable(viewModel).platformPreviewOverlay) {
+                    ForEach(PlatformPreviewOverlay.allCases) { platform in
+                        Text(platform.pickerTitle).tag(platform)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+
+                Text("Guide only — not included in your video")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            } else {
+                Text("Platform guides are for 9:16 vertical format")
+                    .font(.subheadline)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        }
+    }
+
+    private var activePlatformOverlay: PlatformPreviewOverlay {
+        guard viewModel.format == .nineBySixteen else { return .none }
+        return viewModel.platformPreviewOverlay
     }
 
     private var layoutSection: some View {
@@ -299,7 +333,8 @@ struct LayoutPickerView: View {
                         format: viewModel.format,
                         preset: viewModel.layoutPreset,
                         windowLabels: viewModel.windowLabels(from: appState),
-                        cameraEnabled: viewModel.cameraEnabled
+                        cameraEnabled: viewModel.cameraEnabled,
+                        platformOverlay: activePlatformOverlay
                     )
                 } else if viewModel.isStartingLivePreview && viewModel.previewImage == nil {
                     VStack(spacing: 12) {
@@ -319,6 +354,7 @@ struct LayoutPickerView: View {
                         pipController: viewModel.pipController,
                         windowPlacementController: viewModel.windowPlacementController,
                         showPiPOverlay: viewModel.cameraEnabled,
+                        platformOverlay: activePlatformOverlay,
                         onPlacementsChanged: {
                             viewModel.syncWindowPlacements(to: appState)
                         },
@@ -332,7 +368,8 @@ struct LayoutPickerView: View {
                             format: viewModel.format,
                             preset: viewModel.layoutPreset,
                             windowLabels: viewModel.windowLabels(from: appState),
-                            cameraEnabled: viewModel.cameraEnabled
+                            cameraEnabled: viewModel.cameraEnabled,
+                            platformOverlay: activePlatformOverlay
                         )
 
                         if let message = viewModel.previewErrorMessage {

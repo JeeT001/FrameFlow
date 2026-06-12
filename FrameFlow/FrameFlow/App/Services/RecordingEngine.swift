@@ -83,6 +83,8 @@ final class RecordingEngine: @unchecked Sendable {
     private nonisolated(unsafe) var audioWriterAppends = 0
     private nonisolated(unsafe) var videoSkipNotReadyCount = 0
     private nonisolated(unsafe) var duplicateFrameCount = 0
+    private nonisolated(unsafe) var audioSecondsAtFirstVideoFrame: Double = 0
+    private nonisolated(unsafe) var didCaptureAudioLeadAtFirstVideo = false
     private nonisolated(unsafe) var maxPendingAudioDepth = 0
     private nonisolated(unsafe) var lastPeriodicLogDate = Date.distantPast
     #endif
@@ -160,6 +162,8 @@ final class RecordingEngine: @unchecked Sendable {
             expectsMicAudio = false
             videoOnlyFallbackActive = false
             firstVideoAppendAttemptDate = nil
+            audioSecondsAtFirstVideoFrame = 0
+            didCaptureAudioLeadAtFirstVideo = false
 
             #if DEBUG
             didLogWaitingForFirstAudio = false
@@ -426,6 +430,19 @@ final class RecordingEngine: @unchecked Sendable {
             throw RecordingEngineError.appendFailed
         }
 
+        if !didCaptureAudioLeadAtFirstVideo {
+            didCaptureAudioLeadAtFirstVideo = true
+            if CMTimeCompare(audioEnd, .zero) > 0 {
+                audioSecondsAtFirstVideoFrame = CMTimeGetSeconds(audioEnd)
+            }
+            #if DEBUG
+            print(
+                "[RecordingEngine] caption audio lead at first video frame: " +
+                String(format: "%.3f", audioSecondsAtFirstVideoFrame) + "s"
+            )
+            #endif
+        }
+
         videoFrameIndex += 1
         lastVideoPTS = pts
         hasStartedMediaTimeline = true
@@ -661,6 +678,12 @@ final class RecordingEngine: @unchecked Sendable {
         if pixels >= 3840 * 2160 { return 28_000_000 }
         if pixels >= 1920 * 1080 { return 12_000_000 }
         return 6_000_000
+    }
+
+    /// Audio timeline length already written when the first video frame was muxed.
+    /// Whisper captions need this offset to align with AVPlayer (video) time.
+    var captionAudioLeadSeconds: Double {
+        writerQueue.sync { audioSecondsAtFirstVideoFrame }
     }
 }
 

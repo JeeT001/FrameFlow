@@ -128,15 +128,20 @@ final class CaptionEditorViewModel {
         }
     }
 
-    func loadPreview(url: URL, recording: RecordingMetadata) {
+    func loadPreview(url: URL, recording: RecordingMetadata, deferPlayerLoad: Bool = false) {
         recordingURL = url
         recordingID = recording.id
         recordingMetadata = recording
         selectedStyle = CaptionEngine.shared.loadStyle(for: url, recordingID: recording.id)
 
-        if player.currentItem == nil {
+        if !deferPlayerLoad, player.currentItem == nil {
             loadPlayer(url: url)
         }
+    }
+
+    func loadDeferredPlayerIfNeeded() {
+        guard player.currentItem == nil, let url = recordingURL else { return }
+        loadPlayer(url: url)
     }
 
     private func loadPlayer(url: URL) {

@@ -178,8 +178,8 @@ Git Commit: feat: device capability detection for Apple Silicon vs Intel
 6. Hits Record — the app composites windows live, auto-zooms on clicks, highlights
    cursor, auto-focuses active window, and captures everything in real time
 7. Pauses/resumes as needed — paused time is not in the final video
-8. Stops — navigates to the **Post-Record Editor** (unified edit + captions + export)
-9. User trims (basic in/out), optionally generates/edits captions (Pro), picks export quality, and exports
+8. Stops — navigates to the **Post-Record Editor** (preview + captions + export on one screen)
+9. User reviews preview, optionally generates/edits captions (Pro), picks export quality, and exports
 10. Creator-ready MP4 saved to chosen folder
 
 ### What Is Included in MVP
@@ -187,6 +187,7 @@ Git Commit: feat: device capability detection for Apple Silicon vs Intel
 - Window picker with live thumbnails (2 windows free, 4 windows Pro)
 - Live composite preview canvas
 - Vertical 9:16 and horizontal 16:9 recording modes
+- **Platform safe-zone preview (Day 41.2):** Layout Picker **and post-record Editor** (9:16 only) — overlay mock Shorts/TikTok/Reels UI on preview; captions use WYSIWYG placement matching export; not in export
 - Layout presets: Stacked, Side-by-Side, PiP variants
 - Auto-focus: active window highlighted during recording
 - Adjustable window zoom (1x–4x, keyboard shortcuts)
@@ -199,11 +200,11 @@ Git Commit: feat: device capability detection for Apple Silicon vs Intel
 - Pause and resume recording (paused time excluded from video)
 - Countdown timer before recording starts (3/5/10 seconds)
 - Full keyboard shortcut suite for all recording controls
-- **Post-Record Editor** (Day 40.1): single screen after Stop — preview, basic trim, export settings
-- Auto-generated captions via WhisperKit (Pro, Captions tab in Editor)
+- **Post-Record Editor** (Day 40.1): single screen after Stop — preview, video info, captions (Pro), export
+- Auto-generated captions via WhisperKit (Pro, Captions section in Editor sidebar)
 - 5 caption style presets + draggable caption placement (Pro)
 - Caption segment text editing (Pro)
-- Export: MP4 H.264 from Editor Export tab; captions burned in and optional SRT (Pro)
+- Export: MP4 H.264 via toolbar Export sheet; captions burned in and optional SRT (Pro); **full recording length** (no trim/cuts in MVP editor)
 - Free tier: 720p, watermark, 2 windows, 16:9 only, mic audio only
 - Pro tier: 4K, no watermark, 4 windows, 9:16, system audio, PiP, captions
 - User account (email + password)
@@ -217,7 +218,7 @@ Git Commit: feat: device capability detection for Apple Silicon vs Intel
 - Apple Sign In (post-MVP)
 - Cloud storage of recordings (post-MVP)
 - Team/multi-seat accounts (post-MVP)
-- Multi-clip timeline, ripple edit (post-MVP; basic in/out trim is Day 40.1 Phase B; middle-chunk delete is Day 40.1 Phase D)
+- Timeline editor, in/out trim, razor cuts, middle-chunk delete, multi-clip NLE (post-MVP; code may exist from experiments but **not** in Day 40.1 scope)
 - AI auto-zoom toward cursor independent of clicks (click-zoom is included)
 - Recording scheduler (post-MVP)
 - Custom background images behind windows (post-MVP)
@@ -477,6 +478,7 @@ Sign Up button, "Already have an account?" link, Privacy Policy link, Terms link
   - PiP Face-Top 9:16 (Pro)
   - PiP Face-Left (Pro)
 - Live preview canvas showing selected windows in chosen layout
+- **Platform preview overlay (Day 41.2):** Layout Picker + **Editor** (9:16 only) — YouTube Shorts, Reels, TikTok mock UI; caption preview matches export via `CaptionLayoutMath`; not in export
 - Camera toggle: "Add Camera Overlay" (Pro) — opens camera source picker
 - Audio mode row: tap to open Audio Mode Picker sheet
 - Auto-Focus toggle
@@ -561,45 +563,49 @@ Sign Up button, "Already have an account?" link, Privacy Policy link, Terms link
 
 ### Screen 11: Post-Record Editor (Day 40.1)
 
-**Purpose:** Unified post-recording workspace — preview, basic edits, captions (Pro), and export.
-Replaces the separate Caption Editor → Export hop for new recordings.
+**Purpose:** Unified post-recording workspace on **one screen** — preview, recording metadata, captions (Pro), and export.
+Replaces the separate Caption Editor → Export hop for new recordings. **No timeline lane, no trim/cut tools in MVP.**
 
 **Layout:**
-- **Top:** Discard (staging) | recording name | **Export** (primary action)
-- **Center-left (~55%):** Video preview with play/scrub; caption overlay when Pro + captions enabled
-- **Center-right (~45%):** Inspector with segmented tabs: **Edit** | **Captions*** | **Export**
-  (*Captions tab hidden for Free — show Pro upgrade CTA instead)
-- **Bottom:** Timeline strip — in/out trim handles (Phase B); middle-chunk delete regions (Phase D); duration readout
+- **Toolbar:** Discard (staging) | recording name | **Export Video** (opens export sheet)
+- **Left (~58%):** Video preview with play/pause + scrubber; live caption overlay when Pro + segments exist; draggable caption placement on preview (Pro)
+- **Right (~42%):** Single scrollable sidebar (no Edit/Captions/Export tab switcher):
+  1. **Video info** — name, duration, resolution, format, audio mode, file size
+  2. **Captions** (Pro) — generate/retry, progress, style cards, position, segment list; Free sees Pro upgrade CTA
+  3. **Export hint** — short note to use toolbar Export Video (settings live in export sheet)
 
-**Edit tab (Free + Pro):**
-- Play / pause, scrubber
-- Trim start/end (Phase B — `AVMutableComposition` or export-time range)
-- Remove middle section (Phase D — select range on timeline, delete; stitches head + tail on export)
-- Phase C+: draggable caption safe-area on preview (Pro)
+**Removed from Day 40.1 (deferred post-MVP):**
+- Bottom timeline / tracks panel (`EditorTracksView`, filmstrip, waveform, zoom)
+- In/out trim handles, razor/scissors cuts, split points, middle-chunk delete
+- Segmented inspector tabs (Edit | Captions | Export)
+- Import image/audio overlay lanes, multi-cut export stitch UI
+- Timeline keyboard shortcuts (⌘B, S razor, trim jump keys)
 
-**Captions tab (Pro only):**
+**Captions (Pro only, sidebar section):**
 - "Generate captions" button (WhisperKit; progress inline — no full-screen blocker)
+- Auto-start after Stop when Pro + recording has speech audio (optional; manual Generate always available)
 - 5 style preset cards (reuse `CaptionStyleCard`)
-- Position: Top / Middle / Bottom (+ drag on preview in Phase C)
-- Scrollable segment list: edit text; editable start/end times (Phase C)
-- Saves segments + style to sidecar via `CaptionEngine.saveCaptions` — **no burn-in here**
+- Position: Top / Middle / Bottom + drag on preview
+- Scrollable segment list: edit text; editable start/end times
+- Saves segments + style to sidecar via `CaptionEngine.saveCaptions` — **no burn-in in editor** (burn-in on export)
 
-**Export tab (Free + Pro):**
-- Duration + source file size labels
+**Export (toolbar → `EditorExportSheet`):**
+- Duration + source file size in sidebar info; export options in sheet
 - Resolution: **720p only (Free)** | 720p / 1080p / 4K (Pro; 4K Apple Silicon only)
 - Pro: toggle "Include captions in export"; optional "Also save SRT file"
 - Free: watermark notice
-- Export progress bar (delegates to `ExportService`)
+- Export progress in sheet; success → Reveal in Finder / Dashboard
+- **Always exports full staged recording** — no trim or cuts applied
 
 **Toolbar actions:**
 - **Discard** → delete staging, Dashboard
-- **Export** → persist caption edits if any, run `ExportService`, success → Dashboard / Reveal in Finder
+- **Export Video** → persist caption edits if any, run `ExportService` on full clip, success → Dashboard / Reveal in Finder
 
 **User Actions:**
-- Trim clip start/end (Phase B)
-- Delete a middle chunk — keep head + tail (Phase D)
+- Play / pause and scrub preview
 - Generate / edit captions (Pro)
-- Choose resolution and export
+- Drag caption placement on preview (Pro)
+- Choose resolution and export full clip
 - Discard without saving
 
 **Data Needed:** Staged recording (`pendingRecording`), caption sidecar, subscription status
@@ -609,15 +615,17 @@ Replaces the separate Caption Editor → Export hop for new recordings.
 **Navigation To:** Dashboard (after export or discard)
 
 **Implementation notes:**
-- New route: `AppRoute.editor` (or repurpose `captionEditor` → `EditorView`)
-- Reuse: `CaptionEditorViewModel` (captions), `ExportViewModel` / `ExportService` (export)
+- Route: `AppRoute.editor` → `EditorView`
+- Layout: `EditorShellLayout` — preview + inspector only (no tracks row)
+- Reuse: `CaptionPreviewView`, `CaptionEditorViewModel`, `CaptionGenerationState`, `ExportViewModel` / `ExportService`, `EditorExportSheet`
 - Deprecate post-record navigation to standalone `ExportView`; keep `ExportView` for Dashboard re-export shortcut
+- Legacy NLE files (`EditorTimelineView`, `EditTimelineModel`, etc.) may remain in repo but are **not** linked from MVP `EditorView`
 
 ---
 
-### Screen 11 (legacy): Caption Editor — superseded by Editor Captions tab
+### Screen 11 (legacy): Caption Editor — superseded by Editor sidebar Captions section
 
-> **Day 40.1:** `CaptionEditorView` logic moves into Editor **Captions** tab. Remove duplicate
+> **Day 40.1:** `CaptionEditorView` logic moves into Editor **Captions** sidebar section. Remove duplicate
 > export format picker and in-editor burn-in export. Screen retained temporarily for migration.
 
 ---
@@ -625,7 +633,7 @@ Replaces the separate Caption Editor → Export hop for new recordings.
 ### Screen 12: Export / Preview Screen — re-export path
 
 **Purpose:** Quick re-export from Dashboard / Recording Detail (existing saved recordings).
-For **new recordings**, export lives in Editor **Export** tab (Day 40.1).
+For **new recordings**, export lives in Editor **Export Video** toolbar sheet (Day 40.1).
 
 **UI Elements:** (unchanged from Day 26)
 - Video player, duration/file size, resolution picker, captions toggle (Pro), Export, Discard
@@ -790,8 +798,8 @@ resolution badge, Play button (opens in system player), Re-export button, Delete
 6. Select up to 2 windows → Layout Picker
 7. Choose 16:9 (vertical is locked) → Audio Mode: Mic Only → Start Recording
 8. 3-second countdown → recording starts
-9. Record → Tap Stop → **Post-Record Editor** (Edit + Export tabs; no captions — free tier)
-10. Export tab: 720p (watermarked) → saved to Desktop
+9. Record → Tap Stop → **Post-Record Editor** (preview + video info + export; no captions — free tier)
+10. Toolbar **Export Video** → 720p (watermarked) → saved to Desktop
 11. Dashboard: recording appears in list
 
 ### Flow 2: Pro User (First Recording)
@@ -805,7 +813,7 @@ resolution badge, Play button (opens in system player), Re-export button, Delete
 7. Countdown 3s → Recording starts
 8. Record — auto-zooms on clicks, highlights cursor, PiP camera visible
 9. Cmd+P to pause → Cmd+P to resume → Cmd+R to stop
-10. **Post-Record Editor:** Captions tab → WhisperKit generates captions → pick TikTok Bold style → Export tab → Export at 4K, no watermark → saved to ~/Movies/FrameFlow
+10. **Post-Record Editor:** Captions section → WhisperKit generates captions → pick TikTok Bold style → toolbar **Export Video** → Export at 4K, no watermark → saved to ~/Movies/FrameFlow
 
 ### Flow 3: Free User Hitting a Pro Gate
 
@@ -1687,7 +1695,7 @@ Git Commit: feat: WhisperKit captions with 5 style presets and video burn-in
 
 **DAY 25 — Caption Editor Screen**
 
-> **Superseded for navigation by Day 40.1** — caption UI moves into Editor **Captions** tab.
+> **Superseded for navigation by Day 40.1** — caption UI moves into Editor **Captions** sidebar section.
 > Keep building blocks: `CaptionEditorView`, `CaptionPreviewView`, `CaptionEditorViewModel`.
 
 Files: CaptionEditorView.swift, CaptionPreviewView.swift
@@ -1709,7 +1717,7 @@ Git Commit: feat: caption editor screen with live preview and segment editing
 
 **DAY 26 — Export Screen + ExportService**
 
-> **Post-record export UI moves to Editor Export tab (Day 40.1).** Keep `ExportView` for
+> **Post-record export UI moves to Editor Export sheet (Day 40.1).** Keep `ExportView` for
 > Dashboard / Recording Detail re-export.
 
 Files: ExportView.swift, ExportService.swift
@@ -2031,84 +2039,64 @@ Test checklist:
 - Auto-zoom on click: click in window during recording, verify zoom in video playback
 - Auto-focus: switch between apps during recording, verify highlight switches
 - Pause: paused duration not in final video
-- Stop → **Post-Record Editor** (all users; Free: Edit + Export tabs only)
+- Stop → **Post-Record Editor** (all users; Free: preview + info + export; Pro: + Captions sidebar)
 
 ---
 
-**DAY 40.1 — Post-Record Editor (unified Edit + Captions + Export)**
+**DAY 40.1 — Post-Record Editor (preview + captions + export)**
 
-**Context:** Emerged from Day 40 recording-flow testing. Current flow splits Caption Editor and
-Export into two screens with duplicate export paths. Target: one Editor after Stop.
+**Context:** Emerged from Day 40 recording-flow testing. Original plan split Caption Editor and
+Export into two screens. Implemented as a unified Editor; **MVP scope was then simplified** to
+remove timeline/trim/cut tooling — one screen with preview, metadata, captions (Pro), and export.
 
 **Goal:** Replace `Stop → Caption Editor (Pro) / Export (free)` with `Stop → Editor → Dashboard`.
 
-**Phases:**
+**Phases (as shipped for MVP):**
 
-| Phase | Scope | Files (indicative) |
-|-------|--------|-------------------|
-| **A — Flow refactor** | New `EditorView` shell; Edit + Captions + Export tabs; Stop → Editor; remove in-editor burn-in/SRT export; save captions on Export | `EditorView.swift`, `EditorViewModel.swift`, `RecordingView.swift`, `RouteDetailView.swift`, `Models.swift` (`AppRoute.editor`), refactor `CaptionEditorView` / `ExportView` panels |
-| **B — Basic trim** | Timeline strip; in/out trim handles; apply range in `ExportService` | `EditorTimelineView.swift`, `ExportService.swift` |
-| **C — Polish** | Draggable caption region; editable segment times; optional SRT on Export tab | `CaptionPreviewView`, `CaptionSegmentRow`, `ExportViewModel` |
-| **D — Middle delete** | Remove a contiguous chunk from the middle; stitch head + tail on export; **remap caption times** so burn-in/SRT/preview stay in sync | `EditorTimelineView.swift`, `EditTimelineModel.swift`, `CaptionTimelineMapper.swift`, `ExportService.swift`, `TrimHelpers.swift` |
+| Phase | Scope | Status | Files (indicative) |
+|-------|--------|--------|-------------------|
+| **A — Flow refactor** | `EditorView` route; Stop → Editor for all users; toolbar Discard + Export Video; `EditorExportSheet`; remove in-editor burn-in/SRT export; save captions on export; keep `ExportView` for Dashboard re-export | **Done** | `EditorView.swift`, `EditorViewModel.swift`, `RecordingView.swift`, `RouteDetailView.swift`, `Models.swift` (`AppRoute.editor`), `EditorExportSheet.swift` |
+| **B — Simple layout** | Two-column shell: preview (~58%) + scrollable sidebar (~42%); **Video info** section; no bottom timeline/tracks panel; no Edit/Captions/Export tab switcher | **Done** | `EditorShellLayout.swift`, `EditorInspectorPanel.swift`, `EditorClipInfoSection.swift` |
+| **C — Captions** | Pro sidebar: Generate/Retry, WhisperKit progress, style cards, position, segment list, live overlay on preview, draggable caption placement; `CaptionGenerationState` sync | **Done** | `CaptionPreviewView.swift`, `CaptionEditorViewModel.swift`, `CaptionGenerationState.swift`, `CaptionEngine.swift`, `TranscriptionService.swift` |
+| **D — Export** | Toolbar opens export sheet; resolution picker, captions toggle, optional SRT (Pro), watermark (Free); **full-length** staged clip export (no trim/cuts) | **Done** | `ExportViewModel.swift`, `ExportService.swift`, `EditorExportSheet.swift` |
 
-**Free tier:** Edit tab + Export tab (720p, watermark). No Captions tab (Pro CTA).
+**Free tier:** Preview + video info + Export Video sheet (720p, watermark). Captions section shows Pro upgrade CTA.
 
-**Phase D — Middle-chunk delete (planned):**
+**Pro tier:** All sidebar sections; WhisperKit generate on demand (auto-start after Stop when audio present); 1080p/4K; captions burn-in + optional SRT on export.
 
-Removes a contiguous region from the **middle** of the clip while keeping the beginning and end
-(e.g. delete 20s–40s on a 60s recording → ~40s export: 0–20s + 40–60s stitched).
+**Removed from Day 40.1 scope (deferred post-MVP):**
 
-**Why caption remapping is required:** Caption segments use absolute times on the **source**
-timeline. Deleting video alone would leave captions pointing at wrong times. Phase D must remap
-segments whenever a middle region is removed.
+The following were explored in development (pre–Day 40.1 experiments, legacy Editor 2.0 NLE) but are **not** part of the Day 40.1 MVP definition:
 
-**Edit model:**
-- `RemovedRange` — `{ startSeconds, endSeconds }` on source timeline (v1: one middle cut; v2: multiple)
-- `EditTimelineModel` — source duration + trim in/out (Phase B) + removed ranges → **export timeline**
-- `CaptionTimelineMapper` — shared helper used by preview overlay, burn-in, and SRT:
-  - Drop segments fully inside a removed range
-  - Clip segments that overlap cut boundaries
-  - Shift segments after each cut by `−(cutEnd − cutStart)` (cumulative for multiple cuts)
-  - Map source time ↔ export time for preview scrubber
+| Removed feature | Notes |
+|-----------------|--------|
+| Bottom timeline / tracks panel | `EditorTracksView`, filmstrip, waveform, zoom |
+| In/out trim handles (old Phase B) | Export no longer applies trim range from editor |
+| Middle-chunk delete (old Phase D) | `removedRanges`, stitch export from editor UI |
+| Razor / scissors cuts | Split points, ⌘B, segment trim handles |
+| Segmented inspector tabs | Edit \| Captions \| Export → single scroll sidebar |
+| Image/audio import lanes | Overlay + imported audio on timeline |
+| NLE toolbar stubs | Undo, crop, detach, etc. |
 
-**UI (Edit tab, Free + Pro):**
-- On timeline: select a region (drag or split markers), **Delete** / scissors action
-- Visual gap or dimmed “removed” zone; preview plays **export timeline** (head then tail, no deleted section)
-- Export tab shows export duration after all edits (trim + middle delete)
+**Post-MVP reference (not Day 40.1):** If trim/cut returns, reuse `EditTimelineModel`, `CaptionTimelineMapper`, `EditorCompositionBuilder` with caption time remapping on export. Dashboard re-export (`ExportView`) remains full source clip.
 
-**Export path:**
-- `AVMutableComposition`: multiple `insertTimeRange` calls (one per kept segment), in order
-- Caption burn-in: pass **remapped** segments (export-relative times, t=0 at export start)
-- SRT: same remapped segments as Phase C optional export
-- Combine with Phase B in/out trim: apply trim first on source, then middle deletes on trimmed source (or single pipeline in `EditTimelineModel`)
-
-**Acceptance (Phase D):**
-- User can delete one middle chunk; exported MP4 duration = source − deleted length (± trim if also applied)
-- Pro: captions in preview and exported MP4 match spoken words on stitched timeline
-- Pro: optional SRT timecodes match export timeline (not source timeline)
-- Segments spanning a cut boundary are clipped, not dropped entirely, when partial speech remains
-- Free + Pro both get middle delete; no Captions tab changes required for Free
-- Dashboard re-export (`ExportView`) unchanged — full source clip, no edit model
-
-**Out of scope for Phase D:** ripple edit, multi-track timeline, re-transcribe after cut, split into separate clips on disk.
-
-**Pro tier:** All three tabs; WhisperKit generate on demand; 1080p/4K; captions burn-in + optional SRT.
-
-**Acceptance (Phase A):**
+**Acceptance (Day 40.1 MVP):**
 - Stop navigates to Editor for Free and Pro
-- No export buttons inside Captions tab
-- Toolbar Export saves caption sidecar then runs `ExportService`
-- Free user never sees caption generation UI
+- **One screen:** preview left, sidebar right — **no timeline at bottom**
+- Sidebar shows Video info + Captions (Pro) + export hint; no tab switcher
+- Toolbar: Discard, Export Video (sheet)
+- No trim, razor, or cut controls in UI
+- Export produces **full recording length**; optional captions burn-in + SRT (Pro)
+- Free user never sees caption generation UI (Pro gate in sidebar)
+- Captions: Generate, style, position, segment edit, preview overlay work (Pro)
 - Dashboard re-export still uses standalone `ExportView`
 
-**Cursor prompt (Phase A):**
-"Build `EditorView` as the unified post-recording screen. Three inspector tabs: Edit (preview +
-play), Captions (Pro only — reuse CaptionEditor panels without export), Export (reuse ExportView
-resolution picker + watermark notice). Toolbar: Discard, Export. Wire `RecordingView` stop to
-`.editor`. Remove duplicate export from `CaptionEditorView`. Keep `ExportView` for Dashboard
-re-export only."
+**Cursor prompt (MVP simplification — reference):**
+"Simplify `EditorView` to one screen: preview + scrubber | sidebar with Video info → Captions → export hint.
+Toolbar: Discard | title | Export Video. Remove tracks panel, timeline, trim, razor, import lanes, and Edit/Captions/Export tabs.
+Export full staged clip via `EditorExportSheet`. Keep caption transcription + overlay. BUILD SUCCEEDED."
 
-Git Commit: feat: unified post-record editor (Day 40.1 Phase A)
+Git Commit: feat: simplify post-record editor to preview, captions, info, and export
 
 ---
 
@@ -2116,21 +2104,138 @@ Git Commit: feat: unified post-record editor (Day 40.1 Phase A)
 
 Test checklist (updated for Day 40.1 Editor):
 - Stop → Editor opens for Free and Pro (not separate Caption Editor / Export hop)
-- Free: Edit + Export tabs only; 720p locked; watermark on export; no caption UI
-- Pro: Captions tab → Generate captions → edit text, style, position
-- Editor Export tab: resolution picker, include-captions toggle, export progress
-- Toolbar Export persists caption sidecar before burn-in
+- **No timeline** visible at bottom of Editor
+- Free: preview + video info + Export Video only; 720p locked; watermark on export; no caption UI
+- Pro: Captions sidebar → Generate captions → edit text, style, position
+- Toolbar Export Video sheet: resolution picker, include-captions toggle, export progress
+- Export persists caption sidecar before burn-in
 - Dashboard / Recording Detail re-export still opens standalone Export screen
 - WhisperKit transcription on a 2-minute English recording → accuracy acceptable
 - All 5 caption styles preview correctly in Editor preview
 - Burn captions → export → QuickTime → captions visible at correct times
-- Optional SRT export from Editor Export tab (Pro)
+- Optional SRT export from export sheet (Pro)
 - Export 720p (free, watermark), 1080p and 4K (Pro, no watermark)
 - Apple Silicon: 4K export completes in under 3 min for 5-min recording
 - Intel Mac: 4K disabled, 1080p export completes in reasonable time
-- Phase B: trim in/out reflected in exported duration
-- Phase C: draggable caption placement; editable segment times; optional SRT with trim-relative timecodes
-- Phase D (when shipped): delete middle chunk → stitched export; captions/SRT synced to export timeline
+- Draggable caption placement on preview (Pro)
+- Editable segment times in sidebar (Pro)
+- Exported duration equals **full recording** (no trim/cuts from editor)
+
+**Deferred tests (post-MVP timeline editor):**
+- Trim in/out reflected in exported duration
+- Middle-chunk delete → stitched export; captions/SRT synced to export timeline
+
+---
+
+**DAY 41.2 — Platform Preview Guides (YouTube Shorts / TikTok / Reels)**
+
+**Single focus:** Layout Picker live preview shows **mock platform UI** over the composite so users can frame window content before recording. **Preview only — never in export.**
+
+**Phased delivery:**
+| Phase | Scope |
+|-------|--------|
+| **41.2a (ship first)** | **YouTube Shorts only** — layout from iPhone 11 Shorts reference (see below) |
+| **41.2b (later)** | TikTok + Instagram Reels overlays |
+
+**Where it lives (only here):**
+- **Screen 8 — Layout Picker** (`LayoutPickerView` + live preview stack)
+- Flow: Window Picker → **Layout Picker** → Start Recording
+- **Not** post-record Editor, Recording export, or burn-in
+
+**UI (Phase 41.2a):**
+- When **9:16 Vertical** selected: menu picker **None | YouTube Shorts | Reels | TikTok**
+- Default: **None**
+- Helper: **"Guide only — not included in your video"**
+- Reference: `Docs/reference/youtube-shorts-iphone11-overlay.md` (or bundled asset from user screenshot)
+
+---
+
+### YouTube Shorts overlay spec (41.2a — iPhone 11 proportions)
+
+Mock chrome is **non-interactive**, drawn in a `ZStack` on the 9:16 preview canvas. Sizes map from **iPhone 11 logical dimensions (414×896 pt)** to the recording preview canvas (720×1280) via `YouTubeShortsLayoutMetrics` (`ptWidth` / `ptHeight`). Use SF Symbols + placeholder text; no official YouTube logos required. Semi-transparent dark pills where the real app uses them.
+
+**Bottom — navigation bar (full width, ~6.3% height — 56pt on iPhone 11)**
+Five tabs, left to right:
+1. **Home** — house icon + label
+2. **Shorts** — play-on-rect icon + "Shorts" (visually active / bolder)
+3. **Create** — `+` in circle (center, ~28pt icon)
+4. **Subscriptions** — stacked-rect icon + label
+5. **Library** — folder/play icon + label
+
+**Progress bar** — 2pt thin red line + 6pt red playhead dot, flush above nav (not a tall container)
+
+**Bottom-left stack (anchored bottom-leading, max ~72% width, ~62pt above canvas bottom)**
+
+Top to bottom in code (furthest from nav first):
+1. **Use this sound** — pill: camera icon + **Use this sound** (~13pt)
+2. **Channel row** — circular avatar (~28pt) + `@channel` + **Subscribe** (~13pt)
+3. **Description** — 1–2 lines (~14pt)
+4. **Music / song row** — pill closest to progress (~12pt)
+
+**Right column (bottom-trailing, ~68pt from canvas bottom, ~10pt trailing inset)**
+
+Top to bottom:
+1. **Like** — thumbs up (~26pt icon) + "Like" (~11pt)
+2. **Dislike** — thumbs down + "Dislike"
+3. **Comments** — bubble + count placeholder (`11`)
+4. **Share** — share arrow + "Share"
+5. **Remix** — two arrows in circle + count placeholder (`1.5m`)
+6. **Music thumbnail** — ~36×36pt square album-art placeholder at bottom of column
+
+**Implementation file:** `App/Utils/YouTubeShortsLayoutMetrics.swift` + `App/Components/YouTubeShortsGuideOverlayView.swift`
+
+**Optional (low emphasis):** faint top status strip — omit on macOS preview unless needed; do **not** block top of creator content.
+
+**Safe-zone intent:** User positions windows/PiP so important UI is not under right action column or bottom-left metadata stack or bottom nav.
+
+---
+
+**Instagram Reels + TikTok (41.2b — shipped):**
+
+| Platform | Mock elements |
+|----------|----------------|
+| **Instagram Reels** | Bottom nav (Home / Reels / Create / Search / Profile); right column (heart, comment, share, remix counts, ellipsis, audio thumb); bottom-left gradient-ring avatar + username + verified + Follow + caption |
+| **TikTok** | Top tabs (Explore / Following / For You) + search; right column (profile + red + badge, like, comment, bookmark, share, music disc); bottom-left username + caption; feedback pills; bottom nav with create button |
+
+### TikTok overlay spec (41.2b — iPhone 11 proportions)
+
+Same scaling: `TikTokLayoutMetrics` maps **414×896 pt** to 720×1280 preview canvas.
+
+**Top bar (~12pt from top):** Explore | Following | **For You** (bold + underline) + search icon
+
+**Right column (~118pt from bottom, 8pt trailing):** profile avatar ~48pt + red + badge; heart `1.8M`; comment `3,457`; bookmark `68.1K`; share `29.6K`; ~44pt music disc
+
+**Bottom-left (~100pt from bottom):** username ~15pt + caption ~14pt
+
+**Feedback pills (~56pt from bottom):** Not interested | Interested
+
+**Bottom nav (~56pt):** Home, Friends (badge), Create (cyan/magenta accent +), Inbox, Profile
+
+**Files:** `App/Utils/TikTokLayoutMetrics.swift`, `App/Components/TikTokGuideOverlayView.swift`
+
+**Implementation (41.2 complete):**
+- `PlatformPreviewOverlay`: `.none`, `.youtubeShorts`, `.instagramReels`, `.tiktok`
+- `YouTubeShortsGuideOverlayView` (or `PlatformSafeZoneOverlayView` with YouTube branch)
+- Wire in `LayoutPickerView` / `LayoutPickerViewModel`; session-only state
+- **Must not** touch `CompositeEngine`, `RecordingEngine`, export
+
+**Acceptance (41.2a):**
+- 9:16 + YouTube Shorts → all elements above visible on Layout Picker preview
+- None → overlay off
+- Record + export → **no** mock UI in MP4
+- PiP / layout preset still work; overlay non-hit-testing
+- BUILD SUCCEEDED
+
+**Out of scope:** Pixel-perfect clone; TikTok/Reels in 41.2a; Editor; 16:9 Shorts guide
+
+**Files:**
+- `App/Models/PlatformPreviewOverlay.swift`
+- `App/Components/YouTubeShortsGuideOverlayView.swift` (or `PlatformSafeZoneOverlayView.swift`)
+- `LayoutPickerView.swift`, `LayoutPickerViewModel.swift`
+
+Git Commit (41.2a): `feat: YouTube Shorts preview guide overlay on layout picker (Day 41.2a)`
+
+> **Note:** Day 40.2 label was retired; this feature lives under **Day 41.2** only.
 
 ---
 
@@ -2156,6 +2261,75 @@ Test checklist:
 - Day 44: Fix secondary bugs (UI glitches, edge case errors)
 - Day 45: Performance — run Instruments Time Profiler + Allocations during 4-window
   recording. CPU < 65% on M2 Air. Memory growth < 50MB over 10-minute recording.
+
+---
+
+**DAY 45.1 — UI Enhancement (professional redesign pass)**
+
+**Context:** After functional testing and performance tuning (Days 43–45), revisit every
+user-facing screen for visual consistency, hierarchy, and polish. This is the **MVP design
+pass** — not post-launch v1.1 fluff (Lottie onboarding, etc.), but making shipped screens
+look intentional and professional before distribution (Phase 17).
+
+**Goal:** Redesign and re-implement each page so the app feels cohesive, modern, and
+production-ready while preserving all existing flows and Pro gates.
+
+**Workflow (recommended):**
+1. Audit current UI — screenshot each screen in Light + Dark mode
+2. Design in Figma (or similar): spacing, typography scale, card styles, empty states, buttons
+3. Define shared patterns once: section headers, list rows, primary/secondary buttons, sheets
+4. Implement screen-by-screen in SwiftUI using existing `AppColors` tokens (Day 35)
+5. Re-test critical paths after each batch (auth, record → editor → export)
+
+**Screens to enhance (in suggested order):**
+
+| Priority | Screen | Route / file |
+|----------|--------|----------------|
+| 1 | Onboarding | `OnboardingView` |
+| 2 | Login / Sign Up / Forgot / Reset Password | Auth stack |
+| 3 | Dashboard | `DashboardView` |
+| 4 | Window Picker | `WindowPickerView` |
+| 5 | Layout Picker | `LayoutPickerView` |
+| 6 | Audio Mode sheet | `AudioModePickerView` |
+| 7 | Recording + HUD | `RecordingView`, `RecordingHUDView` |
+| 8 | Post-Record Editor | `EditorView`, `EditorInspectorPanel`, `CaptionPreviewView` |
+| 9 | Export sheet + re-export | `EditorExportSheet`, `ExportView` |
+| 10 | Recording Detail | `RecordingDetailView` |
+| 11 | Profile | `ProfileView` |
+| 12 | Settings | `SettingsView` |
+| 13 | Subscription / Pro gate | `SubscriptionView`, `ProUpgradeSheet` |
+| 14 | Help | `HelpView` |
+| 15 | Empty & error states | `ContentUnavailableView` patterns app-wide |
+
+**Design targets (apply consistently):**
+- Clear visual hierarchy (title → section → content)
+- Consistent padding (e.g. 16–20pt screen edges, 12pt intra-section)
+- Unified corner radius and card/surface treatment (`appSurface`, `appBorder`)
+- Primary actions obvious (one prominent CTA per screen)
+- Readable typography (system fonts; avoid cramped captions)
+- Empty states with icon + short copy + one action
+- Dark mode verified on every redesigned screen (Day 42 checklist)
+
+**Out of scope for Day 45.1:**
+- New features or navigation changes
+- Timeline editor / trim / NLE (post-MVP)
+- Replacing RevenueCat/Stripe checkout UI
+- Section 16 v1.1 extras (Lottie onboarding, animated transitions, custom sounds) — those stay post-launch
+
+**Acceptance:**
+- All screens in table above reviewed and updated OR explicitly marked “good enough” with reason
+- No regressions: record → stop → editor → export → dashboard still works
+- Light + Dark mode pass on redesigned screens
+- BUILD SUCCEEDED
+
+**Suggested commits (per batch):**
+```
+style: polish auth screens (Day 45.1)
+style: polish recording flow screens (Day 45.1)
+style: polish dashboard, profile, and settings (Day 45.1)
+```
+
+Git Commit (when complete): `style: professional UI pass across all screens (Day 45.1)`
 
 ---
 
@@ -2378,7 +2552,7 @@ Complete user flow on a fresh Mac account (not developer machine):
 5. New Recording → select 2 windows → choose 9:16 layout → PiP camera on → Combined audio
 6. Countdown → Record for 60 seconds
 7. Pause → Resume → Stop
-8. **Post-Record Editor** → Captions tab: generate captions → TikTok Bold → Export tab → Export
+8. **Post-Record Editor** → Captions section: generate captions → TikTok Bold → toolbar Export Video → Export
 9. Open exported file in QuickTime → captions visible, audio correct, PiP visible
 10. Dashboard → recording in list
 11. Go to Profile → check subscription shows Free
@@ -2487,8 +2661,8 @@ Always run git log --oneline before rolling back.
 | Auto-focus | Switch app during recording, highlight switches in video |
 | Pause: paused time excluded | Pause 30s, verify final video is 30s shorter |
 | Source window closes mid-recording | Grey placeholder, no crash |
-| Stop → Post-Record Editor | Editor shown after recording (Free: Edit+Export; Pro: +Captions) |
-| Editor → Export → Dashboard | Final MP4 saved; recording appears on Dashboard |
+| Stop → Post-Record Editor | Editor shown after recording (Free: preview+info+export; Pro: +Captions sidebar) |
+| Editor → Export → Dashboard | Final MP4 saved (full clip); recording appears on Dashboard |
 
 ### Caption Tests
 
@@ -2687,7 +2861,10 @@ Host this file at: https://yourwebsite.com/appcast.xml
 
 ### Design & Polish (v1.1 — First Priority)
 
-- Professional app icon by a designer (Fiverr or 99designs, $50–$200)
+> **Note:** MVP visual cohesion is covered by **Day 45.1** (before distribution). Items below
+> are **post-launch** enhancements beyond the Day 45.1 professional pass.
+
+- Professional app icon by a designer (Fiverr or 99designs, $50–$200) — *Day 50 covers basic icon; v1.1 is designer-quality refresh*
 - Onboarding with actual illustrations or Lottie animations (use LottieFiles)
 - Smooth animated screen transitions (NavigationTransition API)
 - Custom recording-complete sound effect

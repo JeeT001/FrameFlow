@@ -3,7 +3,6 @@
 //  FrameFlow
 //
 
-import AppKit
 import SwiftUI
 
 struct EditorView: View {
@@ -96,17 +95,11 @@ struct EditorView: View {
         }
         .onChange(of: captionState.isTranscribing) { _, isTranscribing in
             if !isTranscribing {
-                captionVM.sync(from: captionState)
+                viewModel.onCaptionGenerationFinished(isPro: appState.isPro)
             }
         }
         .onChange(of: captionVM.videoDuration) { _, duration in
             viewModel.onVideoDurationLoaded(duration)
-        }
-        .onChange(of: captionVM.currentPlaybackTime) { _, _ in
-            viewModel.onPreviewTimeTick()
-        }
-        .onChange(of: viewModel.project.importedAudioTracks) { _, _ in
-            viewModel.refreshAudioPreview()
         }
         .onChange(of: exportVM.showSuccessAlert) { _, succeeded in
             if succeeded {
@@ -136,19 +129,17 @@ struct EditorView: View {
         }
     }
 
-    // MARK: - Layout
-
     private var editorLayout: some View {
         EditorShellLayout {
             previewPanel
-        } inspector: {
+        } sidebar: {
             EditorInspectorPanel(
                 viewModel: viewModel,
                 captionVM: captionVM,
                 captionState: captionState,
-                exportVM: exportVM,
                 isPro: appState.isPro,
                 recording: exportVM.recording,
+                sourceDurationSeconds: viewModel.sourceDurationSeconds,
                 onShowProGate: { feature, description in
                     proGateFeature = feature
                     proGateDescription = description
@@ -163,113 +154,33 @@ struct EditorView: View {
                     captionState.retry()
                 }
             )
-        } tracks: {
-            tracksPanel
         }
         .focusable()
-        .onKeyPress(.upArrow) {
-            viewModel.jumpToStart()
-            return .handled
-        }
-        .onKeyPress(.downArrow) {
-            viewModel.jumpToEnd()
-            return .handled
-        }
         .onKeyPress(.space) {
             viewModel.togglePlayback()
             return .handled
         }
-        .onKeyPress(keys: [.init("b")], phases: .down) { press in
-            guard press.modifiers.contains(.command) else { return .ignored }
-            viewModel.splitAtPoint(viewModel.sourceTimeAtPlayhead())
-            return .handled
-        }
-        .onKeyPress("s") {
-            viewModel.razorModeActive.toggle()
-            return .handled
-        }
-        .onKeyPress(.escape) {
-            if viewModel.razorModeActive {
-                viewModel.razorModeActive = false
-                return .handled
-            }
-            return .ignored
-        }
-        .onAppear {
-            NSApp.keyWindow?.makeFirstResponder(nil)
-        }
-    }
-
-    private var tracksPanel: some View {
-        EditorTracksView(
-            viewModel: viewModel,
-            videoURL: URL(fileURLWithPath: exportVM.recording?.filePath ?? ""),
-            duration: viewModel.sourceDurationSeconds,
-            trimStart: viewModel.trimStartSeconds,
-            trimEnd: viewModel.trimEndSeconds,
-            exportDurationSeconds: viewModel.project.exportDurationSeconds,
-            masterTimelineDuration: viewModel.project.masterTimelineDurationSeconds,
-            videoExportDuration: viewModel.project.videoExportDurationSeconds,
-            masterPlayheadSeconds: viewModel.masterPlayheadSeconds,
-            hasAudioTimelineExtension: viewModel.project.hasAudioTimelineExtension,
-            removedRanges: viewModel.editTimeline.removedRanges,
-            splitPoints: viewModel.editTimeline.splitPoints,
-            selectionStart: viewModel.selectionStartSeconds,
-            selectionEnd: viewModel.selectionEndSeconds,
-            currentTime: captionVM.currentPlaybackTime,
-            currentExportTime: viewModel.masterPlayheadSeconds,
-            imageClips: viewModel.imageClipLaneItems(),
-            audioClips: viewModel.audioClipLaneItems(),
-            videoClipLabel: exportVM.recording?.name ?? "Video",
-            onTrimStartChange: { viewModel.updateTrimStart($0) },
-            onTrimEndChange: { viewModel.updateTrimEnd($0) },
-            onSelectionStartChange: { viewModel.updateSelectionStart($0) },
-            onSelectionEndChange: { viewModel.updateSelectionEnd($0) },
-            onSeek: { viewModel.seekPreviewOnMasterTimeline($0) },
-            onImageStartChange: { viewModel.updateImageStart($1, id: $0) },
-            onImageEndChange: { viewModel.updateImageEnd($1, id: $0) },
-            onImageClipMove: { viewModel.updateImageClipMove(toStart: $1, id: $0) },
-            onAudioStartChange: { viewModel.updateImportedAudioStart($1, id: $0) },
-            onAudioEndChange: { viewModel.updateImportedAudioEnd($1, id: $0) },
-            onAudioClipMove: { viewModel.updateImportedAudioClipMove(toStart: $1, id: $0) },
-            onImportImage: { viewModel.importImage() },
-            onImportAudio: { viewModel.importAudio() },
-            onSelectOverlay: { viewModel.selectImageOverlay(id: $0) },
-            onSelectAudio: { viewModel.selectImportedAudio(id: $0) },
-            onSelectTimeline: { viewModel.selectTimeline() },
-            onDeleteSelection: { viewModel.deleteSelection() },
-            onClearDeletes: { viewModel.clearRemovedRegions() },
-            canDeleteSelection: viewModel.canDeleteSelection,
-            hasRemovedRegions: viewModel.hasRemovedRegions
-        )
-        .frame(height: viewModel.tracksPanelHeight)
-    }
-
-    private var selectedImageOverlayID: UUID? {
-        viewModel.selectedImageOverlayID
-    }
-
-    private var isImageOverlayEditable: Bool {
-        selectedImageOverlayID != nil
     }
 
     private var isCaptionPlacementEditable: Bool {
-        appState.isPro
-            && !captionVM.segments.isEmpty
-            && showCaptionOverlay
-            && selectedImageOverlayID == nil
+        appState.isPro && !captionVM.segments.isEmpty && showCaptionOverlay
     }
 
     private var showCaptionPlacementChrome: Bool {
-        isCaptionPlacementEditable
-            && (viewModel.inspectorMode == .captions || viewModel.selection.isCaptionRelated)
+        isCaptionPlacementEditable && viewModel.selection.isCaptionRelated
+    }
+
+    private var activePlatformGuide: PlatformPreviewOverlay {
+        guard exportVM.recording?.format == "9:16", !captionState.isTranscribing else { return .none }
+        return viewModel.platformPreviewOverlay
     }
 
     private var previewPanel: some View {
         GeometryReader { geometry in
             let aspect = exportVM.recording?.previewAspectRatio ?? (16.0 / 9.0)
+            let platformGuide = activePlatformGuide
             let hintReserve: CGFloat = 32
-            let scrubberReserve: CGFloat = 130
+            let scrubberReserve: CGFloat = 52
             let videoAvailable = CGSize(
                 width: geometry.size.width,
                 height: max(120, geometry.size.height - hintReserve - scrubberReserve)
@@ -282,46 +193,26 @@ struct EditorView: View {
                 CaptionPreviewView(
                     player: captionVM.player,
                     currentTime: Binding(
-                        get: { viewModel.masterPlayheadSeconds },
-                        set: { viewModel.seekPreviewOnMasterTimeline($0) }
+                        get: { captionVM.currentPlaybackTime },
+                        set: { viewModel.seekPreview(to: $0) }
                     ),
-                    duration: viewModel.project.masterTimelineDurationSeconds,
+                    duration: viewModel.sourceDurationSeconds,
                     previewAspectRatio: aspect,
-                    videoEndSeconds: viewModel.project.hasAudioTimelineExtension
-                        ? viewModel.project.videoExportDurationSeconds
-                        : nil,
-                    isPlayheadPastVideo: viewModel.isPlayheadInAudioOnlyRegion,
                     isPreviewPlaying: viewModel.isPreviewPlaying,
                     style: captionVM.selectedStyle,
                     displayText: showCaptionOverlay ? captionVM.overlayDisplayText : nil,
                     highlightedWord: showCaptionOverlay ? captionVM.highlightedWordInOverlay : nil,
                     isCaptionPlacementEditable: isCaptionPlacementEditable,
                     showsPlacementChrome: showCaptionPlacementChrome,
-                    onSeek: { viewModel.seekPreviewOnMasterTimeline($0) },
+                    onSeek: { viewModel.seekPreview(to: $0) },
                     onTogglePlayback: { viewModel.togglePlayback() },
                     onCaptionVerticalOffsetChange: { captionVM.updateCaptionVerticalOffset($0) },
-                    onSkipBack: { viewModel.jumpToStart() },
-                    onSlowMotion: { viewModel.showComingSoon("Slow motion") },
-                    onStop: { viewModel.stopPreview() },
-                    onSetInPoint: { viewModel.setInPointAtPlayhead() },
-                    onSetOutPoint: { viewModel.setOutPointAtPlayhead() },
-                    onSnapshot: {
-                        Task { await viewModel.snapshotCurrentFrame() }
-                    },
-                    onFullscreen: { viewModel.showComingSoon("Fullscreen") },
                     previewOverlay: {
-                        ForEach(viewModel.project.imageOverlays) { overlay in
-                            let isSelected = viewModel.selectedImageOverlayID == overlay.id
-                            let isVisible = overlay.contains(playhead: captionVM.currentPlaybackTime)
-                            if isVisible || isSelected {
-                                EditorImageOverlayPreview(
-                                    overlay: overlay,
-                                    containerAspect: aspect,
-                                    currentPlayhead: captionVM.currentPlaybackTime,
-                                    isEditable: isSelected && isImageOverlayEditable,
-                                    onPositionChange: { viewModel.updateImagePosition(x: $0, y: $1, id: overlay.id) },
-                                    onSizeChange: { viewModel.updateImageWidth($0, id: overlay.id) },
-                                    onSelect: { viewModel.selectImageOverlay(id: overlay.id) }
+                        GeometryReader { geo in
+                            if platformGuide != .none {
+                                PlatformSafeZoneOverlayView(
+                                    platform: platformGuide,
+                                    canvasSize: geo.size
                                 )
                             }
                         }
@@ -330,7 +221,7 @@ struct EditorView: View {
                 .frame(width: fittedVideo.width)
                 .clipped()
 
-                previewHint
+                previewHint(platformGuide: platformGuide)
                     .frame(width: fittedVideo.width, alignment: .leading)
 
                 Spacer(minLength: 0)
@@ -338,34 +229,16 @@ struct EditorView: View {
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .frame(minWidth: 280)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if viewModel.project.imageOverlays.isEmpty {
-                viewModel.clearSelection()
-            }
-        }
     }
 
     @ViewBuilder
-    private var previewHint: some View {
-        if viewModel.isPlayheadInAudioOnlyRegion {
-            Text(
-                viewModel.isPreviewPlaying
-                    ? "Playing imported audio — video has ended."
-                    : "Past video end — press Play to hear imported audio."
-            )
-            .font(.caption)
-            .foregroundStyle(AppColors.primary)
+    private func previewHint(platformGuide: PlatformPreviewOverlay) -> some View {
+        if platformGuide != .none {
+            Text("Platform guide is preview-only. Caption placement matches your export; avoid platform chrome when positioning.")
+                .font(.caption)
+                .foregroundStyle(AppColors.textSecondary)
         } else if isCaptionPlacementEditable {
             Text("Drag the caption box vertically to fine-tune placement.")
-                .font(.caption)
-                .foregroundStyle(AppColors.textSecondary)
-        } else if isImageOverlayEditable {
-            Text("Drag to move the image · use the corner handle or Size slider to resize.")
-                .font(.caption)
-                .foregroundStyle(AppColors.textSecondary)
-        } else if viewModel.project.hasAudioTimelineExtension {
-            Text("Playback continues on imported audio after the video ends.")
                 .font(.caption)
                 .foregroundStyle(AppColors.textSecondary)
         }

@@ -24,7 +24,7 @@ enum WhisperTranscriptSanitizer {
         text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return nil }
         guard !knownNonSpeechPhrases.contains(text.lowercased()) else { return nil }
-        guard text.contains(where: \.isLetter) else { return nil }
+        guard text.contains(where: { $0.isLetter || $0.isNumber }) else { return nil }
         return text
     }
 

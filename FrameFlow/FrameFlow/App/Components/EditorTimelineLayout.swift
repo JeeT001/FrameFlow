@@ -7,8 +7,8 @@ import SwiftUI
 
 /// Shared column geometry for main track, overlay, and audio lanes.
 enum EditorTimelineLayout {
-    static let laneControlWidth: CGFloat = 80
-    static let laneLabelWidth: CGFloat = laneControlWidth
+    static let laneControlWidth: CGFloat = 0
+    static let laneLabelWidth: CGFloat = 0
     static let rowSpacing: CGFloat = 0
     static let mainTrackHeight: CGFloat = EditorTimelineDesign.videoLaneHeight
     static let clipLaneHeight: CGFloat = EditorTimelineDesign.overlayLaneHeight
@@ -19,7 +19,7 @@ enum EditorTimelineLayout {
     static let clipTrimHandleWidth: CGFloat = EditorTimelineDesign.overlayAudioHandleWidth
     static let clipTrimHandleHitWidth: CGFloat = 18
     static let timelineRulerHeight: CGFloat = EditorTimelineDesign.timelineRulerHeight
-    static let toolbarHeight: CGFloat = EditorTimelineDesign.filmoraToolbarHeight
+    static let toolbarHeight: CGFloat = EditorTimelineDesign.toolbarHeight
     static let tracksOuterPadding: CGFloat = EditorTimelineDesign.tracksOuterPadding
 
     static func trackContentWidth(totalWidth: CGFloat) -> CGFloat {
@@ -46,11 +46,18 @@ enum EditorTimelineLayout {
         timelineStackHeight(imageLaneCount: imageLaneCount, audioLaneCount: audioLaneCount)
     }
 
+    static var mvpTimelineStackHeight: CGFloat {
+        timelineRulerHeight
+            + EditorTimelineDesign.laneDividerThickness
+            + mainTrackHeight
+    }
+
+    static var mvpTracksPanelHeight: CGFloat {
+        tracksOuterPadding * 2 + toolbarHeight + mvpTimelineStackHeight
+    }
+
     static func tracksPanelTotalHeight(imageLaneCount: Int, audioLaneCount: Int) -> CGFloat {
-        tracksOuterPadding * 2 + toolbarHeight + timelineStackHeight(
-            imageLaneCount: imageLaneCount,
-            audioLaneCount: audioLaneCount
-        )
+        mvpTracksPanelHeight
     }
 
     static func audioLaneYOffset(imageLaneCount: Int) -> CGFloat {

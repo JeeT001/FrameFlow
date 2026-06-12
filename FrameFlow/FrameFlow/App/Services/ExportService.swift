@@ -162,7 +162,7 @@ final class ExportService: @unchecked Sendable {
 
         let videoExportSeconds: Double
         if let timeline, timeline.requiresStitchExport {
-            keptRanges = timeline.orderedSourceRanges.filter { $0.duration > 0.001 }
+            keptRanges = timeline.keptSourceRanges.filter { $0.duration > 0.001 }
             videoExportSeconds = timeline.exportDurationSeconds
             #if DEBUG
             if timeline.hasRemovedRegions {

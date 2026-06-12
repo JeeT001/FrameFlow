@@ -42,6 +42,7 @@
 		B014E0012FC3EDD600BD9EBF /* Exceptions for "FrameFlow" folder in "FrameFlow" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				App/Components/EditorTracksView.swift,
 				App/Utils/Config.example.swift,
 				Info.plist,
 			);

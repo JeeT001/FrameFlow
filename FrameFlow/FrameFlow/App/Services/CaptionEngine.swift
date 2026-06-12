@@ -43,6 +43,7 @@ final class CaptionEngine: @unchecked Sendable {
         for recordingURL: URL,
         recordingID: UUID,
         style: CaptionStyleConfig? = nil,
+        burnIn: Bool = false,
         progress: (@Sendable (Double, String) -> Void)? = nil
     ) async throws -> [CaptionSegment] {
         guard fileManager.fileExists(atPath: recordingURL.path) else {
@@ -58,27 +59,58 @@ final class CaptionEngine: @unchecked Sendable {
         let segments = try await transcription.transcribe(audioURL: audioURL, progress: progress)
 
         progress?(0.92, "Saving caption sidecar…")
-        try saveCaptions(segments, for: recordingURL, recordingID: recordingID, style: resolvedStyle)
+        let cleaned = WhisperTranscriptSanitizer.sanitizedSegments(from: segments)
 
-        let srtURL = srtURL(for: recordingURL)
-        try renderer.writeSRT(segments: segments, to: srtURL)
-
-        progress?(0.94, "Rendering captions into video…")
-        let burnedURL = burnedInURL(for: recordingURL)
-        try await renderer.burnInCaptions(
-            videoURL: recordingURL,
-            segments: segments,
-            style: resolvedStyle,
-            outputURL: burnedURL
+        let sidecar = CaptionSidecar(
+            recordingID: recordingID,
+            segments: cleaned,
+            createdAt: Date(),
+            stylePreset: resolvedStyle.preset.rawValue,
+            styleVerticalPosition: resolvedStyle.verticalPosition.rawValue,
+            customVerticalOffsetNormalized: resolvedStyle.customVerticalOffsetNormalized,
+            captionAudioLeadSeconds: nil
         )
 
+        let adjacent = sidecarURLAdjacent(to: recordingURL)
+        try writeSidecar(sidecar, to: adjacent)
+
+        let fallback = appSupportSidecarURL(recordingID: recordingID)
+        try writeSidecar(sidecar, to: fallback)
+
+        let srtURL = srtURL(for: recordingURL)
+        try renderer.writeSRT(segments: cleaned, to: srtURL)
+
+        if burnIn {
+            progress?(0.94, "Rendering captions into video…")
+            let burnedURL = burnedInURL(for: recordingURL)
+            try await renderer.burnInCaptions(
+                videoURL: recordingURL,
+                segments: cleaned,
+                style: resolvedStyle,
+                outputURL: burnedURL
+            )
+        }
+
         progress?(1.0, "Captions ready.")
-        return segments
+
+        return cleaned
     }
 
     func loadCaptions(for recordingURL: URL, recordingID: UUID) throws -> [CaptionSegment] {
-        let raw = try loadSidecar(for: recordingURL, recordingID: recordingID)?.segments ?? []
-        return WhisperTranscriptSanitizer.sanitizedSegments(from: raw)
+        guard let sidecar = try loadSidecar(for: recordingURL, recordingID: recordingID) else {
+            return []
+        }
+        let sanitized = WhisperTranscriptSanitizer.sanitizedSegments(from: sidecar.segments)
+        // Undo mistaken A/V lead shift from a prior build that saved pre-aligned segments.
+        if let lead = sidecar.captionAudioLeadSeconds, lead > 0.001 {
+            return sanitized.map { segment in
+                var restored = segment
+                restored.startTime += lead
+                restored.endTime += lead
+                return restored
+            }
+        }
+        return sanitized
     }
 
     func loadStyle(for recordingURL: URL, recordingID: UUID) -> CaptionStyleConfig {

@@ -14,6 +14,7 @@ struct LayoutLivePreviewStack: View {
     @Bindable var pipController: PiPController
     @Bindable var windowPlacementController: WindowPlacementController
     var showPiPOverlay: Bool = true
+    var platformOverlay: PlatformPreviewOverlay = .none
     var onPlacementsChanged: (() -> Void)?
     var onPiPChanged: (() -> Void)?
 
@@ -56,6 +57,13 @@ struct LayoutLivePreviewStack: View {
                         onChanged: onPiPChanged
                     )
                     .frame(width: referenceCanvasSize.width, height: referenceCanvasSize.height)
+                }
+
+                if platformOverlay != .none {
+                    PlatformSafeZoneOverlayView(
+                        platform: platformOverlay,
+                        canvasSize: referenceCanvasSize
+                    )
                 }
             }
             .frame(width: referenceCanvasSize.width, height: referenceCanvasSize.height)

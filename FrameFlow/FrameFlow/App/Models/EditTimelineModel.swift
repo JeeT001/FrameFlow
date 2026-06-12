@@ -42,7 +42,7 @@ struct EditTimelineModel: Equatable, Sendable {
     }
 
     var requiresStitchExport: Bool {
-        hasRemovedRegions || hasTrimApplied || isSegmentOrderCustomized
+        hasRemovedRegions || hasTrimApplied
     }
 
     var isFullSourceExport: Bool {
@@ -190,6 +190,11 @@ struct EditTimelineModel: Equatable, Sendable {
 
     mutating func clearRemovedRange() {
         clearRemovedRanges()
+    }
+
+    mutating func clearSplitPoints() {
+        splitPoints = []
+        segmentOrder = []
     }
 
     mutating func addSplitPoint(at seconds: Double) {

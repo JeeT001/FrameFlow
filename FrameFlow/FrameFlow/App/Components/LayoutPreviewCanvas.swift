@@ -10,6 +10,7 @@ struct LayoutPreviewCanvas: View {
     let preset: LayoutPreset
     let windowLabels: [String]
     let cameraEnabled: Bool
+    var platformOverlay: PlatformPreviewOverlay = .none
 
     private var windowCount: Int {
         max(windowLabels.count, 1)
@@ -34,6 +35,13 @@ struct LayoutPreviewCanvas: View {
 
                     layoutContent(in: canvasSize)
                         .padding(12)
+
+                    if platformOverlay != .none {
+                        PlatformSafeZoneOverlayView(
+                            platform: platformOverlay,
+                            canvasSize: canvasSize
+                        )
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }

@@ -20,6 +20,8 @@ struct RecordingMetadata: Codable, Identifiable, Hashable {
     var audioMode: String
     var createdAt: Date
     var fileSizeBytes: Int
+    /// Audio timeline lead (seconds) when the first video frame was written; aligns Whisper captions to video playback.
+    var captionAudioLeadSeconds: Double = 0
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -35,6 +37,77 @@ struct RecordingMetadata: Codable, Identifiable, Hashable {
         case audioMode = "audio_mode"
         case createdAt = "created_at"
         case fileSizeBytes = "file_size_bytes"
+        case captionAudioLeadSeconds = "caption_audio_lead_seconds"
+    }
+
+    init(
+        id: UUID,
+        name: String,
+        filePath: String,
+        durationSeconds: Int,
+        resolution: String,
+        format: String,
+        layout: String,
+        windowCount: Int,
+        hasCaptions: Bool,
+        hasCamera: Bool,
+        audioMode: String,
+        createdAt: Date,
+        fileSizeBytes: Int,
+        captionAudioLeadSeconds: Double = 0
+    ) {
+        self.id = id
+        self.name = name
+        self.filePath = filePath
+        self.durationSeconds = durationSeconds
+        self.resolution = resolution
+        self.format = format
+        self.layout = layout
+        self.windowCount = windowCount
+        self.hasCaptions = hasCaptions
+        self.hasCamera = hasCamera
+        self.audioMode = audioMode
+        self.createdAt = createdAt
+        self.fileSizeBytes = fileSizeBytes
+        self.captionAudioLeadSeconds = captionAudioLeadSeconds
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        filePath = try container.decode(String.self, forKey: .filePath)
+        durationSeconds = try container.decode(Int.self, forKey: .durationSeconds)
+        resolution = try container.decode(String.self, forKey: .resolution)
+        format = try container.decode(String.self, forKey: .format)
+        layout = try container.decode(String.self, forKey: .layout)
+        windowCount = try container.decode(Int.self, forKey: .windowCount)
+        hasCaptions = try container.decode(Bool.self, forKey: .hasCaptions)
+        hasCamera = try container.decode(Bool.self, forKey: .hasCamera)
+        audioMode = try container.decode(String.self, forKey: .audioMode)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        fileSizeBytes = try container.decode(Int.self, forKey: .fileSizeBytes)
+        captionAudioLeadSeconds = try container.decodeIfPresent(Double.self, forKey: .captionAudioLeadSeconds) ?? 0
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(filePath, forKey: .filePath)
+        try container.encode(durationSeconds, forKey: .durationSeconds)
+        try container.encode(resolution, forKey: .resolution)
+        try container.encode(format, forKey: .format)
+        try container.encode(layout, forKey: .layout)
+        try container.encode(windowCount, forKey: .windowCount)
+        try container.encode(hasCaptions, forKey: .hasCaptions)
+        try container.encode(hasCamera, forKey: .hasCamera)
+        try container.encode(audioMode, forKey: .audioMode)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(fileSizeBytes, forKey: .fileSizeBytes)
+        if captionAudioLeadSeconds > 0.001 {
+            try container.encode(captionAudioLeadSeconds, forKey: .captionAudioLeadSeconds)
+        }
     }
 
     var formattedDuration: String {

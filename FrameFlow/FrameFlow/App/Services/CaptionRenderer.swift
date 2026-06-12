@@ -226,8 +226,7 @@ final class CaptionRenderer: @unchecked Sendable {
     }
 
     private func makeTextLayer(text: String, style: CaptionStyleConfig, renderSize: CGSize) -> CATextLayer {
-        let scale = renderSize.height / 1080
-        let fontSize = style.fontSize * scale
+        let fontSize = CaptionLayoutMath.scaledFontSize(style: style, containerHeight: renderSize.height)
         let font = NSFont(name: style.fontName, size: fontSize) ?? NSFont.boldSystemFont(ofSize: fontSize)
 
         let textLayer = CATextLayer()
@@ -239,27 +238,13 @@ final class CaptionRenderer: @unchecked Sendable {
         textLayer.isWrapped = true
         textLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
 
-        let maxWidth = renderSize.width * 0.88
-        let textHeight = fontSize * 1.35
-        let padding: CGFloat = style.showsBackground ? 14 * scale : 0
-        let boxHeight = textHeight + padding * 2
-
-        let y = style.captionOriginY(renderHeight: renderSize.height, boxHeight: boxHeight)
-        textLayer.frame = CGRect(
-            x: (renderSize.width - maxWidth) / 2,
-            y: y,
-            width: maxWidth,
-            height: boxHeight
-        )
+        let frame = CaptionLayoutMath.captionFrame(style: style, containerSize: renderSize)
+        textLayer.frame = frame
 
         if style.showsBackground, let background = style.nsBackgroundColor {
-            let backgroundLayer = CALayer()
-            backgroundLayer.backgroundColor = background.cgColor
-            backgroundLayer.cornerRadius = 8 * scale
-            backgroundLayer.frame = textLayer.frame
-            backgroundLayer.beginTime = AVCoreAnimationBeginTimeAtZero
+            let cornerRadius = CaptionLayoutMath.cornerRadius(style: style, containerHeight: renderSize.height)
             textLayer.backgroundColor = background.cgColor
-            textLayer.cornerRadius = 8 * scale
+            textLayer.cornerRadius = cornerRadius
         }
 
         return textLayer
