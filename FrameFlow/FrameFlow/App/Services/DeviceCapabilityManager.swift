@@ -20,8 +20,14 @@ final class DeviceCapabilityManager {
         isAppleSilicon
     }
 
+    /// Layout Picker live preview — smooth SCStream delivery.
     var compositeFrameRate: Int {
         isAppleSilicon ? 60 : 30
+    }
+
+    /// Active recording capture — ≥ `RecordingEngine.videoFrameRate`, below layout-preview max.
+    var recordingCaptureFrameRate: Int {
+        isAppleSilicon ? 30 : 24
     }
 
     private init() {

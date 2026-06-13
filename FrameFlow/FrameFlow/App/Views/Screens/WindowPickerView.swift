@@ -199,6 +199,7 @@ struct WindowPickerView: View {
                 proceedToLayoutPicker()
             }
             .disabled(!viewModel.canProceed || viewModel.isLoading)
+            .help(viewModel.canProceed ? "Continue to layout picker" : "Select at least one window to continue")
         }
     }
 

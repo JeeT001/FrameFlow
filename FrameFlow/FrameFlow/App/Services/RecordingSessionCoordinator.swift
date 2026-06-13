@@ -46,6 +46,7 @@ final class RecordingSessionCoordinator {
     private var outputSize: CGSize = CGSize(width: 1280, height: 720)
     private var outputURL: URL?
     private var lastHandledClickID: UUID?
+    private var lastCursorVisibilityWindowID: CGWindowID?
     private var autoFocusEnabled = false
 
     func startRecording(
@@ -101,6 +102,7 @@ final class RecordingSessionCoordinator {
             activeWindowMonitor.startMonitoring(selectedWindowIDs: windowIDs)
         }
         lastHandledClickID = nil
+        lastCursorVisibilityWindowID = nil
         lastCompositeCIImage = nil
 
         do {
@@ -109,7 +111,10 @@ final class RecordingSessionCoordinator {
                     self?.audioCaptureService.ingestSystemAudioSampleBuffer(sampleBuffer)
                 }
             }
-            try await streamManager.startAll(windowIDs: windowIDs)
+            try await streamManager.startAll(
+                windowIDs: windowIDs,
+                captureFrameRate: DeviceCapabilityManager.shared.recordingCaptureFrameRate
+            )
             if shouldCaptureSystemAudio {
                 try await streamManager.startSystemAudioCapture()
             }
@@ -255,6 +260,7 @@ final class RecordingSessionCoordinator {
         previewTimer?.invalidate()
         previewTimer = nil
         lastCompositeCIImage = nil
+        lastCursorVisibilityWindowID = nil
         previewImage = nil
         cursorTracker.stopTracking()
         activeWindowMonitor.stopMonitoring()
@@ -341,14 +347,18 @@ final class RecordingSessionCoordinator {
         let clickOverlay = currentClickOverlay()
         let focusedWindowID = autoFocusEnabled ? activeWindowMonitor.activeWindowID : nil
         let cursorWindowID = cursorTargetWindowID(focusedWindowID: focusedWindowID)
-        let cameraFrame = cameraCapture.latestFrame
+        let unavailableWindows = Set(windowOrder.filter { !streamManager.isWindowAvailable($0) })
+        let cameraFrame = cameraCapture.frameForComposite
         let pipEnabled = pipController.isCameraEnabled
         let pipConfig = pipController.config
         let placements = layoutPreset == .freeForm ? customPlacements : nil
 
         let pipAllowsOverflow = layoutPreset == .freeForm
 
-        await streamManager.updateCursorVisibility(activeWindowID: cursorWindowID)
+        if cursorWindowID != lastCursorVisibilityWindowID {
+            lastCursorVisibilityWindowID = cursorWindowID
+            await streamManager.updateCursorVisibility(activeWindowID: cursorWindowID)
+        }
 
         guard let ci = compositeEngine.renderCompositeCIImage(
             frames: streamManager.latestFrames,
@@ -365,7 +375,9 @@ final class RecordingSessionCoordinator {
             cameraFrame: cameraFrame,
             pipConfig: pipConfig,
             pipEnabled: pipEnabled,
-            pipAllowsOverflow: pipAllowsOverflow
+            pipAllowsOverflow: pipAllowsOverflow,
+            lastKnownFrames: streamManager.lastKnownFrames,
+            unavailableWindowIDs: unavailableWindows
         ) else {
             return
         }
@@ -405,10 +417,16 @@ final class RecordingSessionCoordinator {
     }
 
     private func currentClickOverlay() -> CIImage? {
-        clickEffectRenderer.makeOverlay(
+        let showHighlight = SettingsStore.shared.cursorHighlightEnabled
+        let hasActiveRipples = cursorTracker.recentClicks.contains { click in
+            Date().timeIntervalSince(click.timestamp) <= 0.5
+        }
+        guard showHighlight || hasActiveRipples else { return nil }
+
+        return clickEffectRenderer.makeOverlay(
             clicks: cursorTracker.recentClicks,
             cursorNormalizedPoint: cursorTracker.normalizedCursorPoint,
-            showCursorHighlight: SettingsStore.shared.cursorHighlightEnabled,
+            showCursorHighlight: showHighlight,
             cursorColorName: SettingsStore.shared.cursorHighlightColor,
             canvasSize: outputSize
         )

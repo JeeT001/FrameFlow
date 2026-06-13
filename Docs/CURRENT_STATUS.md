@@ -1,15 +1,15 @@
 # FrameFlow — Current Status
 
-**Last updated:** 2026-05-29  
+**Last updated:** 2026-06-12  
 **Version:** v0.1.0
 
 ## Current Phase
 
-**Phase 15 — Testing (Days 39–42)** — Day 41.2 complete + Editor platform preview guides
+**Phase 16 — Bug Fixing (Days 43–45)** — **Phase 16 complete** on `bugFixing` (Day 45 optimizations landed; 10-min Instruments re-profile recommended on device)
 
 ## Currently Working On
 
-- **Day 41 verification** — export/caption checklist; confirm platform guides not in MP4 (Layout Picker + Editor)
+- **Day 45.1** — professional UI redesign (all screens)
 - **Follow-up (deferred):** Persist editor state for Dashboard re-edit; timeline trim/cut/NLE (post-MVP)
 
 ## Completed
@@ -51,17 +51,21 @@
   - **Phase D — Export:** Full-length staged clip; resolution/watermark/captions/SRT via export sheet
 - **Removed from Day 40.1 MVP (deferred post-MVP):** Timeline strip, in/out trim, razor cuts, middle delete, import lanes, NLE toolbar — experimental code may remain unlinked
 - **Blueprint Day 41.2a:** YouTube Shorts preview guide — `YouTubeShortsLayoutMetrics` + `YouTubeShortsGuideOverlayView`
+- **Leading A/V gap fix (`bugFixing`):** `RecordingEngine` aligns A/V at PTS 0 for new recordings; `RecordingMediaTiming` + export trim for legacy; editor preview content timeline; captions unchanged
 - **Blueprint Day 41.2b:** Instagram Reels + TikTok preview guides — Layout Picker menu picker; preview-only, not in export
 - **Editor platform preview (41.2 extension):** Same guides on post-record `EditorView` for 9:16 — decorative overlay only; `CaptionLayoutMath` aligns preview with export burn-in
 - **Caption generation perf fix:** Editor transcribe-only pipeline (no burn-in at generation); monotonic progress; cancellation-safe state; deferred player load during Whisper
+- **Blueprint Day 42:** Restore Purchase + Stripe-friendly payment errors; dark mode shell audit (18 screens); window-close + camera-disconnect placeholders; disk-full export message; Stripe Web Billing dashboard checklist in DEV_LOG
+- **Day 43 (`bugFixing`):** Smoke matrix pass (build + unit tests + code review); fixed RecordingView disappear race during Stop→Editor finalize; guarded editor player setup after teardown
+- **Day 44 (`bugFixing`):** UI polish — duplicate Layout Picker preview header, export sheet scroll, Help FAQ copy, dashboard delete alert, save-folder re-auth hints on export surfaces, semantic color tokens in editor chrome, Window Picker Next help, UI test launch smoke
+- **Day 45 (`bugFixing`):** Recording perf — `WindowFrameBuffer` (no MainActor per SCK frame), `recordingCaptureFrameRate` 30 fps during record, cursor visibility throttle, click-overlay skip when idle, shared `RenderingCIContext`, Layout Picker preview 20 Hz
 
 ## Next Task
 
-1. **Day 41 verification** — caption/export checklist; confirm guides not in MP4
-2. **Day 42** — subscription + dark mode + edge cases
-3. **Days 43–45** — bug fixes + performance
-4. **Day 45.1** — professional UI redesign (all screens)
-5. **Deferred:** Dashboard re-edit; timeline trim/cut/NLE (post-MVP)
+1. **Day 45.1** — professional UI redesign (all screens)
+2. **Optional:** 10-min Instruments re-profile on M1/M2 Air to confirm &lt;65% CPU / &lt;50 MB memory growth (see DEV_LOG Day 45 run table)
+3. **Day 54 / launch** — RC Production + Stripe production + webhook deploy
+4. **Deferred:** Dashboard re-edit; timeline trim/cut/NLE (post-MVP)
 
 ## Important Decisions
 

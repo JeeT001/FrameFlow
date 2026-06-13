@@ -96,6 +96,10 @@ final class CaptionRenderer: @unchecked Sendable {
         let parentLayer = CALayer()
         parentLayer.frame = CGRect(origin: .zero, size: renderSize)
         parentLayer.isGeometryFlipped = true
+        let videoSeconds = CMTimeGetSeconds(duration)
+        if videoSeconds.isFinite, videoSeconds > 0 {
+            parentLayer.duration = videoSeconds
+        }
 
         let videoLayer = CALayer()
         videoLayer.frame = parentLayer.bounds
@@ -146,6 +150,34 @@ final class CaptionRenderer: @unchecked Sendable {
 
     // MARK: - Layer building
 
+    /// Core Animation replaces `beginTime == 0` with `CACurrentMediaTime()` during offline export.
+    private func timelineTime(_ seconds: Double) -> CFTimeInterval {
+        AVCoreAnimationBeginTimeAtZero + max(0, seconds)
+    }
+
+    /// Pins each caption layer to its segment window on the video timeline (required for long exports).
+    private func configureTimedLayer(
+        _ layer: CALayer,
+        startTime: Double,
+        duration: Double,
+        visibleOpacity: Float = 1
+    ) {
+        let segmentDuration = max(0.05, duration)
+        let begin = timelineTime(startTime)
+        layer.beginTime = begin
+        layer.duration = segmentDuration
+        layer.opacity = 0
+
+        let animation = CAKeyframeAnimation(keyPath: "opacity")
+        animation.beginTime = begin
+        animation.duration = segmentDuration
+        animation.values = [0, visibleOpacity, visibleOpacity, 0]
+        animation.keyTimes = [0, 0.01, 0.99, 1]
+        animation.fillMode = .both
+        animation.isRemovedOnCompletion = false
+        layer.add(animation, forKey: "captionOpacity")
+    }
+
     private func resolvedStyle(_ style: CaptionStyleConfig) -> CaptionStyleConfig {
         switch style.preset {
         case .custom:
@@ -171,8 +203,11 @@ final class CaptionRenderer: @unchecked Sendable {
                 addHighlightedWordLayers(for: segment, style: style, renderSize: renderSize, parent: parentLayer)
             default:
                 let layer = makeTextLayer(text: segment.text, style: style, renderSize: renderSize)
-                layer.beginTime = segment.startTime
-                layer.duration = max(0.05, segment.endTime - segment.startTime)
+                configureTimedLayer(
+                    layer,
+                    startTime: segment.startTime,
+                    duration: segment.endTime - segment.startTime
+                )
                 parentLayer.addSublayer(layer)
             }
         }
@@ -191,16 +226,15 @@ final class CaptionRenderer: @unchecked Sendable {
         let wordDuration = totalDuration / Double(words.count)
 
         for (index, word) in words.enumerated() {
+            let wordStart = segment.startTime + Double(index) * wordDuration
+
             let dimLayer = makeTextLayer(text: segment.text, style: style, renderSize: renderSize)
-            dimLayer.opacity = 0.45
-            dimLayer.beginTime = segment.startTime + Double(index) * wordDuration
-            dimLayer.duration = wordDuration
+            configureTimedLayer(dimLayer, startTime: wordStart, duration: wordDuration, visibleOpacity: 0.45)
             parent.addSublayer(dimLayer)
 
             let highlightLayer = makeTextLayer(text: word, style: style, renderSize: renderSize)
             highlightLayer.foregroundColor = NSColor.systemYellow.cgColor
-            highlightLayer.beginTime = segment.startTime + Double(index) * wordDuration
-            highlightLayer.duration = wordDuration
+            configureTimedLayer(highlightLayer, startTime: wordStart, duration: wordDuration)
             parent.addSublayer(highlightLayer)
         }
     }
@@ -218,9 +252,9 @@ final class CaptionRenderer: @unchecked Sendable {
         let wordDuration = totalDuration / Double(words.count)
 
         for (index, word) in words.enumerated() {
+            let wordStart = segment.startTime + Double(index) * wordDuration
             let layer = makeTextLayer(text: word.uppercased(), style: style, renderSize: renderSize)
-            layer.beginTime = segment.startTime + Double(index) * wordDuration
-            layer.duration = wordDuration
+            configureTimedLayer(layer, startTime: wordStart, duration: wordDuration)
             parent.addSublayer(layer)
         }
     }

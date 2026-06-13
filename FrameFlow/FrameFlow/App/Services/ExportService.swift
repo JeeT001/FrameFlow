@@ -40,12 +40,15 @@ struct ExportOptions: Sendable {
     let outputFilename: String
     let editTimeline: EditTimelineModel?
     let editorProject: EditorProjectModel?
+    /// Leading gap before first video sample in the source file (legacy recordings).
+    let leadingVideoGapSeconds: Double
 }
 
 enum ExportServiceError: LocalizedError {
     case noVideoTrack
     case exportFailed(String)
     case saveFolderUnavailable
+    case diskFull
 
     var errorDescription: String? {
         switch self {
@@ -55,6 +58,8 @@ enum ExportServiceError: LocalizedError {
             return "Export failed: \(detail)"
         case .saveFolderUnavailable:
             return "Could not access the save folder. Choose a folder in Settings."
+        case .diskFull:
+            return ExportDiskSpaceChecker.diskFullMessage
         }
     }
 }
@@ -123,6 +128,7 @@ final class ExportService: @unchecked Sendable {
                 editorProject: options.editorProject ?? options.editTimeline.map {
                     EditorProjectModel(timeline: $0)
                 }?.preparedForExport(),
+                leadingVideoGapSeconds: options.leadingVideoGapSeconds,
                 progress: progress
             )
 
@@ -144,6 +150,7 @@ final class ExportService: @unchecked Sendable {
         resolution: ExportResolution,
         applyWatermark: Bool,
         editorProject: EditorProjectModel?,
+        leadingVideoGapSeconds: Double,
         progress: @Sendable (Double, String) -> Void
     ) async throws -> URL {
         let asset = AVURLAsset(url: sourceURL)
@@ -155,6 +162,11 @@ final class ExportService: @unchecked Sendable {
         let fullDuration = try await asset.load(.duration)
         let fullSeconds = CMTimeGetSeconds(fullDuration)
 
+        let leadingGap = await RecordingMediaTiming.leadingVideoGapSeconds(
+            asset: asset,
+            metadataLead: leadingVideoGapSeconds > 0.001 ? leadingVideoGapSeconds : nil
+        )
+
         let project = editorProject
         let timeline = project?.timeline
         let keptRanges: [KeptSourceRange]
@@ -162,16 +174,28 @@ final class ExportService: @unchecked Sendable {
 
         let videoExportSeconds: Double
         if let timeline, timeline.requiresStitchExport {
-            keptRanges = timeline.keptSourceRanges.filter { $0.duration > 0.001 }
-            videoExportSeconds = timeline.exportDurationSeconds
+            keptRanges = RecordingMediaTiming.adjustedKeptRanges(
+                timeline.keptSourceRanges.filter { $0.duration > 0.001 },
+                leadingGap: leadingGap,
+                sourceDuration: fullSeconds
+            )
+            videoExportSeconds = keptRanges.reduce(0) { $0 + $1.duration }
             #if DEBUG
             if timeline.hasRemovedRegions {
                 print("[Export] stitch ranges=\(keptRanges.count) videoExport=\(videoExportSeconds)s")
             }
             #endif
         } else {
-            keptRanges = [KeptSourceRange(start: 0, end: fullSeconds)]
-            videoExportSeconds = fullSeconds
+            keptRanges = RecordingMediaTiming.adjustedKeptRanges(
+                [KeptSourceRange(start: 0, end: fullSeconds)],
+                leadingGap: leadingGap,
+                sourceDuration: fullSeconds
+            )
+            videoExportSeconds = keptRanges.first?.duration ?? max(0, fullSeconds - leadingGap)
+        }
+
+        guard !keptRanges.isEmpty else {
+            throw ExportServiceError.exportFailed("No video content after trimming leading gap.")
         }
 
         let masterSeconds = project?.masterTimelineDurationSeconds ?? videoExportSeconds
@@ -299,6 +323,10 @@ final class ExportService: @unchecked Sendable {
         return try await SecurityScopedFileAccess.withSaveFolderAccess(
             fallbackURL: fallbackRecordingsDirectory()
         ) { folderURL in
+            guard ExportDiskSpaceChecker.hasSufficientSpace(at: folderURL) else {
+                throw ExportServiceError.diskFull
+            }
+
             let outputURL = folderURL.appendingPathComponent(outputFilename)
 
             if fileManager.fileExists(atPath: outputURL.path) {
@@ -319,6 +347,9 @@ final class ExportService: @unchecked Sendable {
             await exportSession.export()
 
             if let error = exportSession.error {
+                if ExportDiskSpaceChecker.isDiskFullError(error) {
+                    throw ExportServiceError.diskFull
+                }
                 throw ExportServiceError.exportFailed(error.localizedDescription)
             }
             guard exportSession.status == .completed else {

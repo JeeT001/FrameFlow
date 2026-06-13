@@ -19,14 +19,14 @@ struct EditorClipInfoSection: View {
 
                     Text(recording.formattedDate)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
 
                 Spacer(minLength: 8)
 
                 Text(recording.resolutionBadge)
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
             }
 
             LazyVGrid(
@@ -57,12 +57,12 @@ struct EditorClipInfoSection: View {
         VStack(alignment: .leading, spacing: 4) {
             Label(title, systemImage: icon)
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .labelStyle(.titleAndIcon)
 
             Text(value)
                 .font(.subheadline.monospacedDigit())
-                .foregroundStyle(.primary)
+                .foregroundStyle(AppColors.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
         }

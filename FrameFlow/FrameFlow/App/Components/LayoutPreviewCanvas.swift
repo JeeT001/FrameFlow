@@ -17,11 +17,7 @@ struct LayoutPreviewCanvas: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Preview")
-                .font(.headline)
-
-            GeometryReader { geometry in
+        GeometryReader { geometry in
                 let canvasSize = fittedCanvasSize(in: geometry.size)
 
                 ZStack {
@@ -44,7 +40,6 @@ struct LayoutPreviewCanvas: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
         }
     }
 

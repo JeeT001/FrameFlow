@@ -13,6 +13,7 @@ import Foundation
 final class CameraCapture {
     private(set) var latestFrame: CIImage?
     private(set) var isRunning = false
+    private(set) var isUnavailable = false
     private(set) var statusMessage: String?
 
     private let session = AVCaptureSession()
@@ -25,6 +26,12 @@ final class CameraCapture {
     private var outputDelegate: CameraVideoOutputDelegate?
     /// Serializes start/stop so rapid PiP toggles cannot overlap session mutations.
     private var sessionOperation: Task<Void, Never>?
+    private var disconnectObserver: NSObjectProtocol?
+
+    var frameForComposite: CIImage? {
+        guard isRunning, !isUnavailable else { return nil }
+        return latestFrame
+    }
 
     func start(preferredCameraID: String?) async {
         await enqueueSessionOperation { [self] in
@@ -51,6 +58,7 @@ final class CameraCapture {
             let delegate = CameraVideoOutputDelegate { [weak self] image in
                 Task { @MainActor [weak self] in
                     self?.latestFrame = image
+                    self?.isUnavailable = false
                 }
             }
 
@@ -106,11 +114,14 @@ final class CameraCapture {
                 outputDelegate = delegate
                 currentInput = input
                 isRunning = true
+                isUnavailable = false
                 statusMessage = nil
+                observeDisconnect(for: input.device)
             case .configurationFailed(let message):
                 outputDelegate = nil
                 currentInput = nil
                 isRunning = false
+                isUnavailable = true
                 statusMessage = message
             }
         }
@@ -152,10 +163,39 @@ final class CameraCapture {
             }
         }
 
+        removeDisconnectObserver()
         outputDelegate = nil
         currentInput = nil
         latestFrame = nil
         isRunning = false
+        isUnavailable = false
+    }
+
+    private func observeDisconnect(for device: AVCaptureDevice) {
+        removeDisconnectObserver()
+        disconnectObserver = NotificationCenter.default.addObserver(
+            forName: AVCaptureDevice.wasDisconnectedNotification,
+            object: device,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleDeviceDisconnected()
+            }
+        }
+    }
+
+    private func removeDisconnectObserver() {
+        if let disconnectObserver {
+            NotificationCenter.default.removeObserver(disconnectObserver)
+        }
+        disconnectObserver = nil
+    }
+
+    private func handleDeviceDisconnected() {
+        isUnavailable = true
+        latestFrame = nil
+        isRunning = false
+        statusMessage = "Camera disconnected. Recording continues with a PiP placeholder."
     }
 
     private func preferredDevice(for cameraID: String?) -> AVCaptureDevice? {

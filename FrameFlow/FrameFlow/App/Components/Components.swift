@@ -46,6 +46,7 @@ struct ScreenPlaceholder: View {
             .frame(maxWidth: .infinity)
             .padding(32)
         }
+        .background(AppColors.background)
         .navigationTitle(route.title)
     }
 }

@@ -15,7 +15,18 @@ struct EditorExportSheet: View {
     let onExport: () -> Void
     let onShowProGate: (String, String) -> Void
 
+    private var saveFolderNeedsReauthorization: Bool {
+        SettingsStore.shared.defaultSaveFolderBookmarkData == nil
+    }
+
     var body: some View {
+        ScrollView {
+            exportSheetContent
+        }
+        .frame(minWidth: 420, minHeight: 480)
+    }
+
+    private var exportSheetContent: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("Export recording")
                 .font(.title2.weight(.semibold))
@@ -51,6 +62,12 @@ struct EditorExportSheet: View {
                 Label("Free exports include a FrameFlow watermark", systemImage: "info.circle")
                     .font(.caption)
                     .foregroundStyle(AppColors.textSecondary)
+            }
+
+            if saveFolderNeedsReauthorization {
+                Text("Choose… your save folder again in Settings → Recording & Export before exporting to Desktop or other protected locations.")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.proGold)
             }
 
             if let exportError = exportVM.exportError {
@@ -90,7 +107,6 @@ struct EditorExportSheet: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 420, minHeight: 480)
     }
 
     private var whatsIncludedSection: some View {

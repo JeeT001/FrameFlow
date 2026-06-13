@@ -47,7 +47,7 @@ struct OnboardingView: View {
                 .padding(.top, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(AppColors.background)
     }
 
     private func pageContent(_ page: OnboardingPage) -> some View {

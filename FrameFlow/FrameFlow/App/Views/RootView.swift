@@ -29,6 +29,7 @@ struct RootView: View {
             }
         }
         .frame(minWidth: 900, minHeight: 600)
+        .background(AppColors.background)
         .preferredColorScheme(preferredColorScheme)
         .onChange(of: subscriptionManager.subscriptionStatus) { _, _ in
             subscriptionManager.syncToAppState(appState)

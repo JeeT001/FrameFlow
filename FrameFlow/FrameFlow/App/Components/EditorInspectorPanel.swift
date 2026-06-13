@@ -46,7 +46,7 @@ struct EditorInspectorPanel: View {
     private func inspectorSectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(AppColors.textSecondary)
             .textCase(.uppercase)
             .tracking(1)
     }
@@ -100,7 +100,7 @@ struct EditorInspectorPanel: View {
             inspectorSectionHeader("Export")
             Text("Use Export Video in the toolbar to save your recording. The full clip is exported as captured.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 16)

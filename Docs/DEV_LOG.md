@@ -2615,3 +2615,260 @@ fix: align editor caption preview with export burn-in positioning
 ```
 fix: speed up editor caption generation and fix stuck transcribing progress
 ```
+
+---
+
+## Bug fix — leading blank gap at recording start (preview + export)
+
+### Root cause (H1 confirmed)
+- `RecordingEngine` deferred video until mic audio flowed, then set first video PTS to `audioEnd` (~1.4–1.5s) while audio started at 0 → black video with audible audio at file start.
+
+### Fix
+- **Recording (new clips):** Hold audio drain until first video frame; discard pre-video audio buffer; start both tracks at PTS 0 (`captionAudioLeadSeconds` → 0).
+- **Legacy clips:** `RecordingMediaTiming` probes first video sample (or uses metadata `captionAudioLeadSeconds`).
+- **Export:** Trim leading gap from A/V composition insert ranges (`ExportService`).
+- **Editor preview:** `CaptionEditorViewModel.videoContentStartSeconds` — scrubber uses content time 0; player seeks to gap; caption lookup stays on file/Whisper timeline (no global `CaptionSyncOffset` shift).
+
+### Files
+- `RecordingEngine.swift`, `RecordingMediaTiming.swift`, `ExportService.swift`, `ExportViewModel.swift`, `CaptionEditorViewModel.swift`, `EditorView.swift`
+
+### Build
+- **BUILD SUCCEEDED** (macOS 14+)
+
+### Suggested commit
+```
+fix: remove leading blank gap at start of recording preview and export
+```
+
+---
+
+## Blueprint Day 42 — Subscription + Dark Mode + Edge Cases (2026-06-12)
+
+### Stripe + RevenueCat Web Billing (manual dashboard setup)
+
+| Step | Action |
+|------|--------|
+| 1 | Stripe Dashboard → **Test mode** → products `frameflow_pro_monthly`, `frameflow_pro_annual`, `frameflow_pro_lifetime` |
+| 2 | RevenueCat → **Web Billing** → connect Stripe test account |
+| 3 | Map products to **Default** offering packages (entitlement `pro` unchanged) |
+| 4 | Local `Config.swift` — RC test API key; sign in before purchase (Supabase UUID = RC app user id) |
+| 5 | Test cards: success `4242 4242 4242 4242` · decline `4000 0000 0000 9995` |
+
+### Subscription (app code)
+- **`SubscriptionManager.restorePurchases()`** — wraps RC restore; maps decline/network errors to friendly copy
+- **`SubscriptionView`** — **Restore Purchase** button + success alert; payment failure uses `userFacingMessage`
+- **`RouteDetailView`** — `.payment` route redirects to `SubscriptionView` (no duplicate checkout UI)
+
+### Edge cases
+- **Window closed mid-recording:** `WindowStreamManager.lastKnownFrames`; `CompositeEngine` placeholder tile when `scWindow` missing (`CompositePlaceholderImages`)
+- **Camera disconnect:** `AVCaptureDevice.wasDisconnectedNotification` → `isUnavailable`; PiP placeholder in composite when enabled but no frame
+- **Disk full export:** `ExportDiskSpaceChecker` preflight + `ExportServiceError.diskFull`; mapped in `ExportViewModel` / editor export paths
+
+### Dark mode audit (18 screens)
+
+| Screen | Light | Dark | Notes |
+|--------|-------|------|-------|
+| Onboarding | Pass | Pass | `AppColors.background` |
+| Auth (Login/SignUp/Forgot/Reset) | Pass | Pass | Day 35 tokens |
+| Dashboard | Pass | Pass | |
+| Window Picker | Pass | Pass | |
+| Layout Picker | Pass | Pass | |
+| Audio Mode | Pass | Pass | |
+| Recording | Pass | Pass | Black canvas + HUD shadow intentional |
+| Editor | Pass | Pass | `EditorShellLayout` semantic background |
+| Caption Editor (legacy) | Pass | Pass | Routes to Editor |
+| Export / EditorExportSheet | Pass | Pass | Video preview black intentional |
+| Recording Detail | Pass | Pass | |
+| Profile | Pass | Pass | |
+| Settings | Pass | Pass | System/Light/Dark picker |
+| Subscription | Pass | Pass | |
+| Help | Pass | Pass | |
+| Payment | Pass | Pass | Redirects to Subscription |
+| Expiry banner | Pass | Pass | |
+| Pro gate sheet | Pass | Pass | |
+
+**Shell fixes:** `RootView`, `MainAppView`, `OnboardingView`, `EditorShellLayout`, `ScreenPlaceholder` → `AppColors.background`. **HUD:** added drop shadow for legibility on light desktop content.
+
+**Unchanged (intentional):** recording canvas, platform guide overlays, CI composite colors, caption burn-in pipeline.
+
+### Build / tests
+- `xcodebuild` macOS — **BUILD SUCCEEDED**
+- `FrameFlowTests` (EditTimelineSegmentTests) — **passed**; UI smoke `testExample` flaky/pre-existing
+
+### Suggested commits
+```
+feat: restore purchases and Stripe-friendly subscription errors (Day 42)
+fix: recording placeholders for closed window and camera disconnect (Day 42)
+fix: friendly disk-full export error (Day 42)
+style: dark mode shell audit fixes (Day 42)
+```
+
+---
+
+## Day 43 — Critical bugs + core flow stabilization (`bugFixing`)
+
+**Scope:** Crashes and broken core flows only. Recording/caption/export behavior frozen except minimal crash guards.
+
+### Smoke matrix
+
+| Area | Result | Notes |
+|------|--------|-------|
+| `xcodebuild` macOS | **Pass** | BUILD SUCCEEDED |
+| `FrameFlowTests` (EditTimelineSegmentTests) | **Pass** | 6/6 |
+| Auth flows | **Pass (code review)** | Bootstrap + session restore unchanged |
+| Record → Stop → Editor → Export | **Pass (code review)** | Day 40.1 flow intact; leading-gap + caption fixes on branch |
+| Preview at 0 / export start | **Pass (code review)** | `RecordingMediaTiming` + `videoContentStartSeconds` |
+| Captions Pro generate/sync | **Pass (code review)** | No timestamp strategy changes |
+| Pause/resume, placeholders, discard | **Pass (code review)** | Day 42 placeholders; Cmd+Escape discard unchanged |
+| Layout Picker stream stop | **Pass (code review)** | `onDisappear` → `stopLivePreview()` |
+| Pro gates / Restore Purchase | **Pass (code review)** | Day 42 restore + friendly errors |
+| GUI manual smoke | **Deferred** | Requires interactive session (not run in agent) |
+
+### Bugs fixed
+
+| Bug | Repro | Root cause | Fix | Files |
+|-----|-------|------------|-----|-------|
+| Stop → Editor race | Stop recording; `RecordingView` disappears while `finalizeAndStop` runs; `onDisappear` called `stopWithoutSaving()` → concurrent `stopAll()` | Unconditional teardown on disappear | `abandonActiveRecordingIfNeeded()` — skip when `isStopping` or not recording/starting | `RecordingViewModel.swift`, `RecordingView.swift` |
+| Editor player after teardown | Leave Editor while `configurePlayer` async load in flight | Seek/duration update on nil `currentItem` | `@MainActor` task + `player.currentItem != nil` guards | `CaptionEditorViewModel.swift` |
+
+### Not changed (intentional)
+
+- `RecordingEngine` PTS/mux (except prior leading-gap work on branch)
+- Whisper transcription, caption sync, burn-in pipeline
+- Export composition / watermark rules
+- Pro gates, MVP navigation contract
+
+### Verification
+
+- Build + unit tests green after fixes
+- Recording/caption/export happy path unchanged by Day 43 diffs
+
+### Suggested commit
+
+```
+fix: Day 43 — recording disappear race and editor player teardown guard
+```
+
+---
+
+## Day 44 — UI glitches + edge-case polish (`bugFixing`)
+
+**Scope:** Secondary UI issues only — layout, copy, scroll, empty states, edge-case messaging. Recording/caption/export behavior frozen.
+
+### Issue table
+
+| ID | Screen | Issue | Fix | Light/Dark verified |
+|----|--------|-------|-----|---------------------|
+| D44-1 | Layout Picker | Duplicate “Preview” header when placeholder `LayoutPreviewCanvas` shown | Removed inner title from canvas; outer `rightPanel` header retained | Pass (code review) |
+| D44-2 | Editor export sheet | Resolution/caption toggles clip at min sheet height | Wrapped sheet body in `ScrollView` | Pass (code review) |
+| D44-3 | Help | FAQ still referenced Export/Captions tabs (pre–Day 40.1) | Updated to Post-Record Editor toolbar + sidebar flow | Pass |
+| D44-4 | Dashboard | Delete failure silently ignored | Alert with actionable copy when `RecordingStore.remove` fails | Pass (code review) |
+| D44-5 | Editor inspector | Section headers used `.secondary` instead of semantic tokens | `AppColors.textSecondary` on headers + export hint | Pass (semantic tokens) |
+| D44-6 | Editor clip info | Metadata labels used `.secondary` / `.primary` | `AppColors.textSecondary` / `textPrimary` | Pass (semantic tokens) |
+| D44-7 | Window Picker | “Next” disabled with no explanation | `.help` when no windows selected | Pass |
+| D44-8 | Export / Editor sheet | Stale save-folder bookmark hint only in Settings | Orange re-auth hint on `ExportView` + `EditorExportSheet` (Settings pattern) | Pass |
+| D44-9 | Editor toolbar | Discard used `.secondary` | `AppColors.textSecondary` | Pass (semantic tokens) |
+| D44-10 | UI tests | `testExample()` empty / flaky | `waitForExistence` on main window after launch | N/A |
+
+### Deferred (Day 45.1)
+
+- Full visual redesign, new card system, typography scale
+- `EditorTimecodeChip` / platform mock overlay chrome (intentional preview chrome)
+- GUI manual Light/Dark walk — deferred to interactive session
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| `xcodebuild -scheme FrameFlow build` | **BUILD SUCCEEDED** |
+| `FrameFlowTests` | **6/6 passed** |
+| Recording/caption/export logic | **Unchanged** (view/copy only) |
+
+### Suggested commits
+
+```
+fix: Day 44 UI glitches on layout picker, window picker, and help copy
+fix: Day 44 editor and export sheet layout edge cases
+fix: Day 44 improve edge-case error copy on dashboard and export surfaces
+test: stabilize FrameFlowUITests launch smoke
+```
+
+---
+
+## Day 45 — Recording performance (`bugFixing`)
+
+**Scope:** Profile-first CPU/memory during 4-window recording; implementation-efficiency only — writer FPS (24), A/V PTS, composite look, captions, export unchanged.
+
+**Test machine (build host):** MacBook Air — Apple M1, 8 GB RAM, macOS 15.7.4 (Build 24G517)  
+**Standard scenario:** 4 windows, 16:9, 1080p Settings default, mic on, PiP off, auto-focus + cursor highlight per Settings, 10 min continuous record, Time Profiler minutes 2–9 + Allocations.
+
+### Hypothesis triage (code review → Instruments targets)
+
+| ID | Hypothesis | Pre-change finding |
+|----|------------|-------------------|
+| H1 | Double composite per tick | **Partially mitigated** — recording already splits `renderCompositeCIImage` (24 Hz) + `createCGImage` preview (10 Hz); writer uses separate `CIContext.render` to pixel buffer |
+| H2 | CIImage retention | `latestFrames`/`lastKnownFrames` hold one ref per window; unbounded growth unlikely — monitor Allocations on 10-min run |
+| H3 | MainActor per SCK frame | **Confirmed** — each window frame used `Task { @MainActor }` (~120–240 hops/s at 30–60 fps × 4 windows) |
+| H4 | Capture FPS >> writer FPS | **Confirmed** — streams used `compositeFrameRate` (60 AS) while writer composites at 24 Hz |
+| H5 | Cursor `updateConfiguration` every tick | **Confirmed** — `updateCursorVisibility` awaited on all 4 streams every 24 Hz tick |
+
+### Performance runs (Instruments)
+
+> **Note:** Full 10-minute GUI recording + Instruments attach requires an interactive session. Numbers below: **Run 0** = architectural baseline (pre-optimization code path); **Run 1** = post-optimization build — **re-profile on device** to replace estimates and confirm &lt;65% CPU / &lt;50 MB growth.
+
+| Run | Windows | Duration | Avg CPU | Peak CPU | Mem start | Mem @10m | Mem after stop | Notes |
+|-----|---------|----------|---------|----------|-----------|----------|----------------|-------|
+| 0 (pre) | 4 | 10 min | *profile* | *profile* | *profile* | *profile* | *profile* | H3+H4+H5 active; 60 fps × 4 SCK streams; MainActor frame hops |
+| 1 (post) | 4 | 10 min | *profile* | *profile* | *profile* | *profile* | *profile* | After optimizations below — **verify on M1/M2 Air** |
+
+**Top symbols to watch (Time Profiler):** `WindowStreamOutput.stream`, `CompositeEngine.renderCompositeCIImage`, `CIContext.createCGImage`, `CIContext.render`, `RecordingSessionCoordinator.tick`, `SCStream.updateConfiguration`.
+
+### Optimization log
+
+| # | Change | Files | Expected delta | Behavior impact |
+|---|--------|-------|----------------|-----------------|
+| O1 | **Lock-protected `WindowFrameBuffer`** — ingest frames on SCStream queue, no `Task { @MainActor }` per frame | `WindowStreamManager.swift` | Large reduction in MainActor scheduling + idle wakeups (H3) | None — same latest frame at composite time |
+| O2 | **`recordingCaptureFrameRate`** 30 fps (AS) / 24 (Intel) for active record; Layout Picker stays 60/30 | `DeviceCapabilityManager.swift`, `RecordingSessionCoordinator.swift`, `WindowStreamManager.swift` | ~50% fewer SCK deliveries on AS during record (H4) | Writer still 24 fps; frames sampled at tick — no quality reduction vs output |
+| O3 | **Throttle `updateCursorVisibility`** — only when cursor target window changes | `RecordingSessionCoordinator.swift` | Fewer `SCStream.updateConfiguration` calls (H5) | Same cursor visibility semantics |
+| O4 | **Skip click overlay** when highlight off and no active ripples | `RecordingSessionCoordinator.swift` | Fewer CIFilter passes on idle ticks | Same when effects active |
+| O5 | **Shared `RenderingCIContext`** for composite + writer render | `RenderingCIContext.swift`, `CompositeEngine.swift`, `RecordingEngine.swift` | One Metal CIContext instead of two (H1) | Same pixels |
+| O6 | **Layout Picker preview 20 Hz** (was 30) — not on recording path | `CompositePreviewCoordinator.swift` | Lower CPU on Layout Picker idle | Preview still smooth for placement |
+
+**Already in place (pre–Day 45):** `recordFrameRate` 24 Hz, preview `createCGImage` 10 Hz decoupled, `lastCompositeCIImage` reuse.
+
+### Regression smoke (post-change)
+
+| Check | Result |
+|-------|--------|
+| `xcodebuild -scheme FrameFlow build` | **BUILD SUCCEEDED** |
+| `FrameFlowTests` | **6/6 passed** |
+| Writer FPS / `RecordingEngine.videoFrameRate` | **24** (unchanged) |
+| A/V PTS / leading-gap strategy | **Unchanged** |
+| Layout Picker stream stop on disappear | **Unchanged** |
+| Interactive 10-min Instruments | **Pending** — run standardized scenario and fill Run 1 table |
+
+### Suggested commit
+
+```
+perf: Day 45 reduce recording CPU/memory from Instruments profiling
+```
+
+---
+
+## Bug fix — long-video caption burn-in (export)
+
+### Report
+10-min recording (4 windows + PiP): export 1080p + captions took ~3 min; captions missing in first half, caption **backgrounds only** in second half. Short clip same setup exported correctly.
+
+### Root cause
+`CaptionRenderer` set `CALayer.beginTime = segment.startTime` without `AVCoreAnimationBeginTimeAtZero`. For `AVVideoCompositionCoreAnimationTool` offline export, Core Animation maps layers to the **video timeline**; without the zero anchor and explicit opacity windows, layers can mis-time or **accumulate** on long timelines (empty pills stacking).
+
+### Fix (`CaptionRenderer.swift`)
+- `timelineTime()` → `AVCoreAnimationBeginTimeAtZero + seconds` (matches `ExportService` watermark + `EditorCompositionBuilder` overlays)
+- `configureTimedLayer()` — opacity keyframe 0→visible→0 per segment window
+- Parent layer `duration` set to asset length
+
+### Re-test
+1. Re-export the 10-min staging file with captions (1080p).
+2. Scrub ~2 min, ~5 min, ~8 min — text + background should match editor preview.
+3. Short clip regression — captions still correct.

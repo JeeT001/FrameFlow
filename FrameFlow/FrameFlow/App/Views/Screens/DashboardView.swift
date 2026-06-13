@@ -11,6 +11,7 @@ struct DashboardView: View {
     @Environment(SubscriptionManager.self) private var subscriptionManager
     @Environment(SettingsStore.self) private var settingsStore
     @State private var recordingStore = RecordingStore.shared
+    @State private var deleteErrorMessage: String?
 
     private let gridColumns = [
         GridItem(.adaptive(minimum: 220, maximum: 280), spacing: 16)
@@ -45,6 +46,14 @@ struct DashboardView: View {
             .padding(24)
         }
         .navigationTitle("Home")
+        .alert("Couldn’t delete recording", isPresented: Binding(
+            get: { deleteErrorMessage != nil },
+            set: { if !$0 { deleteErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteErrorMessage ?? "Try again or remove the file manually in Finder.")
+        }
         .task {
             await recordingStore.load()
             #if DEBUG
@@ -187,7 +196,7 @@ struct DashboardView: View {
         do {
             try recordingStore.remove(id: recording.id)
         } catch {
-            // Metadata-only store; ignore delete failures for now.
+            deleteErrorMessage = "The recording file may have been moved or deleted. Try again, or remove it from your save folder in Finder."
         }
     }
 }

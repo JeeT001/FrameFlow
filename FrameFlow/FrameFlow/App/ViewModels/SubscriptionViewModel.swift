@@ -30,8 +30,10 @@ final class SubscriptionViewModel {
     private let subscriptionManager = SubscriptionManager.shared
 
     var isPurchasing = false
+    var isRestoring = false
     var errorMessage: String?
     var showErrorAlert = false
+    var showRestoreSuccessAlert = false
 
     var isConfigured: Bool { subscriptionManager.isConfigured }
     var isLoadingOfferings: Bool { subscriptionManager.isFetchingOfferings }
@@ -71,7 +73,24 @@ final class SubscriptionViewModel {
         } catch SubscriptionManagerError.userCancelled {
             return
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = SubscriptionManager.userFacingMessage(for: error)
+            showErrorAlert = true
+        }
+    }
+
+    func restorePurchases(appState: AppState) async {
+        isRestoring = true
+        defer { isRestoring = false }
+
+        do {
+            try await subscriptionManager.restorePurchases()
+            await subscriptionManager.fetchStatus()
+            subscriptionManager.syncToAppState(appState)
+            showRestoreSuccessAlert = true
+        } catch SubscriptionManagerError.userCancelled {
+            return
+        } catch {
+            errorMessage = SubscriptionManager.userFacingMessage(for: error)
             showErrorAlert = true
         }
     }

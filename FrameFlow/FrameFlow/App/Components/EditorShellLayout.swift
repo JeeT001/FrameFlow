@@ -30,6 +30,6 @@ struct EditorShellLayout<Preview: View, Sidebar: View>: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(AppColors.background)
     }
 }

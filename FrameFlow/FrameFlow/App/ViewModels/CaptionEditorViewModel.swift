@@ -23,6 +23,8 @@ final class CaptionEditorViewModel {
     var exportFormat: CaptionExportFormat = .both
     var currentPlaybackTime: Double = 0
     var videoDuration: Double = 1
+    /// File-time offset where visible video begins (legacy A/V lead gap).
+    private(set) var videoContentStartSeconds: Double = 0
     var selectedSegmentID: UUID?
     var isExporting = false
     var exportProgress: Double = 0
@@ -70,9 +72,11 @@ final class CaptionEditorViewModel {
     }
 
     private func activeSegmentContext() -> (segment: CaptionSegment, lookupTime: Double)? {
+        let fileTime = currentPlaybackTime + videoContentStartSeconds
+
         if let timeline = editTimeline, !timeline.isFullSourceExport {
             guard let exportTime = CaptionTimelineMapper.exportTime(
-                fromSourceTime: currentPlaybackTime,
+                fromSourceTime: fileTime,
                 editTimeline: timeline
             ) else {
                 return nil
@@ -90,11 +94,11 @@ final class CaptionEditorViewModel {
         }
 
         guard let segment = segments.first(where: {
-            currentPlaybackTime >= $0.startTime && currentPlaybackTime <= $0.endTime
+            fileTime >= $0.startTime && fileTime <= $0.endTime
         }) else {
             return nil
         }
-        return (segment, currentPlaybackTime)
+        return (segment, fileTime)
     }
 
     func applyEditTimeline(_ timeline: EditTimelineModel) {
@@ -110,6 +114,9 @@ final class CaptionEditorViewModel {
         recordingURL = state.videoURL
         recordingID = state.recordingID
         recordingMetadata = state.recordingMetadata
+        if let lead = state.recordingMetadata?.captionAudioLeadSeconds, lead > 0.001 {
+            videoContentStartSeconds = lead
+        }
 
         if !state.segments.isEmpty {
             segments = state.segments
@@ -132,6 +139,7 @@ final class CaptionEditorViewModel {
         recordingURL = url
         recordingID = recording.id
         recordingMetadata = recording
+        videoContentStartSeconds = max(0, recording.captionAudioLeadSeconds)
         selectedStyle = CaptionEngine.shared.loadStyle(for: url, recordingID: recording.id)
 
         if !deferPlayerLoad, player.currentItem == nil {
@@ -153,7 +161,7 @@ final class CaptionEditorViewModel {
             } catch SecurityScopedFileAccess.AccessError.denied {
                 exportError = SecurityScopedFileAccess.accessDeniedMessage
             } catch {
-                exportError = error.localizedDescription
+                exportError = ExportDiskSpaceChecker.userFacingExportError(error)
             }
         }
     }
@@ -188,9 +196,9 @@ final class CaptionEditorViewModel {
             newEnd = min(newEnd, range.upperBound)
         }
 
-        let maxDuration = max(videoDuration, 0.1)
-        newStart = max(0, min(newStart, maxDuration - 0.1))
-        newEnd = max(newStart + 0.1, min(newEnd, maxDuration))
+        let maxFileDuration = max(videoDuration + videoContentStartSeconds, 0.1)
+        newStart = max(videoContentStartSeconds, min(newStart, maxFileDuration - 0.1))
+        newEnd = max(newStart + 0.1, min(newEnd, maxFileDuration))
 
         guard newEnd - newStart >= 0.1 else { return }
 
@@ -208,24 +216,33 @@ final class CaptionEditorViewModel {
 
     func selectSegment(_ segment: CaptionSegment) {
         selectedSegmentID = segment.id
-        seek(to: segment.startTime)
+        seek(to: max(0, segment.startTime - videoContentStartSeconds))
     }
 
     func seek(to time: Double) {
         var clamped = max(0, min(time, max(videoDuration, 0.1)))
         if let timeline = editTimeline {
-            clamped = CaptionTimelineMapper.snapToKeptSourceTime(clamped, editTimeline: timeline)
+            clamped = CaptionTimelineMapper.snapToKeptSourceTime(
+                clamped + videoContentStartSeconds,
+                editTimeline: timeline
+            ) - videoContentStartSeconds
+            clamped = max(0, clamped)
         } else if let range = playbackRange {
-            clamped = min(max(clamped, range.lowerBound), range.upperBound)
+            let fileLower = range.lowerBound
+            let fileUpper = range.upperBound
+            let contentLower = max(0, fileLower - videoContentStartSeconds)
+            let contentUpper = max(contentLower, fileUpper - videoContentStartSeconds)
+            clamped = min(max(clamped, contentLower), contentUpper)
         }
         currentPlaybackTime = clamped
+        let fileTime = clamped + videoContentStartSeconds
         player.seek(
-            to: CMTime(seconds: clamped, preferredTimescale: 600),
+            to: CMTime(seconds: fileTime, preferredTimescale: 600),
             toleranceBefore: .zero,
             toleranceAfter: .zero
         )
         selectedSegmentID = segments.first {
-            clamped >= $0.startTime && clamped <= $0.endTime
+            fileTime >= $0.startTime && fileTime <= $0.endTime
         }?.id
     }
 
@@ -236,15 +253,17 @@ final class CaptionEditorViewModel {
             if let timeline = editTimeline, !timeline.isFullSourceExport {
                 let firstStart = timeline.keptSourceRanges.first?.start ?? timeline.trimStartSeconds
                 let lastEnd = timeline.keptSourceRanges.last?.end ?? timeline.trimEndSeconds
-                if currentPlaybackTime >= lastEnd - 0.05
-                    || CaptionTimelineMapper.exportTime(fromSourceTime: currentPlaybackTime, editTimeline: timeline) == nil {
-                    seek(to: firstStart)
+                let fileTime = currentPlaybackTime + videoContentStartSeconds
+                if fileTime >= lastEnd - 0.05
+                    || CaptionTimelineMapper.exportTime(fromSourceTime: fileTime, editTimeline: timeline) == nil {
+                    seek(to: max(0, firstStart - videoContentStartSeconds))
                 }
             } else {
-                let rangeEnd = playbackRange?.upperBound ?? videoDuration
-                let rangeStart = playbackRange?.lowerBound ?? 0
-                if currentPlaybackTime >= rangeEnd - 0.05 {
-                    seek(to: rangeStart)
+                let fileTime = currentPlaybackTime + videoContentStartSeconds
+                let rangeEnd = playbackRange?.upperBound ?? (videoDuration + videoContentStartSeconds)
+                let rangeStart = playbackRange?.lowerBound ?? videoContentStartSeconds
+                if fileTime >= rangeEnd - 0.05 {
+                    seek(to: max(0, rangeStart - videoContentStartSeconds))
                 }
             }
             player.play()
@@ -334,7 +353,7 @@ final class CaptionEditorViewModel {
         } catch SecurityScopedFileAccess.AccessError.denied {
             exportError = SecurityScopedFileAccess.accessDeniedMessage
         } catch {
-            exportError = error.localizedDescription
+            exportError = ExportDiskSpaceChecker.userFacingExportError(error)
         }
     }
 
@@ -348,7 +367,7 @@ final class CaptionEditorViewModel {
                 exportError = SecurityScopedFileAccess.accessDeniedMessage
                 return
             } catch {
-                exportError = error.localizedDescription
+                exportError = ExportDiskSpaceChecker.userFacingExportError(error)
                 return
             }
         }
@@ -363,17 +382,38 @@ final class CaptionEditorViewModel {
         player.replaceCurrentItem(with: nil)
         playbackRange = nil
         editTimeline = nil
+        videoContentStartSeconds = 0
     }
 
     private func configurePlayer(url: URL) {
         let item = AVPlayerItem(url: url)
         player.replaceCurrentItem(with: item)
 
-        Task {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             let asset = AVURLAsset(url: url)
             let duration = try? await asset.load(.duration)
-            let seconds = duration.map { CMTimeGetSeconds($0) } ?? 1
-            videoDuration = max(seconds, 0.1)
+            guard player.currentItem != nil else { return }
+
+            let totalSeconds = duration.map { CMTimeGetSeconds($0) } ?? 1
+
+            if videoContentStartSeconds < 0.001 {
+                videoContentStartSeconds = await RecordingMediaTiming.leadingVideoGapSeconds(
+                    asset: asset,
+                    metadataLead: recordingMetadata?.captionAudioLeadSeconds
+                )
+            }
+
+            guard player.currentItem != nil else { return }
+
+            let contentSeconds = max(totalSeconds - videoContentStartSeconds, 0.1)
+            videoDuration = contentSeconds
+            currentPlaybackTime = 0
+            await player.seek(
+                to: CMTime(seconds: videoContentStartSeconds, preferredTimescale: 600),
+                toleranceBefore: .zero,
+                toleranceAfter: .zero
+            )
         }
 
         if let timeObserver {
@@ -384,20 +424,25 @@ final class CaptionEditorViewModel {
         timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             guard let self else { return }
             Task { @MainActor in
-                var seconds = CMTimeGetSeconds(time)
+                var fileSeconds = CMTimeGetSeconds(time)
+                var contentSeconds = max(0, fileSeconds - self.videoContentStartSeconds)
 
                 if let timeline = self.editTimeline, timeline.hasRemovedRegions {
-                    seconds = self.enforceRemovedRegionsPlayback(at: seconds, timeline: timeline)
+                    fileSeconds = self.enforceRemovedRegionsPlayback(at: fileSeconds, timeline: timeline)
+                    contentSeconds = max(0, fileSeconds - self.videoContentStartSeconds)
                 } else if let range = self.playbackRange {
-                    if seconds >= range.upperBound {
+                    let fileLower = range.lowerBound
+                    let fileUpper = range.upperBound
+                    if fileSeconds >= fileUpper {
                         self.player.pause()
-                        seconds = range.upperBound
-                    } else if seconds < range.lowerBound {
-                        seconds = range.lowerBound
+                        fileSeconds = fileUpper
+                    } else if fileSeconds < fileLower {
+                        fileSeconds = fileLower
                     }
+                    contentSeconds = max(0, fileSeconds - self.videoContentStartSeconds)
                 }
 
-                self.currentPlaybackTime = seconds
+                self.currentPlaybackTime = min(contentSeconds, self.videoDuration)
             }
         }
     }

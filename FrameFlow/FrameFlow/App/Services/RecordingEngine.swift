@@ -76,6 +76,10 @@ final class RecordingEngine: @unchecked Sendable {
     private nonisolated(unsafe) var firstVideoAppendAttemptDate: Date?
     private static let videoOnlyFallbackDelay: TimeInterval = 1.0
 
+    /// Audio timeline length when the first video frame was muxed (0 when A/V start together).
+    private nonisolated(unsafe) var audioSecondsAtFirstVideoFrame: Double = 0
+    private nonisolated(unsafe) var didCaptureAudioLeadAtFirstVideo = false
+
     #if DEBUG
     private nonisolated(unsafe) var didLogWaitingForFirstAudio = false
     private nonisolated(unsafe) var audioDropNotReadyCount = 0
@@ -83,13 +87,11 @@ final class RecordingEngine: @unchecked Sendable {
     private nonisolated(unsafe) var audioWriterAppends = 0
     private nonisolated(unsafe) var videoSkipNotReadyCount = 0
     private nonisolated(unsafe) var duplicateFrameCount = 0
-    private nonisolated(unsafe) var audioSecondsAtFirstVideoFrame: Double = 0
-    private nonisolated(unsafe) var didCaptureAudioLeadAtFirstVideo = false
     private nonisolated(unsafe) var maxPendingAudioDepth = 0
     private nonisolated(unsafe) var lastPeriodicLogDate = Date.distantPast
     #endif
 
-    private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+    private var ciContext: CIContext { RenderingCIContext.shared }
     private static let maxPendingAudioBuffers = 256
 
     func start(outputURL: URL, outputSize: CGSize, audioSampleRate: Double = 48_000) throws {
@@ -416,8 +418,15 @@ final class RecordingEngine: @unchecked Sendable {
         updateVideoOnlyFallbackIfNeededOnWriterQueue()
 
         let audioEnd = currentAudioEndPTSOnWriterQueue()
+        let isFirstVideoFrame = !lastVideoPTS.isValid
         let pts: CMTime
-        if CMTimeCompare(audioEnd, .zero) > 0 {
+
+        if isFirstVideoFrame, waitForAudioBeforeVideo, !videoOnlyFallbackActive {
+            pendingAudioBuffers.removeAll()
+            nextAudioSamplePTS = nil
+            lastAudioPTS = .invalid
+            pts = .zero
+        } else if CMTimeCompare(audioEnd, .zero) > 0 {
             pts = videoPresentationTimeOnWriterQueue(audioEnd: audioEnd)
         } else if !waitForAudioBeforeVideo || videoOnlyFallbackActive {
             pts = CMTime(value: videoFrameIndex, timescale: Self.videoFrameRate)
@@ -432,9 +441,7 @@ final class RecordingEngine: @unchecked Sendable {
 
         if !didCaptureAudioLeadAtFirstVideo {
             didCaptureAudioLeadAtFirstVideo = true
-            if CMTimeCompare(audioEnd, .zero) > 0 {
-                audioSecondsAtFirstVideoFrame = CMTimeGetSeconds(audioEnd)
-            }
+            audioSecondsAtFirstVideoFrame = CMTimeGetSeconds(audioEnd)
             #if DEBUG
             print(
                 "[RecordingEngine] caption audio lead at first video frame: " +
@@ -503,6 +510,10 @@ final class RecordingEngine: @unchecked Sendable {
 
     nonisolated private func drainPendingAudioBuffersOnWriterQueue() throws {
         guard let audioInput else { return }
+
+        if waitForAudioBeforeVideo, !videoOnlyFallbackActive, !lastVideoPTS.isValid {
+            return
+        }
 
         while !pendingAudioBuffers.isEmpty {
             guard audioInput.isReadyForMoreMediaData else {

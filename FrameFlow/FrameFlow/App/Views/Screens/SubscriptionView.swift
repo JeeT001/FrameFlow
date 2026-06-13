@@ -29,6 +29,10 @@ struct SubscriptionView: View {
                 } else {
                     planCardsSection
                 }
+
+                if viewModel.isConfigured {
+                    restoreSection
+                }
             }
             .padding(28)
             .frame(maxWidth: 900, alignment: .leading)
@@ -36,10 +40,10 @@ struct SubscriptionView: View {
         }
         .navigationTitle("FrameFlow Pro")
         .overlay {
-            if viewModel.isPurchasing {
+            if viewModel.isPurchasing || viewModel.isRestoring {
                 ZStack {
                     Color.black.opacity(0.25)
-                    ProgressView("Processing purchase…")
+                    ProgressView(viewModel.isRestoring ? "Restoring purchase…" : "Processing purchase…")
                         .padding(24)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
                 }
@@ -53,6 +57,26 @@ struct SubscriptionView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(viewModel.errorMessage ?? "Something went wrong.")
+        }
+        .alert("Purchase restored", isPresented: $viewModel.showRestoreSuccessAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your Pro subscription is active on this device.")
+        }
+    }
+
+    private var restoreSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button("Restore Purchase") {
+                Task {
+                    await viewModel.restorePurchases(appState: appState)
+                }
+            }
+            .disabled(viewModel.isPurchasing || viewModel.isRestoring)
+
+            Text("Already subscribed? Restore to unlock Pro on this Mac after reinstalling.")
+                .font(.caption)
+                .foregroundStyle(AppColors.textSecondary)
         }
     }
 
@@ -203,7 +227,7 @@ struct SubscriptionView: View {
                 .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("See Docs/DEV_LOG.md — Day 32 RevenueCat Test Store setup checklist.")
+            Text("See Docs/DEV_LOG.md — Day 42 Stripe + RevenueCat Web Billing setup checklist.")
                 .font(.caption)
                 .foregroundStyle(AppColors.textSecondary)
         }

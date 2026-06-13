@@ -33,7 +33,7 @@ struct EditorView: View {
                     discardAndLeave()
                 }
                 .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
             }
             ToolbarItem(placement: .principal) {
                 Text(exportVM.recording?.name ?? "Editor")
@@ -139,7 +139,7 @@ struct EditorView: View {
                 captionState: captionState,
                 isPro: appState.isPro,
                 recording: exportVM.recording,
-                sourceDurationSeconds: viewModel.sourceDurationSeconds,
+                sourceDurationSeconds: captionVM.videoDuration,
                 onShowProGate: { feature, description in
                     proGateFeature = feature
                     proGateDescription = description
@@ -196,7 +196,7 @@ struct EditorView: View {
                         get: { captionVM.currentPlaybackTime },
                         set: { viewModel.seekPreview(to: $0) }
                     ),
-                    duration: viewModel.sourceDurationSeconds,
+                    duration: captionVM.videoDuration,
                     previewAspectRatio: aspect,
                     isPreviewPlaying: viewModel.isPreviewPlaying,
                     style: captionVM.selectedStyle,

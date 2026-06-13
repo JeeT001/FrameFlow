@@ -35,7 +35,7 @@ struct RouteDetailView: View {
         case .subscription:
             SubscriptionView()
         case .payment:
-            PaymentView()
+            SubscriptionView()
         case .help:
             HelpView()
         case .onboarding:

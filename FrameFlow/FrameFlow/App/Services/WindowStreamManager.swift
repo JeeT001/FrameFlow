@@ -27,12 +27,48 @@ enum WindowStreamError: LocalizedError {
     }
 }
 
+/// Thread-safe latest window frames — updated on SCStream queues, read on MainActor tick.
+private final class WindowFrameBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var latest: [CGWindowID: CIImage] = [:]
+    private var lastKnown: [CGWindowID: CIImage] = [:]
+
+    func record(windowID: CGWindowID, image: CIImage) {
+        lock.lock()
+        defer { lock.unlock() }
+        latest[windowID] = image
+        lastKnown[windowID] = image
+    }
+
+    func snapshot() -> (latest: [CGWindowID: CIImage], lastKnown: [CGWindowID: CIImage]) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (latest, lastKnown)
+    }
+
+    func clear() {
+        lock.lock()
+        defer { lock.unlock() }
+        latest.removeAll()
+        lastKnown.removeAll()
+    }
+}
+
 @MainActor
 @Observable
 final class WindowStreamManager {
     static let shared = WindowStreamManager()
 
-    private(set) var latestFrames: [CGWindowID: CIImage] = [:]
+    private let frameBuffer = WindowFrameBuffer()
+
+    var latestFrames: [CGWindowID: CIImage] {
+        frameBuffer.snapshot().latest
+    }
+
+    var lastKnownFrames: [CGWindowID: CIImage] {
+        frameBuffer.snapshot().lastKnown
+    }
+
     private(set) var isRunning = false
     private(set) var isSystemAudioRunning = false
     var lastErrorMessage: String?
@@ -44,7 +80,10 @@ final class WindowStreamManager {
 
     private init() {}
 
-    func startAll(windowIDs: Set<CGWindowID>) async throws {
+    func startAll(
+        windowIDs: Set<CGWindowID>,
+        captureFrameRate: Int? = nil
+    ) async throws {
         await stopAll()
 
         guard !windowIDs.isEmpty else { return }
@@ -52,6 +91,9 @@ final class WindowStreamManager {
         guard await WindowCaptureService.shared.checkPermission() else {
             throw WindowStreamError.permissionDenied
         }
+
+        let frameRate = captureFrameRate ?? capabilities.compositeFrameRate
+        let buffer = frameBuffer
 
         do {
             for windowID in windowIDs.sorted() {
@@ -61,11 +103,9 @@ final class WindowStreamManager {
 
                 let session = try await WindowStreamSession.make(
                     window: scWindow,
-                    frameRate: capabilities.compositeFrameRate,
-                    onFrame: { [weak self] id, image in
-                        Task { @MainActor in
-                            self?.latestFrames[id] = image
-                        }
+                    frameRate: frameRate,
+                    onFrame: { id, image in
+                        buffer.record(windowID: id, image: image)
                     }
                 )
                 sessions[windowID] = session
@@ -119,8 +159,12 @@ final class WindowStreamManager {
             await session.stop()
         }
         sessions.removeAll()
-        latestFrames = [:]
+        frameBuffer.clear()
         isRunning = false
+    }
+
+    func isWindowAvailable(_ windowID: CGWindowID) -> Bool {
+        WindowCaptureService.shared.scWindow(for: windowID) != nil
     }
 
     func stopAll() async {

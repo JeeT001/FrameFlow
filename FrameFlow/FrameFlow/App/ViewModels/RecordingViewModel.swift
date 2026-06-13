@@ -142,6 +142,14 @@ final class RecordingViewModel {
         await coordinator.stopAll()
     }
 
+    /// Tear down an in-flight capture without staging (sidebar leave, Cmd+Escape discard).
+    /// Skips when finalize is already running so Stop → Editor does not race `stopAll()`.
+    func abandonActiveRecordingIfNeeded() async {
+        guard !isStopping else { return }
+        guard coordinator.isRecording || coordinator.isStarting else { return }
+        await stopWithoutSaving()
+    }
+
     func togglePauseResume() {
         guard coordinator.isRecording else { return }
         if coordinator.engine.isPaused {

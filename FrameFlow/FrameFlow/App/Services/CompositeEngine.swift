@@ -12,7 +12,7 @@ import ScreenCaptureKit
 final class CompositeEngine {
     static let shared = CompositeEngine()
 
-    private let context = CIContext(options: [.useSoftwareRenderer: false])
+    private var context: CIContext { RenderingCIContext.shared }
     private(set) var latestCompositeImage: CGImage?
     private(set) var latestCompositeCIImage: CIImage?
     private var lastFocusedRect: CGRect?
@@ -53,7 +53,9 @@ final class CompositeEngine {
         cameraFrame: CIImage? = nil,
         pipConfig: PiPConfig? = nil,
         pipEnabled: Bool = false,
-        pipAllowsOverflow: Bool = false
+        pipAllowsOverflow: Bool = false,
+        lastKnownFrames: [CGWindowID: CIImage] = [:],
+        unavailableWindowIDs: Set<CGWindowID> = []
     ) -> CGImage? {
         guard let ciImage = renderCompositeCIImage(
             frames: frames,
@@ -70,7 +72,9 @@ final class CompositeEngine {
             cameraFrame: cameraFrame,
             pipConfig: pipConfig,
             pipEnabled: pipEnabled,
-            pipAllowsOverflow: pipAllowsOverflow
+            pipAllowsOverflow: pipAllowsOverflow,
+            lastKnownFrames: lastKnownFrames,
+            unavailableWindowIDs: unavailableWindowIDs
         ) else {
             latestCompositeImage = nil
             latestCompositeCIImage = nil
@@ -136,10 +140,11 @@ final class CompositeEngine {
         cameraFrame: CIImage? = nil,
         pipConfig: PiPConfig? = nil,
         pipEnabled: Bool = false,
-        pipAllowsOverflow: Bool = false
+        pipAllowsOverflow: Bool = false,
+        lastKnownFrames: [CGWindowID: CIImage] = [:],
+        unavailableWindowIDs: Set<CGWindowID> = []
     ) -> CIImage? {
-        let orderedImages = windowOrder.compactMap { frames[$0] }
-        guard !orderedImages.isEmpty else {
+        guard !windowOrder.isEmpty else {
             latestCompositeCIImage = nil
             return nil
         }
@@ -159,7 +164,7 @@ final class CompositeEngine {
             customPlacements: customPlacements,
             windowAspects: aspects
         )
-        guard placements.count == orderedImages.count else {
+        guard placements.count == windowOrder.count else {
             latestCompositeCIImage = nil
             return nil
         }
@@ -167,10 +172,16 @@ final class CompositeEngine {
         var composite = CIImage(color: CIColor(red: 0.05, green: 0.05, blue: 0.06))
             .cropped(to: canvasRect)
 
-        for index in orderedImages.indices {
+        for index in windowOrder.indices {
             let windowID = windowOrder[index]
-            let image = orderedImages[index]
             let targetRect = placements[index]
+            let image = resolvedWindowImage(
+                windowID: windowID,
+                frames: frames,
+                lastKnownFrames: lastKnownFrames,
+                unavailableWindowIDs: unavailableWindowIDs,
+                targetRect: targetRect
+            )
             let placed: CIImage
             if isFreeForm {
                 let source = normalizedFrame(image)
@@ -215,15 +226,14 @@ final class CompositeEngine {
             clearFocusAnimationState()
         }
 
-        if pipEnabled,
-           let cameraFrame,
-           let pipConfig {
+        if pipEnabled, let pipConfig {
             composite = applyPiPOverlay(
                 to: composite,
                 cameraFrame: cameraFrame,
                 config: pipConfig,
                 canvasRect: canvasRect,
-                allowsOverflow: pipAllowsOverflow || pipConfig.size > 1.0
+                allowsOverflow: pipAllowsOverflow || pipConfig.size > 1.0,
+                showPlaceholderWhenMissing: true
             )
         }
 
@@ -231,12 +241,32 @@ final class CompositeEngine {
         return latestCompositeCIImage
     }
 
+    private func resolvedWindowImage(
+        windowID: CGWindowID,
+        frames: [CGWindowID: CIImage],
+        lastKnownFrames: [CGWindowID: CIImage],
+        unavailableWindowIDs: Set<CGWindowID>,
+        targetRect: CGRect
+    ) -> CIImage {
+        if unavailableWindowIDs.contains(windowID) {
+            return CompositePlaceholderImages.windowClosed(in: targetRect)
+        }
+        if let live = frames[windowID] {
+            return live
+        }
+        if let last = lastKnownFrames[windowID] {
+            return last
+        }
+        return CompositePlaceholderImages.windowClosed(in: targetRect)
+    }
+
     private func applyPiPOverlay(
         to base: CIImage,
-        cameraFrame: CIImage,
+        cameraFrame: CIImage?,
         config: PiPConfig,
         canvasRect: CGRect,
-        allowsOverflow: Bool = false
+        allowsOverflow: Bool = false,
+        showPlaceholderWhenMissing: Bool = false
     ) -> CIImage {
         let pipRect: CGRect
         if allowsOverflow {
@@ -254,15 +284,27 @@ final class CompositeEngine {
         }
         guard pipRect.width > 4, pipRect.height > 4 else { return base.cropped(to: canvasRect) }
 
-        let source = normalizedFrame(cameraFrame)
-        let pipImage = allowsOverflow ? fill(image: source, in: pipRect) : fit(image: source, in: pipRect)
-        let clipped = pipImage.cropped(to: pipRect)
         let pipContent: CIImage
-        switch config.shape {
-        case .roundedRect:
-            pipContent = clipped
-        case .circle:
-            pipContent = circularCrop(image: clipped, in: pipRect)
+        if let cameraFrame {
+            let source = normalizedFrame(cameraFrame)
+            let pipImage = allowsOverflow ? fill(image: source, in: pipRect) : fit(image: source, in: pipRect)
+            let clipped = pipImage.cropped(to: pipRect)
+            switch config.shape {
+            case .roundedRect:
+                pipContent = clipped
+            case .circle:
+                pipContent = circularCrop(image: clipped, in: pipRect)
+            }
+        } else if showPlaceholderWhenMissing {
+            let placeholder = CompositePlaceholderImages.cameraUnavailable(in: pipRect)
+            switch config.shape {
+            case .roundedRect:
+                pipContent = placeholder
+            case .circle:
+                pipContent = circularCrop(image: placeholder, in: pipRect)
+            }
+        } else {
+            return base.cropped(to: canvasRect)
         }
 
         var result = pipContent.composited(over: base)

@@ -829,7 +829,7 @@ final class EditorViewModel {
                 exportViewModel.exportError = SecurityScopedFileAccess.accessDeniedMessage
                 return
             } catch {
-                exportViewModel.exportError = error.localizedDescription
+                exportViewModel.exportError = ExportDiskSpaceChecker.userFacingExportError(error)
                 return
             }
         }

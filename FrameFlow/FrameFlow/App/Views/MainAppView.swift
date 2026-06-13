@@ -28,6 +28,7 @@ struct MainAppView: View {
                 }
         }
         .navigationSplitViewStyle(.balanced)
+        .background(AppColors.background)
         .frame(minWidth: 900, minHeight: 600)
         .onChange(of: router.currentRoute) { _, route in
             splitVisibility = route.isEditorFocused ? .detailOnly : .all

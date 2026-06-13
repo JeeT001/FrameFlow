@@ -28,7 +28,10 @@ final class FrameFlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        XCTAssertTrue(
+            app.windows.firstMatch.waitForExistence(timeout: 10),
+            "FrameFlow main window should appear after launch"
+        )
     }
 
     @MainActor

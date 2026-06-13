@@ -17,6 +17,7 @@ enum SubscriptionManagerError: LocalizedError {
     case notConfigured
     case userCancelled
     case noOfferings
+    case restoreFailedNoActiveSubscription
 
     var errorDescription: String? {
         switch self {
@@ -26,6 +27,8 @@ enum SubscriptionManagerError: LocalizedError {
             "Purchase cancelled."
         case .noOfferings:
             "No subscription plans are available yet. Complete RevenueCat product setup."
+        case .restoreFailedNoActiveSubscription:
+            "No active Pro subscription was found for this account."
         }
     }
 }
@@ -174,11 +177,75 @@ final class SubscriptionManager: NSObject {
         isLoading = true
         defer { isLoading = false }
 
-        let result = try await Purchases.shared.purchase(package: package)
-        if result.userCancelled {
-            throw SubscriptionManagerError.userCancelled
+        do {
+            let result = try await Purchases.shared.purchase(package: package)
+            if result.userCancelled {
+                throw SubscriptionManagerError.userCancelled
+            }
+            applyCustomerInfo(result.customerInfo)
+        } catch let error as SubscriptionManagerError {
+            throw error
+        } catch {
+            throw Self.mapPurchaseError(error)
         }
-        applyCustomerInfo(result.customerInfo)
+    }
+
+    func restorePurchases() async throws {
+        guard isConfigured else { throw SubscriptionManagerError.notConfigured }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let customerInfo = try await Purchases.shared.restorePurchases()
+            applyCustomerInfo(customerInfo)
+            guard isPro else {
+                throw SubscriptionManagerError.restoreFailedNoActiveSubscription
+            }
+        } catch let error as SubscriptionManagerError {
+            throw error
+        } catch {
+            throw Self.mapPurchaseError(error)
+        }
+    }
+
+    static func userFacingMessage(for error: Error) -> String {
+        if let subscriptionError = error as? SubscriptionManagerError {
+            return subscriptionError.localizedDescription
+        }
+        return mapPurchaseError(error).localizedDescription
+    }
+
+    private static func mapPurchaseError(_ error: Error) -> Error {
+        if let subscriptionError = error as? SubscriptionManagerError {
+            return subscriptionError
+        }
+
+        let nsError = error as NSError
+        let combined = (nsError.localizedDescription + " " + (nsError.userInfo[NSLocalizedFailureReasonErrorKey] as? String ?? "")).lowercased()
+
+        if combined.contains("cancel") {
+            return SubscriptionManagerError.userCancelled
+        }
+        if combined.contains("card was declined")
+            || combined.contains("declined")
+            || combined.contains("insufficient")
+            || combined.contains("9995") {
+            return NSError(
+                domain: "FrameFlow.Subscription",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Your payment was declined. Check your card details or try a different payment method."]
+            )
+        }
+        if combined.contains("network") || combined.contains("offline") || combined.contains("internet") {
+            return NSError(
+                domain: "FrameFlow.Subscription",
+                code: 2,
+                userInfo: [NSLocalizedDescriptionKey: "Could not reach the billing service. Check your internet connection and try again."]
+            )
+        }
+
+        return error
     }
 
     func fetchStatus() async {

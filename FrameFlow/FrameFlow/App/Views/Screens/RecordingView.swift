@@ -75,7 +75,7 @@ struct RecordingView: View {
         }
         .onDisappear {
             KeyboardShortcutManager.shared.stop()
-            Task { await viewModel.stopWithoutSaving() }
+            Task { await viewModel.abandonActiveRecordingIfNeeded() }
         }
         .proUpgradeSheet(
             isPresented: $showProGate,

@@ -187,7 +187,8 @@ final class ExportViewModel {
             captionStyle: style,
             outputFilename: outputFilename,
             editTimeline: preparedProject?.timeline,
-            editorProject: preparedProject
+            editorProject: preparedProject,
+            leadingVideoGapSeconds: recording.captionAudioLeadSeconds
         )
 
         do {
@@ -215,14 +216,18 @@ final class ExportViewModel {
         } catch SecurityScopedFileAccess.AccessError.denied {
             exportError = SecurityScopedFileAccess.accessDeniedMessage
         } catch {
-            let rawMessage = error.localizedDescription.lowercased()
-            if rawMessage.contains("permission")
-                || rawMessage.contains("couldn’t be opened")
-                || rawMessage.contains("could not be opened")
-                || rawMessage.contains("operation not permitted") {
-                exportError = "Re-select your save folder in Settings, then try export again."
+            if ExportDiskSpaceChecker.isDiskFullError(error) {
+                exportError = ExportDiskSpaceChecker.diskFullMessage
             } else {
-                exportError = error.localizedDescription
+                let rawMessage = error.localizedDescription.lowercased()
+                if rawMessage.contains("permission")
+                    || rawMessage.contains("couldn’t be opened")
+                    || rawMessage.contains("could not be opened")
+                    || rawMessage.contains("operation not permitted") {
+                    exportError = "Re-select your save folder in Settings, then try export again."
+                } else {
+                    exportError = ExportDiskSpaceChecker.userFacingExportError(error)
+                }
             }
         }
     }

@@ -107,6 +107,12 @@ struct ExportView: View {
                         .foregroundStyle(AppColors.textSecondary)
                 }
 
+                if SettingsStore.shared.defaultSaveFolderBookmarkData == nil {
+                    Text("Choose… your save folder again in Settings → Recording & Export before exporting to Desktop or other protected locations.")
+                        .font(.caption)
+                        .foregroundStyle(AppColors.proGold)
+                }
+
                 if let exportError = viewModel.exportError {
                     Text(exportError)
                         .font(.subheadline)

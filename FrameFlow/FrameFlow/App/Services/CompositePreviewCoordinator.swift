@@ -32,6 +32,8 @@ final class CompositePreviewCoordinator {
     private var pipConfigProvider: (() -> PiPConfig)?
     private var cameraFrameProvider: (() -> CIImage?)?
     private var pipEnabledProvider: (() -> Bool)?
+    /// Layout Picker only — below recording writer rate; smooth enough for placement UI.
+    private static let layoutPreviewCompositeRate: Double = 20
 
     func configurePiPPreview(
         configProvider: @escaping () -> PiPConfig,
@@ -147,7 +149,10 @@ final class CompositePreviewCoordinator {
 
     private func startDisplayTimer() {
         displayTimer?.invalidate()
-        displayTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+        displayTimer = Timer.scheduledTimer(
+            withTimeInterval: 1.0 / Self.layoutPreviewCompositeRate,
+            repeats: true
+        ) { [weak self] _ in
             Task { @MainActor in
                 await self?.refreshCompositeFrame()
             }
@@ -168,6 +173,7 @@ final class CompositePreviewCoordinator {
 
         let latestFrames = streamManager.latestFrames
         onCaptureFramesUpdated?(latestFrames)
+        let unavailableWindows = Set(windowOrder.filter { !streamManager.isWindowAvailable($0) })
 
         let pipEnabled = pipEnabledProvider?() ?? false
         previewImage = compositeEngine.renderComposite(
@@ -182,7 +188,9 @@ final class CompositePreviewCoordinator {
             cameraFrame: pipEnabled ? cameraFrameProvider?() : nil,
             pipConfig: pipConfigProvider?(),
             pipEnabled: pipEnabled,
-            pipAllowsOverflow: layoutPreset == .freeForm
+            pipAllowsOverflow: layoutPreset == .freeForm,
+            lastKnownFrames: streamManager.lastKnownFrames,
+            unavailableWindowIDs: unavailableWindows
         )
     }
 

@@ -34,6 +34,7 @@ struct RecordingHUDView: View {
             Capsule(style: .continuous)
                 .strokeBorder(Color.white.opacity(0.12))
         }
+        .shadow(color: .black.opacity(0.45), radius: 10, y: 4)
     }
 
     private var leftSection: some View {
