@@ -165,7 +165,6 @@ final class CompositePreviewCoordinator {
 
         activeWindowMonitor.updateVisibleWindowIDs(Set(streamManager.latestFrames.keys))
         let canvasSize = compositeEngine.outputSize(for: format)
-        let placements = layoutPreset == .freeForm ? placementsResolver?() : nil
         let focusedWindowID = autoFocusEnabled ? activeWindowMonitor.activeWindowID : nil
         let cursorWindowID = cursorTargetWindowID(focusedWindowID: focusedWindowID)
 
@@ -173,6 +172,7 @@ final class CompositePreviewCoordinator {
 
         let latestFrames = streamManager.latestFrames
         onCaptureFramesUpdated?(latestFrames)
+        let placements = layoutPreset == .freeForm ? placementsResolver?() : nil
         let unavailableWindows = Set(windowOrder.filter { !streamManager.isWindowAvailable($0) })
 
         let pipEnabled = pipEnabledProvider?() ?? false

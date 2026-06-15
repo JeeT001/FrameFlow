@@ -43,6 +43,7 @@ struct LayoutLivePreviewStack: View {
                         interactionOnly: true
                     )
                     .frame(width: referenceCanvasSize.width, height: referenceCanvasSize.height)
+                    .clipped()
                     .onChange(of: windowPlacementController.placements) { _, _ in
                         onPlacementsChanged?()
                     }

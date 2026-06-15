@@ -3143,6 +3143,126 @@ ui: redesign Help & Support with searchable FAQ and support card
 
 ---
 
+## Day 45.2 — Per-window content zoom (Free Form Layout Picker) (2026-06-15)
+
+### Feature
+Double-click a window frame in **Free Form** Layout Picker live preview toggles **per-window content zoom** (1.0× ↔ 2.0×) inside the fixed blue border — scales/pans captured window content without changing frame size, position, or recording auto-zoom.
+
+### Model & API
+- **`WindowPlacement`** — `contentScale` (default 1.0, Codable) and `contentFocalPoint` (default center, Codable)
+- **`WindowPlacementController`** — `toggleContentZoom`, `setContentScale`, `updateContentFocalPoint`, `resetContentZoom`
+- **`WindowPlacementMath.placeWindowContent`** — fit/fill base scale × content scale, focal-point transform, clip to frame
+
+### UI
+- **`WindowPlacementsOverlayView`** — double-click toggles zoom; subtle **2×** badge when zoomed; single tap / drag / resize unchanged
+
+### Composite parity
+- **`CompositeEngine`** free-form branch uses `placeWindowContent` so preview + recording/export show identical inner zoom via `appState.windowPlacements`
+
+### Untouched
+- `ZoomController`, recording HUD zoom, auto-zoom on click, keyboard shortcuts, preset layouts
+
+### Verification
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED (`Drazlo` scheme) | Pass |
+
+### Suggested commit
+```
+feat: per-window content zoom on double-click in Layout Picker free-form preview
+```
+
+---
+
+## Day 45.2 — Window Picker infinite loading fix (2026-05-29)
+
+### Symptom
+Window Picker stuck on **"Loading windows…"** indefinitely — regression after the Day 45.1 fullscreen listing fix (`onScreenWindowsOnly: false`).
+
+### Root cause
+`WindowCaptureService.fetchWindows()` blocked on `SCScreenshotManager.captureImage` for **every** enumerated window before returning. With off-screen/minimized windows included, thumbnail capture was slow or hung; `@MainActor` service kept `WindowPickerViewModel.windows` empty until the full pass finished, so `isLoading && windows.isEmpty` never cleared.
+
+### Fix
+**Two-phase load:**
+
+| Phase | API | Behavior |
+|-------|-----|----------|
+| 1 — Fast list | `fetchWindowList()` | `SCShareableContent(onScreenWindowsOnly: false)` + filter → `WindowItem` with `thumbnail: nil`; 10s timeout |
+| 2 — Thumbnails | `fetchThumbnails(for:)` | On-screen only (`window.isOnScreen`), max 24 by area, 4 concurrent, 4s per-thumbnail timeout; off-main `WindowThumbnailCapture` helper |
+
+**ViewModel:** `loadWindows` clears `isLoading` after phase 1; `isRefreshingThumbnails` during phase 2; cancel in-flight thumbnail task on refresh/disappear.
+
+**UI:** Grid shows once phase 1 completes; footer Refresh/Next disabled only during phase 1; subtle "Refreshing thumbnails…" during phase 2.
+
+### Unchanged
+- Picker enumeration `onScreenWindowsOnly: false` (fullscreen listing fix retained)
+- `WindowStreamManager` recording streams (`onScreenWindowsOnly: true`)
+- Selection limits, Pro gate, Next → Layout Picker
+
+### Verification
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED (`Drazlo` scheme) | Pass |
+
+### Suggested commit
+```
+fix: stop Window Picker hang by loading window list before thumbnails
+```
+
+---
+
+## Day 45.2 — Free Form preview layout fix (2026-06-15)
+
+### Symptom
+Free Form Layout Picker preview looked broken with multiple windows: overlapping full-canvas frames, blue selection borders extending outside the preview clip, and frame/content drift after live capture and double-click content zoom.
+
+### Root cause
+- `seedFreeFormDefault` placed each window at ~88% canvas with heavy overlap
+- Overflow overlay used unclamped rects without canvas intersection clipping
+- `updateAspectFromCapture` updated aspect cache only — overlay frame dimensions stayed at seed values while composite used live aspect
+- Content zoom toggle relied on implicit `onChange` without immediate preview refresh
+
+### Fix
+| Area | Change |
+|------|--------|
+| `WindowPlacementController` | Staggered seed slots (55%/42%/34%/30% max width) aligned with `LayoutPreviewCanvas`; sync placement aspect once live capture aspect arrives |
+| `WindowPlacementsOverlayView` | Draw chrome on canvas-visible intersection; full logical rect for drag/resize; `onTapGesture(count: 2)` + explicit zoom callback |
+| `LayoutLivePreviewStack` | Overlay `.clipped()`; wire `onContentZoomChanged` |
+| `CompositeEngine` | Free-form layers clipped to `targetRect ∩ canvasRect` before compositing |
+
+### Verification
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED (`Drazlo` scheme) | Pass |
+
+### Suggested commit
+```
+fix: repair Free Form preview layout and content-zoom overlay alignment
+```
+
+### Follow-up — empty preview until double-click (2026-06-15)
+**Symptom:** Free Form live preview showed blue frames but no window content until double-click (content zoom).
+
+**Root cause:** `refreshCompositeFrame` captured `placements` *before* `onCaptureFramesUpdated` ran aspect-sync (which mutates placements). Each frame rendered with stale geometry. The extra `targetRect.intersection(canvasRect)` clip could also drop composited pixels for overflow frames.
+
+**Fix:** Resolve placements after the capture callback; restore free-form compositing to use `placeWindowContent` output directly (final canvas crop still applies); clamp synced `heightFraction` after live aspect update.
+
+### Revert — per-window content zoom (2026-06-15)
+**Symptom:** Preview still empty until double-click; corner resize stacked frame resize with inner 2× zoom; overlay hit targets misaligned.
+
+**Decision:** Revert Day 45.2 content zoom from Layout Picker live preview. Restore committed `fit`/`fill` free-form path in `CompositeEngine`; restore simple single-rect overlay (no double-click, no 2× badge); remove `placeWindowContent`, zoom controller APIs, and zoom wiring.
+
+**Kept:** Staggered free-form seed slots; placements resolved after capture callback; overlay `.clipped()` on preview stack.
+
+**Deferred:** `WindowPlacement.contentScale` / `contentFocalPoint` remain on model (default 1.0, unused) for a future re-implementation with proper 1× parity and isolated resize.
+
+### Suggested commit
+```
+revert: remove broken per-window content zoom from Free Form Layout Picker preview
+```
+
+---
+
 ## Bug fix — long-video caption burn-in (export)
 
 ### Report

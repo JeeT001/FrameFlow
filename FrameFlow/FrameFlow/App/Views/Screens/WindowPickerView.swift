@@ -50,6 +50,9 @@ struct WindowPickerView: View {
         .task {
             await viewModel.loadWindows(isPro: appState.isPro)
         }
+        .onDisappear {
+            viewModel.cancelThumbnailRefresh()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { _ in
             Task { await viewModel.refresh(isPro: appState.isPro) }
         }
@@ -79,7 +82,7 @@ struct WindowPickerView: View {
 
                     WindowPickerSearchField(searchText: $searchText)
 
-                    if viewModel.isLoading {
+                    if viewModel.isRefreshingThumbnails {
                         HStack(spacing: 8) {
                             ProgressView()
                                 .controlSize(.small)
@@ -198,15 +201,11 @@ struct WindowPickerView: View {
             ProgressView("Loading windows…")
                 .controlSize(.large)
 
-            Text("Fetching window thumbnails can take 30–60 seconds.")
+            Text("Finding open windows on your Mac.")
                 .font(.subheadline)
                 .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 360)
-
-            Text("You can continue once the grid appears.")
-                .font(.caption)
-                .foregroundStyle(AppColors.textSecondary.opacity(0.8))
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

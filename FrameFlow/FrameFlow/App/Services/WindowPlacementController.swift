@@ -16,6 +16,18 @@ final class WindowPlacementController {
 
     private var windowAspects: [CGWindowID: CGFloat] = [:]
 
+    private struct FreeFormSeedSlot {
+        let center: CGPoint
+        let maxFraction: CGFloat
+    }
+
+    private static let freeFormSeedSlots: [FreeFormSeedSlot] = [
+        FreeFormSeedSlot(center: CGPoint(x: 0.38, y: 0.62), maxFraction: 0.55),
+        FreeFormSeedSlot(center: CGPoint(x: 0.64, y: 0.38), maxFraction: 0.42),
+        FreeFormSeedSlot(center: CGPoint(x: 0.30, y: 0.42), maxFraction: 0.34),
+        FreeFormSeedSlot(center: CGPoint(x: 0.68, y: 0.64), maxFraction: 0.30),
+    ]
+
     func needsReseed(for windowIDs: [CGWindowID]) -> Bool {
         guard !windowIDs.isEmpty else { return false }
         for windowID in windowIDs {
@@ -52,21 +64,15 @@ final class WindowPlacementController {
     ) {
         updateAspects(for: windowIDs)
 
-        let defaultCenters: [CGPoint] = [
-            CGPoint(x: 0.5, y: 0.5),
-            CGPoint(x: 0.35, y: 0.65),
-            CGPoint(x: 0.65, y: 0.35),
-            CGPoint(x: 0.28, y: 0.55),
-        ]
-
         var result: [CGWindowID: WindowPlacement] = [:]
         for (index, windowID) in windowIDs.enumerated() {
             let aspect = aspectRatio(for: windowID)
-            let center = defaultCenters[min(index, defaultCenters.count - 1)]
+            let slot = Self.freeFormSeedSlots[min(index, Self.freeFormSeedSlots.count - 1)]
             result[windowID] = WindowPlacementMath.initialPlacementForWindow(
                 windowAspect: aspect,
                 canvasSize: canvasSize,
-                center: center
+                center: slot.center,
+                maxFraction: slot.maxFraction
             )
         }
         placements = result

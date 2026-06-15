@@ -27,9 +27,7 @@ final class WindowCaptureService {
     static let shared = WindowCaptureService()
 
     static let frameFlowBundleIdentifier = "com.Simranjit.FrameFlow"
-    private static let maxConcurrentThumbnails = 4
-    private static let thumbnailWidth = 320
-    private static let minimumThumbnailDimension: CGFloat = 120
+    private static let listFetchTimeoutSeconds: UInt64 = 10
     /// Picker listing — skip 1px system layers; still allow occluded windows when FrameFlow is fullscreen.
     private static let minimumPickerWindowDimension: CGFloat = 50
 
@@ -42,19 +40,21 @@ final class WindowCaptureService {
         await PermissionManager.shared.checkScreenRecordingPermission()
     }
 
-    /// Returns capturable windows with optional thumbnails for the Window Picker.
-    /// Uses `onScreenWindowsOnly: false` so third-party windows remain listable when FrameFlow is fullscreen.
-    func fetchWindows() async throws -> [WindowItem] {
+    /// Phase 1 — fast window list for the picker (no thumbnails).
+    /// Uses `onScreenWindowsOnly: false` so third-party windows remain listable when Drazlo is fullscreen.
+    func fetchWindowList() async throws -> [WindowItem] {
         guard await checkPermission() else {
             throw WindowCaptureError.permissionDenied
         }
 
+        let started = ContinuousClock.now
         let content: SCShareableContent
         do {
-            content = try await SCShareableContent.excludingDesktopWindows(
-                true,
-                onScreenWindowsOnly: false
+            content = try await Self.fetchShareableContentWithTimeout(
+                timeoutSeconds: Self.listFetchTimeoutSeconds
             )
+        } catch let error as WindowCaptureError {
+            throw error
         } catch {
             throw WindowCaptureError.permissionDenied
         }
@@ -64,43 +64,59 @@ final class WindowCaptureService {
             shouldInclude(window: window, excludedBundleIDs: excludedBundleIDs)
         }
 
-        #if DEBUG
-        let offScreenIncluded = capturableWindows.filter { !$0.isOnScreen }.count
-        print(
-            "[WindowCaptureService] fetchWindows: sc=\(content.windows.count) " +
-            "onScreen=\(content.windows.filter(\.isOnScreen).count) " +
-            "included=\(capturableWindows.count) offScreenIncluded=\(offScreenIncluded)"
-        )
-        #endif
-
         scWindowsByID = Dictionary(
             uniqueKeysWithValues: capturableWindows.map { ($0.windowID, $0) }
         )
 
-        let thumbnails = await captureThumbnails(for: capturableWindows)
-
         let items = capturableWindows.map { window in
-            let bundleID = window.owningApplication?.bundleIdentifier
-            return WindowItem(
-                id: window.windowID,
-                title: normalizedTitle(for: window),
-                appName: window.owningApplication?.applicationName ?? "Unknown",
-                bundleIdentifier: bundleID,
-                thumbnail: thumbnails[window.windowID] ?? nil,
-                appIcon: appIcon(for: window)
-            )
+            windowItem(from: window, thumbnail: nil)
         }
-        .sorted { lhs, rhs in
-            if lhs.appName != rhs.appName {
-                return lhs.appName.localizedCaseInsensitiveCompare(rhs.appName) == .orderedAscending
-            }
-            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-        }
+        .sorted(by: sortWindowItems)
+
+        #if DEBUG
+        let offScreenIncluded = capturableWindows.filter { !$0.isOnScreen }.count
+        let elapsed = started.duration(to: .now)
+        print(
+            "[WindowCaptureService] fetchWindowList: sc=\(content.windows.count) " +
+            "included=\(capturableWindows.count) offScreenIncluded=\(offScreenIncluded) " +
+            "elapsedMs=\(Int(elapsed.components.seconds * 1000 + elapsed.components.attoseconds / 1_000_000_000_000_000))"
+        )
+        #endif
 
         return items
     }
 
-    /// Resolves the live `SCWindow` captured during the last successful `fetchWindows()` call.
+    /// Phase 2 — capture thumbnails for on-screen windows only; merges by ID on the caller side.
+    func fetchThumbnails(for windowIDs: [CGWindowID]) async -> [CGWindowID: CGImage] {
+        let windows = windowIDs.compactMap { scWindowsByID[$0] }
+        guard !windows.isEmpty else { return [:] }
+
+        let started = ContinuousClock.now
+        let thumbnails = await WindowThumbnailCapture.captureThumbnails(for: windows)
+
+        #if DEBUG
+        let elapsed = started.duration(to: .now)
+        print(
+            "[WindowCaptureService] fetchThumbnails: attempted=\(windows.filter(\.isOnScreen).count) " +
+            "succeeded=\(thumbnails.count) elapsedMs=\(Int(elapsed.components.seconds * 1000))"
+        )
+        #endif
+
+        return thumbnails
+    }
+
+    /// Full fetch — list + thumbnails (debug / legacy callers).
+    func fetchWindows() async throws -> [WindowItem] {
+        var items = try await fetchWindowList()
+        let thumbnails = await fetchThumbnails(for: items.map(\.id))
+        items = items.map { item in
+            guard let thumbnail = thumbnails[item.id] else { return item }
+            return windowItem(from: item, thumbnail: thumbnail)
+        }
+        return items
+    }
+
+    /// Resolves the live `SCWindow` captured during the last successful list fetch.
     func scWindow(for id: CGWindowID) -> SCWindow? {
         scWindowsByID[id]
     }
@@ -124,6 +140,28 @@ final class WindowCaptureService {
         }
     }
     #endif
+
+    private static func fetchShareableContentWithTimeout(timeoutSeconds: UInt64) async throws -> SCShareableContent {
+        try await withThrowingTaskGroup(of: SCShareableContent.self) { group in
+            group.addTask {
+                try await SCShareableContent.excludingDesktopWindows(
+                    true,
+                    onScreenWindowsOnly: false
+                )
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: timeoutSeconds * 1_000_000_000)
+                throw WindowCaptureError.fetchFailed(
+                    "Timed out loading windows. Check Screen Recording permission and try Refresh."
+                )
+            }
+            guard let content = try await group.next() else {
+                throw WindowCaptureError.fetchFailed("Could not load windows.")
+            }
+            group.cancelAll()
+            return content
+        }
+    }
 
     private func excludedBundleIdentifiers() -> Set<String> {
         var ids: Set<String> = [Self.frameFlowBundleIdentifier]
@@ -189,22 +227,69 @@ final class WindowCaptureService {
         return nil
     }
 
-    private func captureThumbnails(for windows: [SCWindow]) async -> [CGWindowID: CGImage] {
-        let windowsForThumbnails = windows.filter { window in
-            window.frame.width >= Self.minimumThumbnailDimension
-                && window.frame.height >= Self.minimumThumbnailDimension
+    private func windowItem(from window: SCWindow, thumbnail: CGImage?) -> WindowItem {
+        WindowItem(
+            id: window.windowID,
+            title: normalizedTitle(for: window),
+            appName: window.owningApplication?.applicationName ?? "Unknown",
+            bundleIdentifier: window.owningApplication?.bundleIdentifier,
+            thumbnail: thumbnail,
+            appIcon: appIcon(for: window)
+        )
+    }
+
+    private func windowItem(from item: WindowItem, thumbnail: CGImage) -> WindowItem {
+        WindowItem(
+            id: item.id,
+            title: item.title,
+            appName: item.appName,
+            bundleIdentifier: item.bundleIdentifier,
+            thumbnail: thumbnail,
+            appIcon: item.appIcon
+        )
+    }
+
+    private func sortWindowItems(_ lhs: WindowItem, _ rhs: WindowItem) -> Bool {
+        if lhs.appName != rhs.appName {
+            return lhs.appName.localizedCaseInsensitiveCompare(rhs.appName) == .orderedAscending
         }
+        return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+    }
+}
+
+// MARK: - Off-main thumbnail capture
+
+private enum WindowThumbnailCapture {
+    static let maxConcurrent = 4
+    static let thumbnailWidth = 320
+    static let minimumThumbnailDimension: CGFloat = 120
+    static let maxThumbnailCount = 24
+    static let perThumbnailTimeoutNanoseconds: UInt64 = 4_000_000_000
+
+    static func captureThumbnails(for windows: [SCWindow]) async -> [CGWindowID: CGImage] {
+        let candidates = windows
+            .filter { window in
+                window.isOnScreen
+                    && window.frame.width >= minimumThumbnailDimension
+                    && window.frame.height >= minimumThumbnailDimension
+            }
+            .sorted { lhs, rhs in
+                (lhs.frame.width * lhs.frame.height) > (rhs.frame.width * rhs.frame.height)
+            }
+            .prefix(maxThumbnailCount)
 
         var results: [CGWindowID: CGImage] = [:]
+        let candidateArray = Array(candidates)
 
-        for chunkStart in stride(from: 0, to: windowsForThumbnails.count, by: Self.maxConcurrentThumbnails) {
-            let chunkEnd = min(chunkStart + Self.maxConcurrentThumbnails, windowsForThumbnails.count)
-            let chunk = Array(windowsForThumbnails[chunkStart..<chunkEnd])
+        for chunkStart in stride(from: 0, to: candidateArray.count, by: maxConcurrent) {
+            if Task.isCancelled { break }
+            let chunkEnd = min(chunkStart + maxConcurrent, candidateArray.count)
+            let chunk = Array(candidateArray[chunkStart..<chunkEnd])
 
             await withTaskGroup(of: (CGWindowID, CGImage?).self) { group in
                 for window in chunk {
                     group.addTask {
-                        let image = await self.captureThumbnail(for: window)
+                        let image = await captureThumbnailWithTimeout(for: window)
                         return (window.windowID, image)
                     }
                 }
@@ -220,7 +305,22 @@ final class WindowCaptureService {
         return results
     }
 
-    private func captureThumbnail(for window: SCWindow) async -> CGImage? {
+    private static func captureThumbnailWithTimeout(for window: SCWindow) async -> CGImage? {
+        await withTaskGroup(of: CGImage?.self) { group in
+            group.addTask {
+                await captureThumbnail(for: window)
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: perThumbnailTimeoutNanoseconds)
+                return nil
+            }
+            let result = await group.next() ?? nil
+            group.cancelAll()
+            return result ?? nil
+        }
+    }
+
+    private static func captureThumbnail(for window: SCWindow) async -> CGImage? {
         let filter = SCContentFilter(desktopIndependentWindow: window)
         let configuration = SCStreamConfiguration()
         configuration.showsCursor = false
@@ -229,8 +329,8 @@ final class WindowCaptureService {
         let frame = window.frame
         let width = max(frame.width, 1)
         let height = max(frame.height, 1)
-        let scale = Double(Self.thumbnailWidth) / Double(width)
-        configuration.width = Self.thumbnailWidth
+        let scale = Double(thumbnailWidth) / Double(width)
+        configuration.width = thumbnailWidth
         configuration.height = max(1, Int(Double(height) * scale))
 
         do {
