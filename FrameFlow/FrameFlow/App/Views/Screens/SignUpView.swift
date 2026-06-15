@@ -11,29 +11,44 @@ struct SignUpView: View {
     @State private var viewModel = SignUpViewModel()
 
     var body: some View {
-        AuthFormLayout(
-            title: "Sign Up",
-            subtitle: "Create your FrameFlow account to save recordings and settings."
+        AuthScreenChrome(
+            hero: .brandWordmark,
+            title: "Create your account",
+            subtitle: "Create your \(AppBranding.name) account to save recordings and settings."
         ) {
-            TextField("Full name", text: $viewModel.name)
-                .textFieldStyle(.roundedBorder)
-                .textContentType(.name)
-                .disabled(viewModel.isLoading)
+            AuthTextField(
+                label: "Full name",
+                icon: "person",
+                text: $viewModel.name,
+                isDisabled: viewModel.isLoading
+            )
+            .textContentType(.name)
 
-            TextField("Email", text: $viewModel.email)
-                .textFieldStyle(.roundedBorder)
-                .textContentType(.emailAddress)
-                .disabled(viewModel.isLoading)
+            AuthTextField(
+                label: "Email",
+                icon: "envelope",
+                text: $viewModel.email,
+                isDisabled: viewModel.isLoading
+            )
+            .textContentType(.emailAddress)
 
-            SecureField("Password", text: $viewModel.password)
-                .textFieldStyle(.roundedBorder)
-                .textContentType(.newPassword)
-                .disabled(viewModel.isLoading)
+            AuthTextField(
+                label: "Password",
+                icon: "lock",
+                text: $viewModel.password,
+                isSecure: true,
+                isDisabled: viewModel.isLoading
+            )
+            .textContentType(.newPassword)
 
-            SecureField("Confirm password", text: $viewModel.confirmPassword)
-                .textFieldStyle(.roundedBorder)
-                .textContentType(.newPassword)
-                .disabled(viewModel.isLoading)
+            AuthTextField(
+                label: "Confirm password",
+                icon: "lock",
+                text: $viewModel.confirmPassword,
+                isSecure: true,
+                isDisabled: viewModel.isLoading
+            )
+            .textContentType(.newPassword)
 
             if let errorMessage = viewModel.errorMessage {
                 AuthErrorBanner(message: errorMessage)
@@ -43,7 +58,11 @@ struct SignUpView: View {
                 AuthSuccessBanner(message: successMessage)
             }
 
-            Button {
+            AuthPrimaryButton(
+                title: "Sign Up",
+                isLoading: viewModel.isLoading,
+                isDisabled: viewModel.isLoading
+            ) {
                 Task {
                     let outcome = await viewModel.signUp()
                     switch outcome {
@@ -54,26 +73,15 @@ struct SignUpView: View {
                         break
                     }
                 }
-            } label: {
-                if viewModel.isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    Text("Sign Up")
-                        .frame(maxWidth: .infinity)
+            }
+        } footer: {
+            VStack(spacing: 12) {
+                AuthLegalConsentFooter(returnRoute: .signUp)
+
+                AuthFooterLink(title: "Already have an account? Log In") {
+                    router.navigate(to: .login)
                 }
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(viewModel.isLoading)
-        } footer: {
-            Button("Already have an account? Log In") {
-                router.navigate(to: .login)
-            }
-            .buttonStyle(.link)
-            .font(.callout)
-            .frame(maxWidth: 380)
         }
     }
 }

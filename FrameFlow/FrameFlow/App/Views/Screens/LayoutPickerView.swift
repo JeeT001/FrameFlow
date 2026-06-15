@@ -20,25 +20,36 @@ struct LayoutPickerView: View {
                 noWindowsBanner
             }
 
+            LayoutPickerHeader()
+                .padding(.horizontal, 28)
+                .padding(.top, 24)
+                .padding(.bottom, 8)
+
             HStack(alignment: .top, spacing: 0) {
                 leftPanel
-                    .frame(width: 340)
-                    .padding(20)
+                    .frame(width: 360)
 
                 Divider()
 
                 rightPanel
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(20)
+                    .padding(24)
             }
 
             Divider()
 
-            bottomBar
-                .padding(20)
+            LayoutPickerBottomBar(
+                windowCount: viewModel.selectedWindowCount(from: appState),
+                windowLabels: viewModel.windowLabels(from: appState),
+                startDisabled: viewModel.selectedWindowCount(from: appState) == 0,
+                onAddWindows: {
+                    router.navigate(to: .windowPicker)
+                },
+                onStartRecording: startRecording
+            )
         }
         .frame(minWidth: 900, minHeight: 600)
-        .navigationTitle("Layout")
+        .navigationTitle("")
         .task {
             viewModel.loadCameras()
             viewModel.loadSessionState(from: appState)
@@ -93,55 +104,72 @@ struct LayoutPickerView: View {
     }
 
     private var noWindowsBanner: some View {
-        HStack {
+        HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(AppColors.proGold)
             Text("No windows selected. Go back to the Window Picker to choose sources.")
                 .font(.subheadline)
+                .foregroundStyle(AppColors.textPrimary)
             Spacer()
             Button("Window Picker") {
                 router.navigate(to: .windowPicker)
             }
+            .buttonStyle(.bordered)
         }
-        .padding(12)
+        .padding(.horizontal, 28)
+        .padding(.vertical, 12)
         .background(AppColors.proGold.opacity(0.12))
     }
 
     private var leftPanel: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 24) {
                 formatSection
-                platformGuideSection
                 layoutSection
                 cameraSection
                 audioSection
-                togglesSection
-                countdownSection
+                recordingOptionsSection
             }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 16)
         }
     }
 
     private var formatSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Format")
-                .font(.headline)
+        LayoutPickerNumberedSection(number: 1, title: "Format") {
+            LayoutFormatToggle(selection: formatBinding, isPro: appState.isPro)
 
-            Picker("Format", selection: formatBinding) {
-                ForEach(RecordingFormat.allCases) { format in
-                    HStack {
-                        Text(format.title)
-                        if format == .nineBySixteen && !appState.isPro {
-                            Text("Pro")
-                                .font(.caption2)
-                                .padding(.horizontal, 5)
-                                .background(AppColors.primary.opacity(0.15), in: Capsule())
-                        }
-                    }
-                    .tag(format)
+            if viewModel.format == .nineBySixteen {
+                platformGuideCallout
+            }
+        }
+    }
+
+    private var platformGuideCallout: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("9:16 is optimized for YouTube Shorts, Instagram Reels, and TikTok.")
+                .font(.caption)
+                .foregroundStyle(AppColors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker("Platform guide", selection: Bindable(viewModel).platformPreviewOverlay) {
+                ForEach(PlatformPreviewOverlay.allCases) { platform in
+                    Text(platform.pickerTitle).tag(platform)
                 }
             }
-            .pickerStyle(.segmented)
+            .pickerStyle(.menu)
             .labelsHidden()
+
+            Text("Guide only — not included in your video")
+                .font(.caption2)
+                .foregroundStyle(AppColors.textSecondary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppColors.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(AppColors.primary.opacity(0.2))
         }
     }
 
@@ -152,7 +180,7 @@ struct LayoutPickerView: View {
                 ProGate.perform(
                     isPro: appState.isPro,
                     feature: "Vertical Format (9:16)",
-                    description: "9:16 exports for TikTok, Reels, and Shorts are included with FrameFlow Pro.",
+                    description: "9:16 exports for TikTok, Reels, and Shorts are included with \(AppBranding.proName).",
                     present: presentProGate,
                     action: {
                         viewModel.format = newValue
@@ -162,41 +190,13 @@ struct LayoutPickerView: View {
         )
     }
 
-    private var platformGuideSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Platform guide")
-                .font(.headline)
-
-            if viewModel.format == .nineBySixteen {
-                Picker("Platform guide", selection: Bindable(viewModel).platformPreviewOverlay) {
-                    ForEach(PlatformPreviewOverlay.allCases) { platform in
-                        Text(platform.pickerTitle).tag(platform)
-                    }
-                }
-                .pickerStyle(.menu)
-                .labelsHidden()
-
-                Text("Guide only — not included in your video")
-                    .font(.caption)
-                    .foregroundStyle(AppColors.textSecondary)
-            } else {
-                Text("Platform guides are for 9:16 vertical format")
-                    .font(.subheadline)
-                    .foregroundStyle(AppColors.textSecondary)
-            }
-        }
-    }
-
     private var activePlatformOverlay: PlatformPreviewOverlay {
         guard viewModel.format == .nineBySixteen else { return .none }
         return viewModel.platformPreviewOverlay
     }
 
     private var layoutSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Layout")
-                .font(.headline)
-
+        LayoutPickerNumberedSection(number: 2, title: "Layout") {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 ForEach(LayoutPreset.allCases) { preset in
                     LayoutPresetCard(
@@ -212,10 +212,7 @@ struct LayoutPickerView: View {
     }
 
     private var cameraSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Camera")
-                .font(.headline)
-
+        LayoutPickerNumberedSection(number: 3, title: "Camera") {
             Toggle("Enable camera (PiP)", isOn: cameraEnabledBinding)
 
             if viewModel.cameraEnabled {
@@ -277,128 +274,129 @@ struct LayoutPickerView: View {
     }
 
     private var audioSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Audio")
-                .font(.headline)
-
+        LayoutPickerNumberedSection(number: 4, title: "Audio") {
             Button {
                 viewModel.showAudioSheet = true
             } label: {
-                HStack {
+                HStack(spacing: 12) {
+                    Image(systemName: AudioModeOption(rawValue: viewModel.settings.defaultAudioMode)?.systemImage ?? "mic.fill")
+                        .font(.title3)
+                        .foregroundStyle(AppColors.primary)
+                        .frame(width: 36)
+
                     VStack(alignment: .leading, spacing: 2) {
                         Text(viewModel.audioModeLabel)
-                            .font(.body)
-                        Text("Tap to change")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(AppColors.textPrimary)
+                        Text("High quality audio recording")
                             .font(.caption)
                             .foregroundStyle(AppColors.textSecondary)
                     }
+
                     Spacer()
+
                     Image(systemName: "chevron.right")
                         .foregroundStyle(AppColors.textSecondary)
                 }
-                .padding(12)
-                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 10))
+                .padding(14)
+                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(AppColors.border)
+                }
             }
             .buttonStyle(.plain)
         }
     }
 
-    private var togglesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Recording")
-                .font(.headline)
+    private var recordingOptionsSection: some View {
+        LayoutPickerNumberedSection(number: 5, title: "Recording options") {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Auto-focus on active window", isOn: Bindable(viewModel.settings).autoFocusEnabled)
+                Toggle("Cursor highlight", isOn: Bindable(viewModel.settings).cursorHighlightEnabled)
+                Toggle("Auto-zoom on click", isOn: Bindable(viewModel.settings).autoZoomOnClick)
 
-            Toggle("Auto-focus on active window", isOn: Bindable(viewModel.settings).autoFocusEnabled)
-            Toggle("Cursor highlight", isOn: Bindable(viewModel.settings).cursorHighlightEnabled)
-        }
-    }
-
-    private var countdownSection: some View {
-        Stepper(
-            value: Bindable(viewModel.settings).countdownDuration,
-            in: 0...5
-        ) {
-            Text("Countdown: \(viewModel.settings.countdownDuration)s")
+                HStack {
+                    Text("Countdown")
+                        .foregroundStyle(AppColors.textPrimary)
+                    Spacer()
+                    Picker("Countdown", selection: Bindable(viewModel.settings).countdownDuration) {
+                        ForEach(0...5, id: \.self) { seconds in
+                            Text("\(seconds) sec").tag(seconds)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .frame(width: 100)
+                }
+            }
         }
     }
 
     private var rightPanel: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Preview")
-                .font(.headline)
-
-            ZStack {
-                if appState.selectedWindowIDs.isEmpty {
-                    LayoutPreviewCanvas(
-                        format: viewModel.format,
-                        preset: viewModel.layoutPreset,
-                        windowLabels: viewModel.windowLabels(from: appState),
-                        cameraEnabled: viewModel.cameraEnabled,
-                        platformOverlay: activePlatformOverlay
-                    )
-                } else if viewModel.isStartingLivePreview && viewModel.previewImage == nil {
-                    VStack(spacing: 12) {
-                        ProgressView("Starting live preview…")
-                        Text("Capturing window streams. This may take a few seconds.")
-                            .font(.caption)
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if viewModel.isLivePreviewActive, let previewImage = viewModel.previewImage {
-                    LayoutLivePreviewStack(
-                        image: previewImage,
-                        aspectRatio: viewModel.format.aspectRatio,
-                        referenceCanvasSize: CompositeEngine.shared.outputSize(for: viewModel.format),
-                        layoutPreset: viewModel.layoutPreset,
-                        windowIDs: appState.selectedWindowIDs.sorted(),
-                        pipController: viewModel.pipController,
-                        windowPlacementController: viewModel.windowPlacementController,
-                        showPiPOverlay: viewModel.cameraEnabled,
-                        platformOverlay: activePlatformOverlay,
-                        onPlacementsChanged: {
-                            viewModel.syncWindowPlacements(to: appState)
-                        },
-                        onPiPChanged: {
-                            viewModel.notifyPiPChanged(appState: appState)
-                        }
-                    )
-                } else {
-                    VStack(spacing: 10) {
-                        LayoutPreviewCanvas(
-                            format: viewModel.format,
-                            preset: viewModel.layoutPreset,
-                            windowLabels: viewModel.windowLabels(from: appState),
-                            cameraEnabled: viewModel.cameraEnabled,
-                            platformOverlay: activePlatformOverlay
-                        )
-
-                        if let message = viewModel.previewErrorMessage {
-                            Text(message)
-                                .font(.caption)
-                                .foregroundStyle(AppColors.textSecondary)
-                                .multilineTextAlignment(.center)
-                                .frame(maxWidth: 360)
-                        }
-                    }
-                }
-            }
+        LayoutPreviewChrome(
+            isLive: viewModel.isLivePreviewActive,
+            format: viewModel.format
+        ) {
+            previewContent
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private var bottomBar: some View {
-        HStack {
-            Text("\(viewModel.selectedWindowCount(from: appState)) window(s) selected")
-                .foregroundStyle(AppColors.textSecondary)
-
-            Spacer()
-
-            Button("Start Recording") {
-                startRecording()
+    @ViewBuilder
+    private var previewContent: some View {
+        if appState.selectedWindowIDs.isEmpty {
+            LayoutPreviewCanvas(
+                format: viewModel.format,
+                preset: viewModel.layoutPreset,
+                windowLabels: viewModel.windowLabels(from: appState),
+                cameraEnabled: viewModel.cameraEnabled,
+                platformOverlay: activePlatformOverlay
+            )
+        } else if viewModel.isStartingLivePreview && viewModel.previewImage == nil {
+            VStack(spacing: 12) {
+                ProgressView("Starting live preview…")
+                Text("Capturing window streams. This may take a few seconds.")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(viewModel.selectedWindowCount(from: appState) == 0)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if viewModel.isLivePreviewActive, let previewImage = viewModel.previewImage {
+            LayoutLivePreviewStack(
+                image: previewImage,
+                aspectRatio: viewModel.format.aspectRatio,
+                referenceCanvasSize: CompositeEngine.shared.outputSize(for: viewModel.format),
+                layoutPreset: viewModel.layoutPreset,
+                windowIDs: appState.selectedWindowIDs.sorted(),
+                pipController: viewModel.pipController,
+                windowPlacementController: viewModel.windowPlacementController,
+                showPiPOverlay: viewModel.cameraEnabled,
+                platformOverlay: activePlatformOverlay,
+                onPlacementsChanged: {
+                    viewModel.syncWindowPlacements(to: appState)
+                },
+                onPiPChanged: {
+                    viewModel.notifyPiPChanged(appState: appState)
+                }
+            )
+        } else {
+            VStack(spacing: 10) {
+                LayoutPreviewCanvas(
+                    format: viewModel.format,
+                    preset: viewModel.layoutPreset,
+                    windowLabels: viewModel.windowLabels(from: appState),
+                    cameraEnabled: viewModel.cameraEnabled,
+                    platformOverlay: activePlatformOverlay
+                )
+
+                if let message = viewModel.previewErrorMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 360)
+                }
+            }
         }
     }
 

@@ -10,6 +10,8 @@ struct LayoutPresetCard: View {
     let isSelected: Bool
     let onSelect: () -> Void
 
+    @State private var isHovered = false
+
     var body: some View {
         Button(action: onSelect) {
             VStack(spacing: 8) {
@@ -18,22 +20,33 @@ struct LayoutPresetCard: View {
                     .frame(maxWidth: .infinity)
 
                 Text(preset.title)
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(AppColors.textPrimary)
             }
             .padding(10)
             .frame(maxWidth: .infinity)
-            .background(.background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(AppColors.background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(
-                        isSelected ? AppColors.primary : AppColors.border,
-                        lineWidth: isSelected ? 2.5 : 1
+                        isSelected ? AppColors.primary : AppColors.border.opacity(isHovered ? 0.9 : 0.6),
+                        lineWidth: isSelected ? 2 : 1
                     )
             }
+            .overlay(alignment: .topTrailing) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.body)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, AppColors.primary)
+                        .padding(6)
+                }
+            }
+            .scaleEffect(isHovered ? 1.02 : 1)
+            .animation(.easeOut(duration: 0.12), value: isHovered)
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 }
 

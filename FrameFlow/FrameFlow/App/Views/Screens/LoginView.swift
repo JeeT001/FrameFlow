@@ -12,19 +12,27 @@ struct LoginView: View {
     @State private var successMessage: String?
 
     var body: some View {
-        AuthFormLayout(
-            title: "Log In",
-            subtitle: "Sign in with your FrameFlow account."
+        AuthScreenChrome(
+            hero: .brandWordmark,
+            title: "Welcome back",
+            subtitle: "Sign in with your \(AppBranding.name) account."
         ) {
-            TextField("Email", text: $viewModel.email)
-                .textFieldStyle(.roundedBorder)
-                .textContentType(.username)
-                .disabled(viewModel.isLoading)
+            AuthTextField(
+                label: "Email",
+                icon: "envelope",
+                text: $viewModel.email,
+                isDisabled: viewModel.isLoading
+            )
+            .textContentType(.username)
 
-            SecureField("Password", text: $viewModel.password)
-                .textFieldStyle(.roundedBorder)
-                .textContentType(.password)
-                .disabled(viewModel.isLoading)
+            AuthTextField(
+                label: "Password",
+                icon: "lock",
+                text: $viewModel.password,
+                isSecure: true,
+                isDisabled: viewModel.isLoading
+            )
+            .textContentType(.password)
 
             if let errorMessage = viewModel.errorMessage {
                 AuthErrorBanner(message: errorMessage)
@@ -34,40 +42,28 @@ struct LoginView: View {
                 AuthSuccessBanner(message: successMessage)
             }
 
-            Button {
+            AuthPrimaryButton(
+                title: "Log In",
+                isLoading: viewModel.isLoading,
+                isDisabled: viewModel.isLoading
+            ) {
                 Task {
                     if let user = await viewModel.logIn() {
                         await appState.markAuthenticated(user: user)
                         router.selectSidebar(.home)
                     }
                 }
-            } label: {
-                if viewModel.isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    Text("Log In")
-                        .frame(maxWidth: .infinity)
-                }
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(viewModel.isLoading)
         } footer: {
-            HStack(spacing: 16) {
-                Button("Forgot Password?") {
+            HStack(spacing: 20) {
+                AuthFooterLink(title: "Forgot Password?") {
                     router.navigate(to: .forgotPassword)
                 }
-                .buttonStyle(.link)
 
-                Button("Sign Up") {
+                AuthFooterLink(title: "Sign Up") {
                     router.navigate(to: .signUp)
                 }
-                .buttonStyle(.link)
             }
-            .font(.callout)
-            .frame(maxWidth: 380)
         }
         .onAppear {
             if let message = appState.consumePendingLoginMessage() {

@@ -10,49 +10,48 @@ struct WindowPickerCard: View {
     let isSelected: Bool
     let onTap: () -> Void
 
+    @State private var isHovered = false
+
     private static let previewAspectRatio: CGFloat = 16 / 10
-    private static let iconCornerRadius: CGFloat = 10
+    private static let iconCornerRadius: CGFloat = 8
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 10) {
-                header
+            VStack(alignment: .leading, spacing: 12) {
+                topRow
                 previewArea
-                footer
+                bottomLabels
             }
-            .padding(12)
-            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(14)
+            .background(AppColors.background, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(
-                        isSelected ? AppColors.primary : AppColors.border,
+                        isSelected ? AppColors.primary : AppColors.border.opacity(isHovered ? 0.9 : 0.6),
                         lineWidth: isSelected ? 2 : 1
                     )
             }
-            .overlay(alignment: .topTrailing) {
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, AppColors.primary)
-                        .padding(10)
-                }
-            }
+            .shadow(color: .black.opacity(isHovered ? 0.08 : 0.03), radius: isHovered ? 8 : 3, y: 2)
+            .scaleEffect(isHovered ? 1.01 : 1)
+            .animation(.easeOut(duration: 0.12), value: isHovered)
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 
-    private var header: some View {
+    private var topRow: some View {
         HStack(spacing: 10) {
-            appIconView(size: 48)
-
-            Text(window.appName)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundStyle(AppColors.textPrimary)
-                .lineLimit(1)
+            appIconView(size: 28)
 
             Spacer(minLength: 0)
+
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.title3)
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(
+                    isSelected ? .white : AppColors.textSecondary.opacity(0.45),
+                    isSelected ? AppColors.primary : AppColors.border
+                )
         }
     }
 
@@ -68,7 +67,7 @@ struct WindowPickerCard: View {
         .frame(maxWidth: .infinity)
         .aspectRatio(Self.previewAspectRatio, contentMode: .fit)
         .frame(minHeight: 120)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func thumbnailPreview(_ image: Image) -> some View {
@@ -83,20 +82,11 @@ struct WindowPickerCard: View {
 
     private var thumbnailFallback: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            AppColors.background,
-                            AppColors.surface,
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(AppColors.surface)
 
             VStack(spacing: 8) {
-                appIconView(size: 56)
+                appIconView(size: 44)
                 Text("Preview unavailable")
                     .font(.caption2)
                     .foregroundStyle(AppColors.textSecondary)
@@ -104,13 +94,20 @@ struct WindowPickerCard: View {
         }
     }
 
-    private var footer: some View {
-        Text(window.title)
-            .font(.caption)
-            .foregroundStyle(AppColors.textSecondary)
-            .lineLimit(2)
-            .multilineTextAlignment(.leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
+    private var bottomLabels: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(window.appName)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppColors.textPrimary)
+                .lineLimit(1)
+
+            Text(window.title)
+                .font(.caption)
+                .foregroundStyle(AppColors.textSecondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -126,7 +123,7 @@ struct WindowPickerCard: View {
                 .font(.system(size: size * 0.45))
                 .foregroundStyle(AppColors.textSecondary)
                 .frame(width: size, height: size)
-                .background(AppColors.background, in: RoundedRectangle(cornerRadius: Self.iconCornerRadius))
+                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: Self.iconCornerRadius))
         }
     }
 }

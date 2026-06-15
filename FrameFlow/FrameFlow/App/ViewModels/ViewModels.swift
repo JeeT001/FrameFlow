@@ -9,6 +9,7 @@ import SwiftUI
 final class AppRouter {
     var selectedSection: SidebarSection = .home
     var currentRoute: AppRoute = .dashboard
+    var legalReturnRoute: AppRoute?
 
     func selectSidebar(_ section: SidebarSection) {
         selectedSection = section
@@ -17,5 +18,15 @@ final class AppRouter {
 
     func navigate(to route: AppRoute) {
         currentRoute = route
+    }
+
+    func navigateToLegal(_ legalRoute: AppRoute, returningTo returnRoute: AppRoute) {
+        legalReturnRoute = returnRoute
+        currentRoute = legalRoute
+    }
+
+    func navigateBackFromLegal() {
+        currentRoute = legalReturnRoute ?? .help
+        legalReturnRoute = nil
     }
 }

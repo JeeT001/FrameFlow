@@ -36,7 +36,7 @@ struct EditorInspectorModeBar: View {
                     onCaptionsLockedTap()
                 }
             }
-            .help(isPro ? "Caption styles and segments" : "Auto captions require FrameFlow Pro — click to learn more")
+            .help(isPro ? "Caption styles and segments" : "Auto captions require \(AppBranding.proName) — click to learn more")
         }
         .padding(4)
         .background(AppColors.border.opacity(0.25), in: Capsule())

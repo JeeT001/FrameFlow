@@ -11,48 +11,46 @@ struct ResetPasswordView: View {
     @State private var viewModel = ResetPasswordViewModel()
 
     var body: some View {
-        AuthFormLayout(
-            title: "Set New Password",
-            subtitle: "Choose a new password for your FrameFlow account."
+        AuthScreenChrome(
+            hero: .systemImage("checkmark.shield"),
+            title: "Set a new password",
+            subtitle: "Choose a strong password to keep your \(AppBranding.name) account secure."
         ) {
-            SecureField("New Password", text: $viewModel.password)
-                .textFieldStyle(.roundedBorder)
-                .textContentType(.newPassword)
-                .disabled(viewModel.isLoading)
+            AuthTextField(
+                label: "New password",
+                icon: "lock",
+                text: $viewModel.password,
+                isSecure: true,
+                isDisabled: viewModel.isLoading
+            )
+            .textContentType(.newPassword)
 
-            SecureField("Confirm Password", text: $viewModel.confirmPassword)
-                .textFieldStyle(.roundedBorder)
-                .textContentType(.newPassword)
-                .disabled(viewModel.isLoading)
+            AuthTextField(
+                label: "Confirm password",
+                icon: "lock",
+                text: $viewModel.confirmPassword,
+                isSecure: true,
+                isDisabled: viewModel.isLoading
+            )
+            .textContentType(.newPassword)
 
             if let errorMessage = viewModel.errorMessage {
                 AuthErrorBanner(message: errorMessage)
             }
 
-            Button {
+            AuthPrimaryButton(
+                title: "Update Password",
+                isLoading: viewModel.isLoading,
+                isDisabled: viewModel.isLoading
+            ) {
                 Task {
                     await viewModel.updatePassword(appState: appState, router: router)
                 }
-            } label: {
-                if viewModel.isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    Text("Update Password")
-                        .frame(maxWidth: .infinity)
-                }
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(viewModel.isLoading)
         } footer: {
-            Button("Back to Log In") {
+            AuthFooterLink(title: "Back to Log In", icon: "arrow.left") {
                 router.navigate(to: .login)
             }
-            .buttonStyle(.link)
-            .font(.callout)
-            .frame(maxWidth: 380)
         }
     }
 }

@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A014C1082FC3EDD600BD9EBF"
-               BuildableName = "FrameFlow.app"
-               BlueprintName = "FrameFlow"
+               BuildableName = "Drazlo.app"
+               BlueprintName = "Drazlo"
                ReferencedContainer = "container:FrameFlow.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -69,8 +69,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A014C1082FC3EDD600BD9EBF"
-            BuildableName = "FrameFlow.app"
-            BlueprintName = "FrameFlow"
+            BuildableName = "Drazlo.app"
+            BlueprintName = "Drazlo"
             ReferencedContainer = "container:FrameFlow.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -86,8 +86,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A014C1082FC3EDD600BD9EBF"
-            BuildableName = "FrameFlow.app"
-            BlueprintName = "FrameFlow"
+            BuildableName = "Drazlo.app"
+            BlueprintName = "Drazlo"
             ReferencedContainer = "container:FrameFlow.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

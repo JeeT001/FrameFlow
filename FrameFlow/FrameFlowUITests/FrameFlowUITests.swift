@@ -30,7 +30,7 @@ final class FrameFlowUITests: XCTestCase {
 
         XCTAssertTrue(
             app.windows.firstMatch.waitForExistence(timeout: 10),
-            "FrameFlow main window should appear after launch"
+            "Drazlo main window should appear after launch"
         )
     }
 

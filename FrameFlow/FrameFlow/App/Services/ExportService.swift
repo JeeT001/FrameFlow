@@ -392,7 +392,7 @@ final class ExportService: @unchecked Sendable {
 
         let content = UNMutableNotificationContent()
         content.title = "Export complete"
-        content.body = "Saved \(filename) to your FrameFlow folder."
+        content.body = "Saved \(filename) to your save folder."
         content.sound = .default
 
         let request = UNNotificationRequest(
@@ -407,10 +407,10 @@ final class ExportService: @unchecked Sendable {
 
 // MARK: - Free-tier export watermark (blueprint Day 28)
 
-/// Renders "Made with FrameFlow" on the **full letterboxed canvas** (16:9 and 9:16).
+/// Renders `AppBranding.watermarkText` on the **full letterboxed canvas** (16:9 and 9:16).
 /// Padding and font size scale from a 1080p-tall reference so 10pt padding matches blueprint at 1080p.
 private enum WatermarkCompositor {
-    static let watermarkText = "Made with FrameFlow"
+    static let watermarkText = AppBranding.watermarkText
     static let referenceCanvasHeight: CGFloat = 1080
     static let referencePaddingPoints: CGFloat = 10
     static let referenceFontSize: CGFloat = 13

@@ -2855,6 +2855,294 @@ perf: Day 45 reduce recording CPU/memory from Instruments profiling
 
 ---
 
+## Day 45.1 — Home / Dashboard UI pass (`uiFix`)
+
+**Scope:** Visual redesign only — no Services, ViewModels, Models, or routing changes.
+
+### Inspiration → implementation
+
+| Element | Implementation |
+|---------|----------------|
+| Welcome header | `DashboardWelcomeHeader` — first name from `UserDisplayHelpers`, search field, avatar, Upgrade CTA |
+| Hero banner | `DashboardHeroBanner` — gradient (`AppColors.primary`), white New Recording CTA → `.windowPicker` |
+| Canvas picker | **Removed** — format lives on Layout Picker only; hero shows helper copy *“Format and layout — choose on the next screens.”* |
+| Recent recordings | Section header + local sort (Recent / Name / Duration) |
+| Rich cards | `RecordingListItemView` — thumb play overlay, duration chip, resolution + format pills, ⋯ menu |
+| View all | Shows first 8 + dashed “View all recordings” tile (local expand) |
+| Search | Local filter on `recordingStore.recordings` in view `@State` |
+
+### Files
+
+- `DashboardView.swift` — layout restructure
+- `DashboardWelcomeHeader.swift`, `DashboardHeroBanner.swift` — new components
+- `RecordingListItemView.swift` — card polish
+
+### Behavior preserved
+
+- New Recording → `.windowPicker`
+- Card tap → `.recordingDetail`
+- Context menu + menu Export / Delete
+- `ExpiryBannerView` when past_due/expired
+- Delete failure alert
+- `#if DEBUG` Debug toolbar
+
+### Smoke (code review)
+
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED | Pass |
+| Services/ViewModels untouched | Pass |
+| Light/Dark via `AppColors` | Pass (code review) |
+| Interactive GUI smoke | Deferred |
+
+### Suggested commit
+
+```
+ui: redesign Dashboard home screen with hero banner and recording cards
+```
+
+---
+
+## Day 45.1 — Window Picker UI pass (`uiFix`)
+
+**Scope:** Visual redesign only — no Services or `WindowPickerViewModel` changes.
+
+### Implementation
+
+| Element | Implementation |
+|---------|----------------|
+| Header | `WindowPickerHeader` — title + subtitle |
+| Search | `WindowPickerSearchField` — local filter on `appName` + `title` |
+| Cards | `WindowPickerCard` — icon + checkbox row, thumbnail, app name + title, hover/selection chrome |
+| Footer | `WindowPickerFooterBar` — selection count, limit hint, Refresh + **Next →** |
+| Clutter filter | Display-only: primary = thumbnail windows; hide system noise titles; collapsible “Show N other windows” |
+| Toolbar | **Refresh** only (selection count lives in footer) |
+
+### Behavior preserved
+
+- Free max 2 / Pro max 4, Pro gate, toggle selection, Next → Layout Picker, permission/error/empty flows
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED | Pass |
+| ViewModel/Services untouched | Pass |
+
+### Suggested commit
+
+```
+ui: redesign Window Picker with search, cards, and sticky footer
+```
+
+---
+
+## Day 45.1 — Layout Picker UI pass (`uiFix`)
+
+**Scope:** Visual redesign only — no Services or `LayoutPickerViewModel` changes.
+
+### Implementation
+
+| Element | Implementation |
+|---------|----------------|
+| Header | `LayoutPickerHeader` — title + subtitle |
+| Left panel | Numbered sections 1–5 via `LayoutPickerNumberedSection` |
+| Format | `LayoutFormatToggle` — large 9:16 / 16:9 cards + Pro badge; platform guide callout when vertical |
+| Layout | `LayoutPresetCard` — blue checkmark on selected |
+| Preview | `LayoutPreviewChrome` — Live badge, format chips, neutral surface (no phone bezel on 9:16) |
+| Bottom bar | `LayoutPickerBottomBar` — window chips, **+** → Window Picker, **Start Recording** |
+| Recording options | Exposed `autoZoomOnClick` toggle; countdown as menu picker (0–5 sec) |
+
+### Behavior preserved
+
+- Live preview lifecycle, Pro gates, audio sheet, PiP drag, platform overlay, Start Recording flow
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED | Pass |
+| ViewModel/Services untouched | Pass |
+
+### Follow-up
+
+- Removed decorative `phoneBezelOverlay` from `LayoutPreviewChrome` — 9:16 preview shows clean vertical canvas without inner phone stroke.
+
+---
+
+## Bug fix — Window Picker empty when FrameFlow fullscreen (`uiFix`)
+
+**Symptom:** Window Picker listed windows in windowed mode but showed none (or far fewer) when FrameFlow was native fullscreen.
+
+**Root cause:** `fetchWindows()` used `SCShareableContent(..., onScreenWindowsOnly: true)` and `shouldInclude` rejected `!window.isOnScreen`. macOS marks other apps’ windows off-screen when FrameFlow occupies a fullscreen space.
+
+**Fix (`WindowCaptureService.swift`):**
+- Picker enumeration: `onScreenWindowsOnly: false`
+- Dropped `isOnScreen` gate; added minimum frame size (50×50 pt) for picker listing
+- `#if DEBUG` log: total SC windows vs included vs off-screen included
+
+**UX (`WindowPickerView.swift`):** Refresh window list on `NSWindow.didEnterFullScreenNotification` / `didExitFullScreenNotification`.
+
+**Unchanged:** `WindowStreamManager` recording streams, selection limits, Pro gate, Next → Layout Picker.
+
+| Case | Expected |
+|------|----------|
+| FrameFlow windowed | Third-party windows visible |
+| FrameFlow fullscreen | Same windows visible (thumbnails may be unavailable) |
+| FrameFlow own windows | Still excluded |
+
+**Verification:** BUILD SUCCEEDED; FrameFlowTests 6/6.
+
+### Suggested commit
+
+```
+fix: list capturable windows in Window Picker when app is fullscreen
+```
+
+---
+
+## Day 45.1 — Recording screen UI pass (`uiFix`)
+
+**Scope:** Visual redesign only — no Services or `RecordingViewModel` logic changes.
+
+### Implementation
+
+| Element | Implementation |
+|---------|----------------|
+| Top bar | `RecordingHUDView` — white floating rounded bar, red/yellow dot, timer, zoom, audio icon, Pause/Stop |
+| Bottom bar | `RecordingBottomBar` — always visible during recording; read-only session chips |
+| Chips | `RecordingSessionChip` — windows, format, auto-focus ON/OFF, audio + decorative waveform, PiP ON/OFF |
+| Layout mini | `RecordingLayoutMiniPreview` — all presets with active highlight via `LayoutPresetDiagram` |
+| Preview | Unchanged `CompositePreviewView(fillsWindow: true)` on black background |
+| HUD auto-hide | Top bar only — existing `isHUDVisible` + mouse hover; bottom bar always visible |
+
+### Behavior preserved
+
+- Countdown, pause/resume, stop→Editor, keyboard shortcuts, PiP fixed on recording screen, `onDisappear` abandon guard
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED | Pass |
+| ViewModel/Services untouched | Pass |
+
+### Suggested commit
+
+```
+ui: redesign Recording screen with top bar and session status strip
+```
+
+---
+
+## Day 45.1 — Settings UI pass (`uiFix`)
+
+**Scope:** Visual redesign only — no `SettingsStore` or `SettingsViewModel` logic changes.
+
+### Implementation
+
+| Element | Implementation |
+|---------|----------------|
+| Header | `SettingsPageHeader` — title + subtitle |
+| Cards | `SettingsSectionCard` — icon + title per group (8 sections) |
+| Permissions | `SettingsPermissionRow` — icon, Granted badge, Check Status / Open System Settings |
+| Rows | `SettingsPickerRow`, `SettingsSliderRow`, `SettingsToggleRow`, `SettingsLabeledValueRow` |
+| Layout | `ScrollView` + cards on `AppColors.background`; max width 720pt |
+
+### Sections preserved
+
+Permissions, Recording & Export (incl. save-folder re-auth hint), Audio, Cursor & Zoom, Captions & Notifications, Appearance, About, Device Capabilities (Debug + `#if DEBUG` lifetime toggle)
+
+### Verification
+
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED | Pass |
+| SettingsStore / ViewModel logic untouched | Pass |
+
+### Suggested commit
+
+```
+ui: redesign Settings with card sections and permission badges
+```
+
+---
+
+## Day 45.1 — Auth UI pass (2026-05-29)
+
+### Scope
+UI-only redesign of all four Supabase auth screens to match centered-card mock direction. **No** ViewModel, `AuthService`, or auth flow changes.
+
+### New components
+| File | Role |
+|------|------|
+| `AuthScreenChrome` | Hero icon, title/subtitle, surface card, centered 420pt column |
+| `AuthTextField` | Labeled field, leading SF Symbol, focus border, password visibility toggle |
+| `AuthPrimaryButton` | Full-width primary CTA with loading state |
+| `AuthFooterLink` | Blue footer navigation links |
+
+### Screens updated
+| Screen | Hero | Title |
+|--------|------|-------|
+| Login | App icon | Welcome back |
+| Sign Up | App icon | Create your account |
+| Forgot Password | `lock.circle` (dashed ring) | Reset your password |
+| Reset Password | `checkmark.shield` (dashed ring) | Set a new password |
+
+### Preserved behavior
+- Email/password sign-in, sign-up, reset link, deep-link password update unchanged
+- `AuthErrorBanner` / `AuthSuccessBanner` still driven by ViewModels
+- No Google/Apple OAuth buttons; auth remains full-window via `AuthContainerView` (no main sidebar)
+
+### Verification
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED | Pass |
+
+### Suggested commit
+```
+ui: redesign auth screens with shared chrome and form fields
+```
+
+---
+
+## Day 45.1 — Help & Support UI pass (2026-05-29)
+
+### Scope
+UI-only redesign of `HelpView` into a searchable, categorized FAQ hub with support card. **No** Service, auth, or recording logic changes.
+
+### New components
+| File | Role |
+|------|------|
+| `HelpPageHeader` | Title + subtitle (matches Settings header style) |
+| `HelpSearchField` | Filters FAQs by title + answer text |
+| `HelpFAQSection` | Category card with icon header |
+| `HelpFAQRow` | Expandable accordion with chevron + hover |
+| `HelpSupportCard` | Email Support CTA, app version, Privacy/Terms links |
+| `HelpFAQItem` (model) | 9 FAQs grouped into 6 categories; paragraph + bullet answer blocks |
+
+### Content updates
+- Free vs Pro FAQ: removed “future update”; points to Subscription screen; Free 2 windows / Pro 4
+- System audio FAQ: Layout Picker audio sheet (not “later release”)
+- Support email: `kiwibooking.nz@gmail.com` (mailto preserved)
+- Privacy / Terms: `https://frameflow.app/privacy` and `/terms` via `NSWorkspace`
+
+### Discoverability
+- Settings → About → **Help & Support** → `router.navigate(to: .help)` (navigation only)
+
+### Verification
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED | Pass |
+| All 9 FAQ topics preserved | Pass |
+
+### Suggested commit
+```
+ui: redesign Help & Support with searchable FAQ and support card
+```
+
+---
+
 ## Bug fix — long-video caption burn-in (export)
 
 ### Report

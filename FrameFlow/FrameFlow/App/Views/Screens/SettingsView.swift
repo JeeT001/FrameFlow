@@ -7,21 +7,31 @@ import AVFoundation
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(AppRouter.self) private var router
     @State private var viewModel = SettingsViewModel()
 
+    private let zoomHoldOptions: [Double] = stride(from: 0.5, through: 5.0, by: 0.5).map { $0 }
+
     var body: some View {
-        Form {
-            permissionsSection
-            recordingExportSection
-            audioSection
-            cursorZoomSection
-            captionsNotificationsSection
-            appearanceSection
-            aboutSection
-            debugSection
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                SettingsPageHeader()
+
+                permissionsCard
+                recordingExportCard
+                audioCard
+                cursorZoomCard
+                captionsNotificationsCard
+                appearanceCard
+                aboutCard
+                debugCard
+            }
+            .padding(28)
+            .frame(maxWidth: 720, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .formStyle(.grouped)
-        .navigationTitle("Settings")
+        .background(AppColors.background)
+        .navigationTitle("")
         .task {
             await viewModel.refreshPermissions()
             viewModel.loadAudioDevices()
@@ -33,167 +43,248 @@ struct SettingsView: View {
         }
     }
 
-    private var permissionsSection: some View {
-        Section("Permissions") {
-            permissionRow(
-                title: PermissionKind.screenRecording.title,
-                status: viewModel.screenRecordingStatusLabel()
-            ) {
-                Task { await viewModel.refreshPermissions() }
-            } openSettings: {
-                PermissionManager.shared.openSystemSettings(for: .screenRecording)
-            }
+    private var permissionsCard: some View {
+        SettingsSectionCard(title: "Permissions", icon: "shield.checkered") {
+            VStack(alignment: .leading, spacing: 12) {
+                SettingsPermissionRow(
+                    icon: "display",
+                    title: PermissionKind.screenRecording.title,
+                    status: viewModel.screenRecordingStatusLabel(),
+                    onCheckStatus: {
+                        Task { await viewModel.refreshPermissions() }
+                    },
+                    onOpenSettings: {
+                        PermissionManager.shared.openSystemSettings(for: .screenRecording)
+                    }
+                )
 
-            permissionRow(
-                title: PermissionKind.camera.title,
-                status: viewModel.cameraStatusLabel()
-            ) {
-                Task {
-                    if viewModel.cameraStatus == .notDetermined {
-                        await viewModel.requestCameraAccess()
-                    } else {
-                        await viewModel.refreshPermissions()
+                Divider()
+
+                SettingsPermissionRow(
+                    icon: "camera",
+                    title: PermissionKind.camera.title,
+                    status: viewModel.cameraStatusLabel(),
+                    onCheckStatus: {
+                        Task {
+                            if viewModel.cameraStatus == .notDetermined {
+                                await viewModel.requestCameraAccess()
+                            } else {
+                                await viewModel.refreshPermissions()
+                            }
+                        }
+                    },
+                    onOpenSettings: {
+                        PermissionManager.shared.openSystemSettings(for: .camera)
+                    }
+                )
+
+                Divider()
+
+                SettingsPermissionRow(
+                    icon: "mic",
+                    title: PermissionKind.microphone.title,
+                    status: viewModel.microphoneStatusLabel(),
+                    onCheckStatus: {
+                        Task {
+                            if viewModel.microphoneStatus == .notDetermined {
+                                await viewModel.requestMicrophoneAccess()
+                            } else {
+                                await viewModel.refreshPermissions()
+                            }
+                        }
+                    },
+                    onOpenSettings: {
+                        PermissionManager.shared.openSystemSettings(for: .microphone)
+                    }
+                )
+
+                if viewModel.isRefreshing {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Checking permissions…")
+                            .font(.caption)
+                            .foregroundStyle(AppColors.textSecondary)
                     }
                 }
-            } openSettings: {
-                PermissionManager.shared.openSystemSettings(for: .camera)
-            }
-
-            permissionRow(
-                title: PermissionKind.microphone.title,
-                status: viewModel.microphoneStatusLabel()
-            ) {
-                Task {
-                    if viewModel.microphoneStatus == .notDetermined {
-                        await viewModel.requestMicrophoneAccess()
-                    } else {
-                        await viewModel.refreshPermissions()
-                    }
-                }
-            } openSettings: {
-                PermissionManager.shared.openSystemSettings(for: .microphone)
-            }
-
-            if viewModel.isRefreshing {
-                ProgressView("Checking permissions…")
             }
         }
     }
 
-    private var recordingExportSection: some View {
-        Section("Recording & Export") {
-            Picker("Default resolution", selection: Bindable(viewModel.settings).defaultResolution) {
-                ForEach(viewModel.availableResolutions, id: \.self) { option in
-                    Text(option).tag(option)
+    private var recordingExportCard: some View {
+        SettingsSectionCard(title: "Recording & Export", icon: "video") {
+            VStack(alignment: .leading, spacing: 14) {
+                SettingsPickerRow(
+                    title: "Default resolution",
+                    selection: Bindable(viewModel.settings).defaultResolution
+                ) {
+                    ForEach(viewModel.availableResolutions, id: \.self) { option in
+                        Text(option).tag(option)
+                    }
                 }
-            }
 
-            LabeledContent("Save folder") {
-                HStack {
+                Divider()
+
+                HStack(alignment: .center) {
+                    Text("Save folder")
+                        .font(.subheadline)
+                        .foregroundStyle(AppColors.textPrimary)
+
+                    Spacer(minLength: 12)
+
                     Text(viewModel.settings.expandedSaveFolder)
+                        .font(.caption)
+                        .foregroundStyle(AppColors.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                        .foregroundStyle(AppColors.textSecondary)
+                        .frame(maxWidth: 220, alignment: .trailing)
+
                     Button("Choose…") {
                         viewModel.chooseSaveFolder()
                     }
+                    .buttonStyle(.bordered)
                 }
-            }
 
-            if viewModel.saveFolderNeedsReauthorization {
-                Text("Choose… again to allow saving to this folder (required for Desktop and other locations outside the app).")
-                    .font(.caption)
-                    .foregroundStyle(AppColors.proGold)
-            }
+                if viewModel.saveFolderNeedsReauthorization {
+                    Text("Choose… again to allow saving to this folder (required for Desktop and other locations outside the app).")
+                        .font(.caption)
+                        .foregroundStyle(AppColors.proGold)
+                }
 
-            Stepper(
-                value: Bindable(viewModel.settings).countdownDuration,
-                in: 0...5
-            ) {
-                Text("Countdown: \(viewModel.settings.countdownDuration)s")
+                Divider()
+
+                SettingsPickerRow(
+                    title: "Countdown",
+                    selection: Bindable(viewModel.settings).countdownDuration
+                ) {
+                    ForEach(0...5, id: \.self) { seconds in
+                        Text("\(seconds) sec").tag(seconds)
+                    }
+                }
             }
         }
     }
 
-    private var audioSection: some View {
-        Section("Audio") {
-            Picker("Default audio mode", selection: Bindable(viewModel.settings).defaultAudioMode) {
-                ForEach(SettingsViewModel.audioModeOptions, id: \.self) { mode in
-                    Text(viewModel.audioModeLabel(for: mode)).tag(mode)
+    private var audioCard: some View {
+        SettingsSectionCard(title: "Audio", icon: "speaker.wave.2") {
+            VStack(alignment: .leading, spacing: 14) {
+                SettingsPickerRow(
+                    title: "Default audio mode",
+                    selection: Bindable(viewModel.settings).defaultAudioMode
+                ) {
+                    ForEach(SettingsViewModel.audioModeOptions, id: \.self) { mode in
+                        Text(viewModel.audioModeLabel(for: mode)).tag(mode)
+                    }
                 }
-            }
 
-            Picker("Microphone device", selection: micDeviceSelection) {
-                Text("System Default").tag(Optional<String>.none)
-                ForEach(viewModel.audioInputDevices, id: \.uniqueID) { device in
-                    Text(device.localizedName).tag(Optional(device.uniqueID))
+                Divider()
+
+                SettingsPickerRow(
+                    title: "Microphone device",
+                    selection: micDeviceSelection
+                ) {
+                    Text("System Default").tag(Optional<String>.none)
+                    ForEach(viewModel.audioInputDevices, id: \.uniqueID) { device in
+                        Text(device.localizedName).tag(Optional(device.uniqueID))
+                    }
                 }
-            }
 
-            VStack(alignment: .leading) {
-                Text("Microphone volume")
-                Slider(
-                    value: Bindable(viewModel.settings).defaultMicVolume,
-                    in: 0...1
+                Divider()
+
+                SettingsSliderRow(
+                    title: "Microphone volume",
+                    valueLabel: "\(Int(viewModel.settings.defaultMicVolume * 100))%",
+                    sliderValue: Bindable(viewModel.settings).defaultMicVolume,
+                    range: 0...1
                 )
-            }
 
-            VStack(alignment: .leading) {
-                Text("System audio volume")
-                Slider(
-                    value: Bindable(viewModel.settings).defaultSystemVolume,
-                    in: 0...1
+                SettingsSliderRow(
+                    title: "System audio volume",
+                    valueLabel: "\(Int(viewModel.settings.defaultSystemVolume * 100))%",
+                    sliderValue: Bindable(viewModel.settings).defaultSystemVolume,
+                    range: 0...1
                 )
             }
         }
     }
 
-    private var cursorZoomSection: some View {
-        Section("Cursor & Zoom") {
-            Toggle("Auto-focus on active window", isOn: Bindable(viewModel.settings).autoFocusEnabled)
-            Toggle("Cursor highlight", isOn: Bindable(viewModel.settings).cursorHighlightEnabled)
-            Toggle("Auto zoom on click", isOn: Bindable(viewModel.settings).autoZoomOnClick)
+    private var cursorZoomCard: some View {
+        SettingsSectionCard(title: "Cursor & Zoom", icon: "cursorarrow.rays") {
+            VStack(alignment: .leading, spacing: 14) {
+                SettingsToggleRow(
+                    title: "Auto-focus on active window",
+                    isOn: Bindable(viewModel.settings).autoFocusEnabled
+                )
 
-            VStack(alignment: .leading) {
-                Text("Zoom strength: \(String(format: "%.0f", (1 + viewModel.settings.zoomStrength) * 100))%")
-                Slider(
-                    value: Bindable(viewModel.settings).zoomStrength,
-                    in: 0...3,
+                SettingsToggleRow(
+                    title: "Cursor highlight",
+                    isOn: Bindable(viewModel.settings).cursorHighlightEnabled
+                )
+
+                SettingsToggleRow(
+                    title: "Auto zoom on click",
+                    isOn: Bindable(viewModel.settings).autoZoomOnClick
+                )
+
+                Divider()
+
+                SettingsSliderRow(
+                    title: "Zoom strength",
+                    valueLabel: "\(String(format: "%.0f", (1 + viewModel.settings.zoomStrength) * 100))%",
+                    sliderValue: Bindable(viewModel.settings).zoomStrength,
+                    range: 0...3,
                     step: 0.05
                 )
-            }
 
-            Stepper(
-                value: Bindable(viewModel.settings).zoomHoldDuration,
-                in: 0.5...5.0,
-                step: 0.5
+                SettingsPickerRow(
+                    title: "Zoom hold",
+                    selection: Bindable(viewModel.settings).zoomHoldDuration
+                ) {
+                    ForEach(zoomHoldOptions, id: \.self) { seconds in
+                        Text(String(format: "%.1f sec", seconds)).tag(seconds)
+                    }
+                }
+
+                SettingsPickerRow(
+                    title: "Cursor highlight color",
+                    selection: Bindable(viewModel.settings).cursorHighlightColor
+                ) {
+                    ForEach(SettingsViewModel.cursorColorOptions, id: \.self) { color in
+                        Text(viewModel.cursorColorLabel(for: color)).tag(color)
+                    }
+                }
+            }
+        }
+    }
+
+    private var captionsNotificationsCard: some View {
+        SettingsSectionCard(title: "Captions & Notifications", icon: "captions.bubble") {
+            VStack(alignment: .leading, spacing: 14) {
+                SettingsPickerRow(
+                    title: "Caption style",
+                    selection: Bindable(viewModel.settings).captionStyle
+                ) {
+                    ForEach(SettingsViewModel.captionStyleOptions, id: \.self) { style in
+                        Text(viewModel.captionStyleLabel(for: style)).tag(style)
+                    }
+                }
+
+                Divider()
+
+                SettingsToggleRow(
+                    title: "Export complete notifications",
+                    isOn: Bindable(viewModel.settings).notificationsEnabled
+                )
+            }
+        }
+    }
+
+    private var appearanceCard: some View {
+        SettingsSectionCard(title: "Appearance", icon: "circle.lefthalf.filled") {
+            SettingsPickerRow(
+                title: "Dark mode",
+                selection: Bindable(viewModel.settings).darkModeOverride
             ) {
-                Text("Zoom hold: \(viewModel.settings.zoomHoldDuration, specifier: "%.1f")s")
-            }
-
-            Picker("Cursor highlight color", selection: Bindable(viewModel.settings).cursorHighlightColor) {
-                ForEach(SettingsViewModel.cursorColorOptions, id: \.self) { color in
-                    Text(viewModel.cursorColorLabel(for: color)).tag(color)
-                }
-            }
-        }
-    }
-
-    private var captionsNotificationsSection: some View {
-        Section("Captions & Notifications") {
-            Picker("Caption style", selection: Bindable(viewModel.settings).captionStyle) {
-                ForEach(SettingsViewModel.captionStyleOptions, id: \.self) { style in
-                    Text(viewModel.captionStyleLabel(for: style)).tag(style)
-                }
-            }
-
-            Toggle("Export complete notifications", isOn: Bindable(viewModel.settings).notificationsEnabled)
-        }
-    }
-
-    private var appearanceSection: some View {
-        Section("Appearance") {
-            Picker("Dark mode", selection: Bindable(viewModel.settings).darkModeOverride) {
                 ForEach(SettingsViewModel.appearanceOptions, id: \.self) { option in
                     Text(viewModel.appearanceLabel(for: option)).tag(option)
                 }
@@ -201,37 +292,72 @@ struct SettingsView: View {
         }
     }
 
-    private var aboutSection: some View {
-        Section("About") {
-            LabeledContent("Version") {
-                Text(viewModel.appVersionString)
-                    .foregroundStyle(AppColors.textSecondary)
-            }
+    private var aboutCard: some View {
+        SettingsSectionCard(title: "About", icon: "info.circle") {
+            VStack(alignment: .leading, spacing: 14) {
+                SettingsLabeledValueRow(
+                    title: "Version",
+                    value: viewModel.appVersionString
+                )
 
-            Button("Check for Updates") {
-                viewModel.showUpdatesAlert = true
+                Divider()
+
+                SettingsButtonRow(title: "Check for Updates") {
+                    viewModel.showUpdatesAlert = true
+                }
+
+                SettingsButtonRow(title: "Help & Support") {
+                    router.navigate(to: .help)
+                }
+
+                HStack(spacing: 20) {
+                    Button("Privacy Policy") {
+                        router.navigateToLegal(.privacyPolicy, returningTo: .settings)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.callout)
+                    .foregroundStyle(AppColors.primary)
+
+                    Button("Terms of Service") {
+                        router.navigateToLegal(.termsOfService, returningTo: .settings)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.callout)
+                    .foregroundStyle(AppColors.primary)
+                }
             }
         }
     }
 
-    private var debugSection: some View {
-        Section("Device Capabilities (Debug)") {
-            LabeledContent("Apple Silicon") {
-                Text(viewModel.capabilities.isAppleSilicon ? "Yes" : "No")
-            }
-            LabeledContent("Max windows") {
-                Text("\(viewModel.capabilities.maxWindows)")
-            }
-            LabeledContent("4K export") {
-                Text(viewModel.capabilities.supports4K ? "Supported" : "Not supported")
-            }
-            LabeledContent("Composite FPS") {
-                Text("\(viewModel.capabilities.compositeFrameRate)")
-            }
+    private var debugCard: some View {
+        SettingsSectionCard(title: "Device Capabilities (Debug)", icon: "cpu") {
+            VStack(alignment: .leading, spacing: 14) {
+                SettingsLabeledValueRow(
+                    title: "Apple Silicon",
+                    value: viewModel.capabilities.isAppleSilicon ? "Yes" : "No"
+                )
+                SettingsLabeledValueRow(
+                    title: "Max windows",
+                    value: "\(viewModel.capabilities.maxWindows)"
+                )
+                SettingsLabeledValueRow(
+                    title: "4K export",
+                    value: viewModel.capabilities.supports4K ? "Supported" : "Not supported"
+                )
+                SettingsLabeledValueRow(
+                    title: "Composite FPS",
+                    value: "\(viewModel.capabilities.compositeFrameRate)"
+                )
 
-            #if DEBUG
-            Toggle("Show Lifetime plan on Subscription screen", isOn: Bindable(viewModel.settings).showLifetimeDeal)
-            #endif
+                #if DEBUG
+                Divider()
+
+                SettingsToggleRow(
+                    title: "Show Lifetime plan on Subscription screen",
+                    isOn: Bindable(viewModel.settings).showLifetimeDeal
+                )
+                #endif
+            }
         }
     }
 
@@ -241,33 +367,9 @@ struct SettingsView: View {
             set: { viewModel.settings.defaultMicDevice = $0 }
         )
     }
-
-    @ViewBuilder
-    private func permissionRow(
-        title: String,
-        status: String,
-        checkStatus: @escaping () -> Void,
-        openSettings: @escaping () -> Void
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title)
-                Spacer()
-                Text(status)
-                    .foregroundStyle(AppColors.textSecondary)
-            }
-
-            HStack {
-                Button("Check Status", action: checkStatus)
-                Button("Open System Settings", action: openSettings)
-            }
-            .buttonStyle(.link)
-        }
-        .padding(.vertical, 4)
-    }
 }
 
 #Preview {
     SettingsView()
-        .frame(width: 520, height: 800)
+        .frame(width: 720, height: 900)
 }

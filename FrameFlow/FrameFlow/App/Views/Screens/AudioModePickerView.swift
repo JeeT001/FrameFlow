@@ -16,7 +16,7 @@ struct AudioModePickerView: View {
     @State private var draftSystemVolumePercent: Double
     @State private var showProGate = false
     @State private var proGateFeature = "Pro Audio"
-    @State private var proGateDescription = "System and combined audio capture require FrameFlow Pro."
+    @State private var proGateDescription = "System and combined audio capture require \(AppBranding.proName)."
     @State private var levelMonitor = AudioLevelMonitor()
 
     init(
@@ -47,7 +47,7 @@ struct AudioModePickerView: View {
                     .font(.title2)
                     .fontWeight(.semibold)
 
-                Text("Choose how FrameFlow captures sound for your recording.")
+                Text("Choose how \(AppBranding.name) captures sound for your recording.")
                     .font(.subheadline)
                     .foregroundStyle(AppColors.textSecondary)
 

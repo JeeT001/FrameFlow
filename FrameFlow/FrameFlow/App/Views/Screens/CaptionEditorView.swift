@@ -54,7 +54,7 @@ struct CaptionEditorView: View {
         .proUpgradeSheet(
             isPresented: $showProGate,
             feature: "Auto Captions",
-            description: "WhisperKit transcription and the caption editor require FrameFlow Pro."
+            description: "WhisperKit transcription and the caption editor require \(AppBranding.proName)."
         )
         .onChange(of: captionState.segments) { _, newSegments in
             guard viewModel.segments.isEmpty, !newSegments.isEmpty else { return }
@@ -272,7 +272,7 @@ struct CaptionEditorView: View {
         ContentUnavailableView {
             Label("Pro feature", systemImage: "star.fill")
         } description: {
-            Text("Auto captions and the caption editor require FrameFlow Pro.")
+            Text("Auto captions and the caption editor require \(AppBranding.proName).")
         } actions: {
             Button("Upgrade") {
                 showProGate = true

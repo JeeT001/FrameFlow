@@ -102,7 +102,7 @@ struct ExportView: View {
                 }
 
                 if !appState.isPro {
-                    Label("Free exports include a FrameFlow watermark", systemImage: "info.circle")
+                    Label("Free exports include a \(AppBranding.name) watermark", systemImage: "info.circle")
                         .font(.caption)
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -161,7 +161,7 @@ struct ExportView: View {
             if isLocked {
                 proGateFeature = resolution == .p4K ? "4K Export" : "1080p Export"
                 proGateDescription = viewModel.lockReason(for: resolution, isPro: appState.isPro)
-                    ?? "HD export requires FrameFlow Pro."
+                    ?? "HD export requires \(AppBranding.proName)."
                 showProGate = true
             } else {
                 viewModel.selectedResolution = resolution

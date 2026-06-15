@@ -20,7 +20,7 @@ enum SupabaseClientProvider {
         else {
             #if DEBUG
             print(
-                "[FrameFlow] Supabase credentials missing or invalid. " +
+                "[\(AppBranding.name)] Supabase credentials missing or invalid. " +
                 "Copy Config.example.swift to Config.swift and add your project URL and anon key."
             )
             #endif

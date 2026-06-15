@@ -19,7 +19,7 @@ struct RecordingView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if viewModel.phase == .recording, viewModel.coordinator.isRecording {
-                VStack {
+                VStack(spacing: 0) {
                     RecordingHUDView(
                         isPaused: viewModel.isPaused,
                         isRecording: viewModel.coordinator.isRecording,
@@ -31,13 +31,22 @@ struct RecordingView: View {
                         isPauseEnabled: !viewModel.isStopping && !viewModel.coordinator.isStarting,
                         isStopEnabled: !viewModel.isStopping && !viewModel.coordinator.isStarting
                     )
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
                     .opacity(viewModel.isHUDVisible ? 1 : 0)
                     .animation(.easeInOut(duration: 0.25), value: viewModel.isHUDVisible)
                     .allowsHitTesting(viewModel.isHUDVisible)
 
                     Spacer()
+
+                    RecordingBottomBar(
+                        windowCount: appState.selectedWindowIDs.count,
+                        layoutPreset: appState.selectedLayoutPreset,
+                        format: appState.selectedFormat,
+                        autoFocusEnabled: SettingsStore.shared.autoFocusEnabled,
+                        audioMode: viewModel.audioMode,
+                        cameraEnabled: PiPController.shared.isCameraEnabled
+                    )
                 }
             }
 
@@ -58,7 +67,7 @@ struct RecordingView: View {
                 }
             }
         }
-        .navigationTitle("Recording")
+        .navigationTitle("")
         .task {
             configureShortcutHandlers()
             await viewModel.runRecordingFlow(appState: appState)

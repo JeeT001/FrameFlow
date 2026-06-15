@@ -15,7 +15,7 @@ enum WindowCaptureError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .permissionDenied:
-            "Screen recording permission is required to list windows. Enable FrameFlow in System Settings → Privacy & Security → Screen Recording."
+            "Screen recording permission is required to list windows. Enable \(AppBranding.name) in System Settings → Privacy & Security → Screen Recording."
         case .fetchFailed(let message):
             message
         }
@@ -30,6 +30,8 @@ final class WindowCaptureService {
     private static let maxConcurrentThumbnails = 4
     private static let thumbnailWidth = 320
     private static let minimumThumbnailDimension: CGFloat = 120
+    /// Picker listing — skip 1px system layers; still allow occluded windows when FrameFlow is fullscreen.
+    private static let minimumPickerWindowDimension: CGFloat = 50
 
     private var scWindowsByID: [CGWindowID: SCWindow] = [:]
 
@@ -40,7 +42,8 @@ final class WindowCaptureService {
         await PermissionManager.shared.checkScreenRecordingPermission()
     }
 
-    /// Returns capturable on-screen windows with optional thumbnails. Retains `SCWindow` references internally for Day 16.
+    /// Returns capturable windows with optional thumbnails for the Window Picker.
+    /// Uses `onScreenWindowsOnly: false` so third-party windows remain listable when FrameFlow is fullscreen.
     func fetchWindows() async throws -> [WindowItem] {
         guard await checkPermission() else {
             throw WindowCaptureError.permissionDenied
@@ -50,7 +53,7 @@ final class WindowCaptureService {
         do {
             content = try await SCShareableContent.excludingDesktopWindows(
                 true,
-                onScreenWindowsOnly: true
+                onScreenWindowsOnly: false
             )
         } catch {
             throw WindowCaptureError.permissionDenied
@@ -60,6 +63,15 @@ final class WindowCaptureService {
         let capturableWindows = content.windows.filter { window in
             shouldInclude(window: window, excludedBundleIDs: excludedBundleIDs)
         }
+
+        #if DEBUG
+        let offScreenIncluded = capturableWindows.filter { !$0.isOnScreen }.count
+        print(
+            "[WindowCaptureService] fetchWindows: sc=\(content.windows.count) " +
+            "onScreen=\(content.windows.filter(\.isOnScreen).count) " +
+            "included=\(capturableWindows.count) offScreenIncluded=\(offScreenIncluded)"
+        )
+        #endif
 
         scWindowsByID = Dictionary(
             uniqueKeysWithValues: capturableWindows.map { ($0.windowID, $0) }
@@ -85,7 +97,6 @@ final class WindowCaptureService {
             return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
         }
 
-        print("[WindowCaptureService] fetchWindows: \(items.count) window(s)")
         return items
     }
 
@@ -123,7 +134,11 @@ final class WindowCaptureService {
     }
 
     private func shouldInclude(window: SCWindow, excludedBundleIDs: Set<String>) -> Bool {
-        guard window.isOnScreen else { return false }
+        let frame = window.frame
+        guard frame.width >= Self.minimumPickerWindowDimension,
+              frame.height >= Self.minimumPickerWindowDimension else {
+            return false
+        }
 
         let rawTitle = window.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !rawTitle.isEmpty else {

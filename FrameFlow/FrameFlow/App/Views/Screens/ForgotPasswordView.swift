@@ -9,15 +9,23 @@ struct ForgotPasswordView: View {
     @Environment(AppRouter.self) private var router
     @State private var viewModel = ForgotPasswordViewModel()
 
+    private var fieldsDisabled: Bool {
+        viewModel.isLoading || viewModel.successMessage != nil
+    }
+
     var body: some View {
-        AuthFormLayout(
-            title: "Forgot Password",
-            subtitle: "Enter your email and we will send you a reset link."
+        AuthScreenChrome(
+            hero: .systemImage("lock.circle"),
+            title: "Reset your password",
+            subtitle: "Enter your email and we'll send you a reset link to get back into your account."
         ) {
-            TextField("Email", text: $viewModel.email)
-                .textFieldStyle(.roundedBorder)
-                .textContentType(.emailAddress)
-                .disabled(viewModel.isLoading || viewModel.successMessage != nil)
+            AuthTextField(
+                label: "Email",
+                icon: "envelope",
+                text: $viewModel.email,
+                isDisabled: fieldsDisabled
+            )
+            .textContentType(.emailAddress)
 
             if let errorMessage = viewModel.errorMessage {
                 AuthErrorBanner(message: errorMessage)
@@ -27,30 +35,19 @@ struct ForgotPasswordView: View {
                 AuthSuccessBanner(message: successMessage)
             }
 
-            Button {
+            AuthPrimaryButton(
+                title: "Send Reset Link",
+                isLoading: viewModel.isLoading,
+                isDisabled: fieldsDisabled
+            ) {
                 Task {
                     await viewModel.sendResetLink()
                 }
-            } label: {
-                if viewModel.isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    Text("Send Reset Link")
-                        .frame(maxWidth: .infinity)
-                }
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(viewModel.isLoading || viewModel.successMessage != nil)
         } footer: {
-            Button("Back to Log In") {
+            AuthFooterLink(title: "Back to Log In", icon: "arrow.left") {
                 router.navigate(to: .login)
             }
-            .buttonStyle(.link)
-            .font(.callout)
-            .frame(maxWidth: 380)
         }
     }
 }

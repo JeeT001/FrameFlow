@@ -15,7 +15,7 @@ struct AuthContainerView: View {
 
     private var displayedRoute: AppRoute {
         switch router.currentRoute {
-        case .signUp, .forgotPassword, .resetPassword:
+        case .signUp, .forgotPassword, .resetPassword, .privacyPolicy, .termsOfService:
             router.currentRoute
         default:
             .login

@@ -93,7 +93,7 @@ final class EditorViewModel {
         }
 
         lines.append("Resolution: \(resolution.displayName)")
-        lines.append(isPro ? "No watermark" : "Watermark: FrameFlow")
+        lines.append(isPro ? "No watermark" : "Watermark: \(AppBranding.name)")
 
         if isPro, alsoSaveSRT, applyCaptions, !captionViewModel.segments.isEmpty {
             lines.append("SRT file saved alongside MP4")

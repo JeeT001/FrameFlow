@@ -21,32 +21,32 @@
 			containerPortal = A014C1012FC3EDD600BD9EBF /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = A014C1082FC3EDD600BD9EBF;
-			remoteInfo = FrameFlow;
+			remoteInfo = Drazlo;
 		};
 		A014C1212FC3EDD800BD9EBF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = A014C1012FC3EDD600BD9EBF /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = A014C1082FC3EDD600BD9EBF;
-			remoteInfo = FrameFlow;
+			remoteInfo = Drazlo;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		A014C1092FC3EDD600BD9EBF /* FrameFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FrameFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A014C1092FC3EDD600BD9EBF /* Drazlo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Drazlo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A014C1162FC3EDD800BD9EBF /* FrameFlowTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FrameFlowTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A014C1202FC3EDD800BD9EBF /* FrameFlowUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FrameFlowUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		B014E0012FC3EDD600BD9EBF /* Exceptions for "FrameFlow" folder in "FrameFlow" target */ = {
+		B014E0012FC3EDD600BD9EBF /* Exceptions for "FrameFlow" folder in "Drazlo" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				App/Components/EditorTracksView.swift,
 				App/Utils/Config.example.swift,
 				Info.plist,
 			);
-			target = A014C1082FC3EDD600BD9EBF /* FrameFlow */;
+			target = A014C1082FC3EDD600BD9EBF /* Drazlo */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -54,7 +54,7 @@
 		A014C10B2FC3EDD600BD9EBF /* FrameFlow */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				B014E0012FC3EDD600BD9EBF /* Exceptions for "FrameFlow" folder in "FrameFlow" target */,
+				B014E0012FC3EDD600BD9EBF /* Exceptions for "FrameFlow" folder in "Drazlo" target */,
 			);
 			path = FrameFlow;
 			sourceTree = "<group>";
@@ -115,7 +115,7 @@
 		A014C10A2FC3EDD600BD9EBF /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A014C1092FC3EDD600BD9EBF /* FrameFlow.app */,
+				A014C1092FC3EDD600BD9EBF /* Drazlo.app */,
 				A014C1162FC3EDD800BD9EBF /* FrameFlowTests.xctest */,
 				A014C1202FC3EDD800BD9EBF /* FrameFlowUITests.xctest */,
 			);
@@ -125,9 +125,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A014C1082FC3EDD600BD9EBF /* FrameFlow */ = {
+		A014C1082FC3EDD600BD9EBF /* Drazlo */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A014C12A2FC3EDD900BD9EBF /* Build configuration list for PBXNativeTarget "FrameFlow" */;
+			buildConfigurationList = A014C12A2FC3EDD900BD9EBF /* Build configuration list for PBXNativeTarget "Drazlo" */;
 			buildPhases = (
 				A014C1052FC3EDD600BD9EBF /* Sources */,
 				A014C1062FC3EDD600BD9EBF /* Frameworks */,
@@ -140,7 +140,7 @@
 			fileSystemSynchronizedGroups = (
 				A014C10B2FC3EDD600BD9EBF /* FrameFlow */,
 			);
-			name = FrameFlow;
+			name = Drazlo;
 			packageProductDependencies = (
 				B014D0112FC3EDD600BD9EBF /* Supabase */,
 				B014D0212FC3EDD600BD9EBF /* RevenueCat */,
@@ -149,8 +149,8 @@
 				B014D0512FC3EDD600BD9EBF /* Sentry */,
 				B014D0612FC3EDD600BD9EBF /* PostHog */,
 			);
-			productName = FrameFlow;
-			productReference = A014C1092FC3EDD600BD9EBF /* FrameFlow.app */;
+			productName = Drazlo;
+			productReference = A014C1092FC3EDD600BD9EBF /* Drazlo.app */;
 			productType = "com.apple.product-type.application";
 		};
 		A014C1152FC3EDD800BD9EBF /* FrameFlowTests */ = {
@@ -244,7 +244,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A014C1082FC3EDD600BD9EBF /* FrameFlow */,
+				A014C1082FC3EDD600BD9EBF /* Drazlo */,
 				A014C1152FC3EDD800BD9EBF /* FrameFlowTests */,
 				A014C11F2FC3EDD800BD9EBF /* FrameFlowUITests */,
 			);
@@ -302,12 +302,12 @@
 /* Begin PBXTargetDependency section */
 		A014C1182FC3EDD800BD9EBF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = A014C1082FC3EDD600BD9EBF /* FrameFlow */;
+			target = A014C1082FC3EDD600BD9EBF /* Drazlo */;
 			targetProxy = A014C1172FC3EDD800BD9EBF /* PBXContainerItemProxy */;
 		};
 		A014C1222FC3EDD800BD9EBF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = A014C1082FC3EDD600BD9EBF /* FrameFlow */;
+			target = A014C1082FC3EDD600BD9EBF /* Drazlo */;
 			targetProxy = A014C1212FC3EDD800BD9EBF /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -459,9 +459,11 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FrameFlow/Info.plist;
-				INFOPLIST_KEY_NSCameraUsageDescription = "FrameFlow uses the camera for picture-in-picture overlay during screen recordings.";
+				INFOPLIST_KEY_CFBundleDisplayName = Drazlo;
+				INFOPLIST_KEY_CFBundleName = Drazlo;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Drazlo uses the camera for picture-in-picture overlay during screen recordings.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FrameFlow uses the microphone to capture narration and audio during screen recordings.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Drazlo uses the microphone to capture narration and audio during screen recordings.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -469,7 +471,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.Simranjit.FrameFlow;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Drazlo;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -506,9 +508,11 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FrameFlow/Info.plist;
-				INFOPLIST_KEY_NSCameraUsageDescription = "FrameFlow uses the camera for picture-in-picture overlay during screen recordings.";
+				INFOPLIST_KEY_CFBundleDisplayName = Drazlo;
+				INFOPLIST_KEY_CFBundleName = Drazlo;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Drazlo uses the camera for picture-in-picture overlay during screen recordings.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "FrameFlow uses the microphone to capture narration and audio during screen recordings.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Drazlo uses the microphone to capture narration and audio during screen recordings.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -516,7 +520,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.Simranjit.FrameFlow;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = Drazlo;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -544,7 +548,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FrameFlow.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FrameFlow";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Drazlo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Drazlo";
 			};
 			name = Debug;
 		};
@@ -565,7 +569,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FrameFlow.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FrameFlow";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Drazlo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Drazlo";
 			};
 			name = Release;
 		};
@@ -584,7 +588,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = FrameFlow;
+				TEST_TARGET_NAME = Drazlo;
 			};
 			name = Debug;
 		};
@@ -603,7 +607,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = FrameFlow;
+				TEST_TARGET_NAME = Drazlo;
 			};
 			name = Release;
 		};
@@ -619,7 +623,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A014C12A2FC3EDD900BD9EBF /* Build configuration list for PBXNativeTarget "FrameFlow" */ = {
+		A014C12A2FC3EDD900BD9EBF /* Build configuration list for PBXNativeTarget "Drazlo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A014C12B2FC3EDD900BD9EBF /* Debug */,

@@ -44,7 +44,7 @@ private struct RoutePickerMenu: View {
 
     var body: some View {
         Picker("Screen", selection: $selection) {
-            ForEach(AppRoute.allCases) { route in
+            ForEach(AppRoute.allCases.filter(\.showInRoutePicker)) { route in
                 Text(route.title).tag(route)
             }
         }

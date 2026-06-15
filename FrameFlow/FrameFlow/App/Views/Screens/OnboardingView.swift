@@ -14,7 +14,7 @@ struct OnboardingView: View {
         OnboardingPage(
             systemImage: "square.grid.2x2",
             title: "Pick Your Windows",
-            subtitle: "Select the app windows you want in your recording. FrameFlow captures each window separately for a clean composite."
+            subtitle: "Select the app windows you want in your recording. \(AppBranding.name) captures each window separately for a clean composite."
         ),
         OnboardingPage(
             systemImage: "rectangle.split.2x1",
@@ -30,6 +30,10 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            BrandLogoView(style: .onboarding)
+                .padding(.top, 24)
+                .padding(.bottom, 8)
+
             TabView(selection: $currentPage) {
                 ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
                     pageContent(page)

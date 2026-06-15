@@ -5,6 +5,14 @@
 
 import SwiftUI
 
+private enum DashboardRecordingSort: String, CaseIterable, Identifiable {
+    case recent = "Recent"
+    case name = "Name"
+    case duration = "Duration"
+
+    var id: String { rawValue }
+}
+
 struct DashboardView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
@@ -12,14 +20,34 @@ struct DashboardView: View {
     @Environment(SettingsStore.self) private var settingsStore
     @State private var recordingStore = RecordingStore.shared
     @State private var deleteErrorMessage: String?
+    @State private var searchText = ""
+    @State private var sortOption: DashboardRecordingSort = .recent
+    @State private var showAllRecordings = false
 
     private let gridColumns = [
-        GridItem(.adaptive(minimum: 220, maximum: 280), spacing: 16)
+        GridItem(.adaptive(minimum: 240, maximum: 300), spacing: 20)
     ]
+
+    private static let collapsedRecordingLimit = 8
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 28) {
+                DashboardWelcomeHeader(
+                    displayName: welcomeName,
+                    initials: UserDisplayHelpers.initials(for: appState.currentUser),
+                    showsUpgrade: !appState.isPro,
+                    searchText: $searchText,
+                    onUpgrade: {
+                        AnalyticsService.trackUpgradeClicked(source: "dashboard")
+                        router.navigate(to: .subscription)
+                    }
+                )
+
+                DashboardHeroBanner {
+                    router.navigate(to: .windowPicker)
+                }
+
                 if showsExpiryBanner {
                     ExpiryBannerView(
                         status: appState.subscriptionStatus,
@@ -31,21 +59,11 @@ struct DashboardView: View {
                     )
                 }
 
-                topBar
-                newRecordingButton
-
-                if recordingStore.isLoading {
-                    ProgressView("Loading recordings…")
-                        .frame(maxWidth: .infinity, minHeight: 160)
-                } else if recordingStore.recordings.isEmpty {
-                    emptyState
-                } else {
-                    recordingsGrid
-                }
+                recordingsSection
             }
-            .padding(24)
+            .padding(28)
         }
-        .navigationTitle("Home")
+        .navigationTitle("")
         .alert("Couldn’t delete recording", isPresented: Binding(
             get: { deleteErrorMessage != nil },
             set: { if !$0 { deleteErrorMessage = nil } }
@@ -82,6 +100,14 @@ struct DashboardView: View {
         #endif
     }
 
+    private var welcomeName: String {
+        let name = UserDisplayHelpers.displayName(for: appState.currentUser)
+        if name == "Guest" || name == "User" {
+            return "there"
+        }
+        return name.split(separator: " ").first.map(String.init) ?? name
+    }
+
     private var showsExpiryBanner: Bool {
         needsSubscriptionAttention && !settingsStore.expiryBannerDismissed
     }
@@ -90,66 +116,68 @@ struct DashboardView: View {
         appState.subscriptionStatus == .past_due || appState.subscriptionStatus == .expired
     }
 
-    private var topBar: some View {
-        HStack(alignment: .center, spacing: 16) {
-            Text("FrameFlow")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+    @ViewBuilder
+    private var recordingsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center) {
+                Text("Recent Recordings")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppColors.textPrimary)
 
-            Spacer()
+                Spacer()
 
-            userAvatar
-
-            if !appState.isPro {
-                Button("Upgrade") {
-                    AnalyticsService.trackUpgradeClicked(source: "dashboard")
-                    router.navigate(to: .subscription)
+                if !recordingStore.recordings.isEmpty {
+                    Picker("Sort", selection: $sortOption) {
+                        ForEach(DashboardRecordingSort.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .frame(width: 120)
                 }
-                .buttonStyle(.borderedProminent)
+            }
+
+            if recordingStore.isLoading {
+                loadingState
+            } else if sortedFilteredRecordings.isEmpty {
+                if recordingStore.recordings.isEmpty {
+                    emptyState
+                } else {
+                    noSearchResultsState
+                }
+            } else {
+                recordingsGrid
             }
         }
     }
 
-    private var userAvatar: some View {
-        Circle()
-            .fill(AppColors.primary.opacity(0.2))
-            .frame(width: 36, height: 36)
-            .overlay {
-                Text(UserDisplayHelpers.initials(for: appState.currentUser))
-                    .font(.caption)
-                    .fontWeight(.semibold)
-            }
-            .help(UserDisplayHelpers.displayName(for: appState.currentUser))
-    }
-
-    private var newRecordingButton: some View {
-        Button {
-            router.navigate(to: .windowPicker)
-        } label: {
-            Label("New Recording", systemImage: "record.circle")
-                .font(.title3)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+    private var loadingState: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.large)
+            Text("Loading recordings…")
+                .font(.subheadline)
+                .foregroundStyle(AppColors.textSecondary)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
+        .frame(maxWidth: .infinity, minHeight: 200)
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             Image(systemName: "film.stack")
-                .font(.system(size: 44))
-                .foregroundStyle(AppColors.textSecondary)
-                .padding(.bottom, 4)
+                .font(.system(size: 48))
+                .foregroundStyle(AppColors.textSecondary.opacity(0.7))
 
             Text("No recordings yet")
-                .font(.title2)
-                .fontWeight(.semibold)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppColors.textPrimary)
 
-            Text("Start your first screen recording to see it here.")
+            Text("Your recordings will appear here after you finish your first session.")
                 .font(.subheadline)
                 .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
+                .frame(maxWidth: 360)
 
             Button {
                 router.navigate(to: .windowPicker)
@@ -157,15 +185,55 @@ struct DashboardView: View {
                 Label("New Recording", systemImage: "record.circle")
             }
             .buttonStyle(.borderedProminent)
-            .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, minHeight: 220)
         .padding(.vertical, 24)
     }
 
+    private var noSearchResultsState: some View {
+        ContentUnavailableView(
+            "No matches",
+            systemImage: "magnifyingglass",
+            description: Text("Try a different search term.")
+        )
+        .frame(maxWidth: .infinity, minHeight: 180)
+    }
+
+    private var sortedFilteredRecordings: [RecordingMetadata] {
+        var items = recordingStore.recordings
+
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !query.isEmpty {
+            items = items.filter { $0.name.lowercased().contains(query) }
+        }
+
+        switch sortOption {
+        case .recent:
+            items.sort { $0.createdAt > $1.createdAt }
+        case .name:
+            items.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        case .duration:
+            items.sort { $0.durationSeconds > $1.durationSeconds }
+        }
+
+        return items
+    }
+
+    private var visibleRecordings: [RecordingMetadata] {
+        let items = sortedFilteredRecordings
+        guard !showAllRecordings, items.count > Self.collapsedRecordingLimit else {
+            return items
+        }
+        return Array(items.prefix(Self.collapsedRecordingLimit))
+    }
+
+    private var showsViewAllTile: Bool {
+        !showAllRecordings && sortedFilteredRecordings.count > Self.collapsedRecordingLimit
+    }
+
     private var recordingsGrid: some View {
-        LazyVGrid(columns: gridColumns, spacing: 16) {
-            ForEach(recordingStore.recordings) { recording in
+        LazyVGrid(columns: gridColumns, spacing: 20) {
+            ForEach(visibleRecordings) { recording in
                 RecordingListItemView(
                     recording: recording,
                     onTap: { openDetail(for: recording) },
@@ -173,7 +241,37 @@ struct DashboardView: View {
                     onDelete: { deleteRecording(recording) }
                 )
             }
+
+            if showsViewAllTile {
+                viewAllTile
+            }
         }
+    }
+
+    private var viewAllTile: some View {
+        Button {
+            showAllRecordings = true
+        } label: {
+            VStack(spacing: 12) {
+                Image(systemName: "square.grid.2x2")
+                    .font(.title2)
+                    .foregroundStyle(AppColors.primary)
+                Text("View all recordings")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppColors.textPrimary)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 180)
+            .padding(20)
+            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(AppColors.border, style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private func openDetail(for recording: RecordingMetadata) {

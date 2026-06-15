@@ -131,10 +131,10 @@ final class ExportViewModel {
         case .p720:
             return nil
         case .p1080:
-            return isPro ? nil : "1080p export requires FrameFlow Pro."
+            return isPro ? nil : "1080p export requires \(AppBranding.proName)."
         case .p4K:
             if !isPro {
-                return "4K export requires FrameFlow Pro."
+                return "4K export requires \(AppBranding.proName)."
             }
             if !DeviceCapabilityManager.shared.supports4K {
                 return "4K export requires Apple Silicon."
@@ -319,7 +319,7 @@ final class ExportViewModel {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let stamp = formatter.string(from: isFirstExport ? recording.createdAt : Date())
-        return "FrameFlow_\(stamp)_\(resolution.rawValue).mp4"
+        return "\(AppBranding.name)_\(stamp)_\(resolution.rawValue).mp4"
     }
 
     private func resolutionBadge(for resolution: ExportResolution, format: String) -> String {

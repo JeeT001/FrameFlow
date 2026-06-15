@@ -49,8 +49,19 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
     case signUp
     case forgotPassword
     case resetPassword
+    case privacyPolicy
+    case termsOfService
 
     var id: String { rawValue }
+
+    var showInRoutePicker: Bool {
+        switch self {
+        case .privacyPolicy, .termsOfService:
+            false
+        default:
+            true
+        }
+    }
 
     var title: String {
         switch self {
@@ -73,6 +84,8 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
         case .signUp: "Sign Up"
         case .forgotPassword: "Forgot Password"
         case .resetPassword: "Reset Password"
+        case .privacyPolicy: "Privacy Policy"
+        case .termsOfService: "Terms of Service"
         }
     }
 
@@ -97,6 +110,8 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
         case .signUp: "person.badge.plus"
         case .forgotPassword: "envelope"
         case .resetPassword: "lock.rotation"
+        case .privacyPolicy: "hand.raised"
+        case .termsOfService: "doc.text"
         }
     }
 
@@ -135,11 +150,15 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
         case .login:
             "Sign in with email and password."
         case .signUp:
-            "Create a new FrameFlow account."
+            "Create a new \(AppBranding.name) account."
         case .forgotPassword:
             "Request a password reset link by email."
         case .resetPassword:
             "Set a new password from the email reset link."
+        case .privacyPolicy:
+            "How \(AppBranding.name) collects and uses your information."
+        case .termsOfService:
+            "Rules and conditions for using \(AppBranding.name)."
         }
     }
 
@@ -183,6 +202,10 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
             ["Order summary", "Payment sheet", "Pay"]
         case .help:
             ["FAQ list", "Email Support", "Privacy Policy", "Terms of Service", "App version"]
+        case .privacyPolicy:
+            ["Privacy sections", "Last updated", "Back"]
+        case .termsOfService:
+            ["Terms sections", "Last updated", "Back"]
         }
     }
 

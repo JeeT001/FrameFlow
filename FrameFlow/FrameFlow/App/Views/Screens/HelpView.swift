@@ -7,137 +7,78 @@ import AppKit
 import SwiftUI
 
 struct HelpView: View {
-    private var faqItems: [HelpFAQItem] {
-        faqItems(saveFolder: SettingsStore.shared.expandedSaveFolder)
+    @Environment(AppRouter.self) private var router
+
+    private static let supportEmail = "kiwibooking.nz@gmail.com"
+
+    @State private var searchText = ""
+
+    private var allFAQItems: [HelpFAQItem] {
+        HelpFAQItem.allItems(
+            saveFolder: SettingsStore.shared.expandedSaveFolder,
+            supportEmail: Self.supportEmail
+        )
     }
 
-    private func faqItems(saveFolder: String) -> [HelpFAQItem] {
-        [
-        HelpFAQItem(
-            title: "How do I grant screen recording permission?",
-            answer: """
-            Open Settings → Permissions, then tap Open System Settings next to Screen Recording. \
-            Enable FrameFlow in System Settings → Privacy & Security → Screen Recording. \
-            Return to FrameFlow and tap Check Status to refresh.
-            """
-        ),
-        HelpFAQItem(
-            title: "How do I enable camera and microphone access?",
-            answer: """
-            In Settings → Permissions, use Open System Settings for Camera and Microphone. \
-            Grant access for FrameFlow, then tap Check Status. Camera is used for PiP overlays; \
-            the microphone captures your voice when an audio mode includes the mic.
-            """
-        ),
-        HelpFAQItem(
-            title: "What is the difference between Free and Pro?",
-            answer: """
-            Free includes core recording with limits on windows and export options. Pro unlocks \
-            higher limits (more windows, 4K on Apple Silicon), advanced layouts, and priority \
-            features. Subscription billing will be available in a future update; pricing is shown \
-            on the Subscription screen.
-            """
-        ),
-        HelpFAQItem(
-            title: "Does FrameFlow capture system audio?",
-            answer: """
-            Yes — on macOS 14 and later, FrameFlow can capture system audio without a virtual \
-            audio cable. Choose System Audio or Combined in Settings → Audio (or during setup \
-            before recording in a later release).
-            """
-        ),
-        HelpFAQItem(
-            title: "What export formats and resolutions are supported?",
-            answer: """
-            Exports support 16:9 (landscape) and 9:16 (vertical) aspect ratios. Default \
-            resolution is set in Settings → Recording & Export (720p, 1080p, and 4K on Apple \
-            Silicon). After recording, the Post-Record Editor opens automatically — tap Export \
-            Video in the toolbar to choose resolution and save your MP4. You can also re-export \
-            from Home via a recording’s context menu.
-            """
-        ),
-        HelpFAQItem(
-            title: "How do captions work?",
-            answer: """
-            Captions are generated on-device using WhisperKit — no audio is sent to the cloud. \
-            Pro users can generate and edit captions in the Post-Record Editor sidebar, then \
-            export with captions burned in from Export Video in the toolbar.
-            """
-        ),
-        HelpFAQItem(
-            title: "Where are my recordings saved?",
-            answer: """
-            Recordings are saved to your default folder in Settings → Recording & Export. \
-            Current folder: \(saveFolder). Use Choose… to pick another directory. \
-            Recording metadata is stored locally by the app.
-            """
-        ),
-        HelpFAQItem(
-            title: "What keyboard shortcuts work while recording?",
-            answer: """
-            Global shortcuts work during an active recording session (FrameFlow must be allowed in \
-            System Settings → Privacy & Security → Accessibility for shortcuts when another app is focused):
+    private var filteredSections: [(category: HelpFAQCategory, items: [HelpFAQItem])] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
-            • Cmd+R — Stop recording
-            • Cmd+P — Pause / Resume
-            • Cmd+= — Zoom in (+0.25×)
-            • Cmd+- — Zoom out (−0.25×)
-            • Cmd+0 — Reset zoom to 1.0×
-            • Cmd+F — Toggle auto-focus on active window
-            • Cmd+H — Toggle cursor highlight
-            • Cmd+K — Toggle camera PiP (Pro)
-            • Cmd+Escape — Discard recording without saving
-            """
-        ),
-        HelpFAQItem(
-            title: "How do I contact support?",
-            answer: """
-            Tap Email Support below to open your mail app, or write to support@frameflow.app. \
-            Include your macOS version and a short description of the issue for faster help.
-            """
-        ),
-        ]
+        return HelpFAQCategory.allCases.compactMap { category in
+            let items = allFAQItems.filter { item in
+                item.category == category
+                    && (query.isEmpty || item.searchableText.lowercased().contains(query))
+            }
+            guard !items.isEmpty else { return nil }
+            return (category, items)
+        }
+    }
+
+    private var hasSearchQuery: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Help & Support")
-                    .font(.largeTitle)
-                    .fontWeight(.semibold)
+            VStack(alignment: .leading, spacing: 24) {
+                HelpPageHeader(
+                    title: "Help & Support",
+                    subtitle: "Answers about permissions, recording, exports, captions, and shortcuts."
+                )
 
-                Text("Answers to common questions about permissions, recording, and exports.")
-                    .font(.subheadline)
-                    .foregroundStyle(AppColors.textSecondary)
+                HelpSearchField(searchText: $searchText)
 
-                ForEach(faqItems) { item in
-                    DisclosureGroup(item.title) {
-                        Text(item.answer)
-                            .font(.body)
-                            .foregroundStyle(AppColors.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 4)
+                if filteredSections.isEmpty, hasSearchQuery {
+                    ContentUnavailableView(
+                        "No results",
+                        systemImage: "magnifyingglass",
+                        description: Text("Try a different search term.")
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
+                } else {
+                    ForEach(filteredSections, id: \.category.id) { section in
+                        HelpFAQSection(title: section.category.rawValue, icon: section.category.icon) {
+                            ForEach(section.items) { item in
+                                HelpFAQRow(item: item)
+                            }
+                        }
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Button("Email Support") {
-                        openEmailSupport()
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    LabeledContent("App version") {
-                        Text(appVersionString)
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
-                }
-                .padding(.top, 8)
+                HelpSupportCard(
+                    onEmailSupport: openEmailSupport,
+                    version: appVersionString,
+                    onPrivacy: openPrivacyPolicy,
+                    onTerms: openTermsOfService
+                )
             }
-            .padding(24)
-            .frame(maxWidth: 640, alignment: .leading)
+            .padding(28)
+            .frame(maxWidth: 720, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .navigationTitle("Help")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppColors.background)
+        .navigationTitle("")
     }
 
     private var appVersionString: String {
@@ -147,21 +88,24 @@ struct HelpView: View {
     }
 
     private func openEmailSupport() {
-        // TODO: Replace with production support address when confirmed.
-        guard let url = URL(string: "mailto:support@frameflow.app?subject=FrameFlow%20Support") else {
+        let encoded = Self.supportEmail.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? Self.supportEmail
+        guard let url = URL(string: "mailto:\(encoded)?subject=\(AppBranding.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? AppBranding.name)%20Support") else {
             return
         }
         NSWorkspace.shared.open(url)
     }
-}
 
-private struct HelpFAQItem: Identifiable {
-    let id = UUID()
-    let title: String
-    let answer: String
+    private func openPrivacyPolicy() {
+        router.navigateToLegal(.privacyPolicy, returningTo: .help)
+    }
+
+    private func openTermsOfService() {
+        router.navigateToLegal(.termsOfService, returningTo: .help)
+    }
 }
 
 #Preview {
     HelpView()
-        .frame(width: 640, height: 720)
+        .environment(AppRouter())
+        .frame(width: 900, height: 720)
 }

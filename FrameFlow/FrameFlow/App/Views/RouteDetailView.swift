@@ -48,6 +48,10 @@ struct RouteDetailView: View {
             ForgotPasswordView()
         case .resetPassword:
             ResetPasswordView()
+        case .privacyPolicy:
+            PrivacyPolicyView()
+        case .termsOfService:
+            TermsOfServiceView()
         }
     }
 }

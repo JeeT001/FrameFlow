@@ -111,12 +111,12 @@ struct EditorInspectorPanel: View {
         ContentUnavailableView {
             Label("Pro feature", systemImage: "lock.fill")
         } description: {
-            Text("Auto captions and caption styling require FrameFlow Pro.")
+            Text("Auto captions and caption styling require \(AppBranding.proName).")
         } actions: {
             Button("Upgrade to Pro") {
                 onShowProGate(
                     "Auto Captions",
-                    "WhisperKit transcription and caption editing require FrameFlow Pro."
+                    "WhisperKit transcription and caption editing require \(AppBranding.proName)."
                 )
             }
             .buttonStyle(.borderedProminent)

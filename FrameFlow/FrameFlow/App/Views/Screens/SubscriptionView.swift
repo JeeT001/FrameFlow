@@ -38,7 +38,7 @@ struct SubscriptionView: View {
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
-        .navigationTitle("FrameFlow Pro")
+        .navigationTitle(AppBranding.proName)
         .overlay {
             if viewModel.isPurchasing || viewModel.isRestoring {
                 ZStack {

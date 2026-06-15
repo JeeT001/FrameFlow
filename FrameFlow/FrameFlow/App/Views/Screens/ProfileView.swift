@@ -142,19 +142,7 @@ struct ProfileView: View {
 
     private var profileHeader: some View {
         VStack(spacing: 12) {
-            if let icon = NSApp.applicationIconImage {
-                Image(nsImage: icon)
-                    .resizable()
-                    .interpolation(.high)
-                    .frame(width: 64, height: 64)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
-            }
-
-            Text("FrameFlow")
-                .font(.title2)
-                .fontWeight(.semibold)
-                .foregroundStyle(AppColors.textPrimary)
+            BrandLogoView(style: .profile)
 
             Text("Version \(ProfileViewModel.appVersionString)")
                 .font(.caption)
