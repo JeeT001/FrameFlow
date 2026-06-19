@@ -1,22 +1,19 @@
 # Drazlo DMG assets (Day 47)
 
+Discord-style installer: top-left **Drazlo** branding, centered **app → arrow → Applications** row.
+
 | File | Purpose |
 |------|---------|
-| `dmg-background-light.png` | Finder window background (1600×800) — light theme |
-| `dmg-background-dark.png` | Finder window background (1600×800) — dark theme |
-| `DrazloVolume.icns` | DMG volume icon (from `AppIcon.appiconset`) |
+| `DrazloVolume.icns` | DMG volume icon |
+| `dmg-background-light.png` | @2x background (660×400 pt window) — arrow + header |
+| `dmg-background-dark.png` | Dark variant |
 
-Used by `Scripts/create_dmg.sh`. Default background is **light**; set `DMG_BACKGROUND=dark` for the dark variant.
-
-To regenerate volume icon after app icon changes:
+Regenerate backgrounds after art changes:
 
 ```bash
-ICON_SRC="FrameFlow/FrameFlow/Assets.xcassets/AppIcon.appiconset"
-ICONSET="Resources/DMG/DrazloVolume.iconset"
-rm -rf "$ICONSET" && mkdir -p "$ICONSET"
-cp "$ICON_SRC"/icon_*.png "$ICONSET"/
-iconutil -c icns "$ICONSET" -o Resources/DMG/DrazloVolume.icns
-rm -rf "$ICONSET"
+python3 Scripts/generate_dmg_backgrounds.py
+./Scripts/create_dmg.sh
+./Scripts/notarize_dmg.sh
 ```
 
-Background art can be regenerated with Pillow (see Day 47 DEV_LOG) or replaced manually in a design tool — keep **1600×800** PNG.
+Preview: eject old mounts, then `open build/Drazlo-1.0.dmg` (Finder → tabs off).

@@ -5,23 +5,23 @@
 
 ## Current Phase
 
-**Day 47 — DMG creation + notarisation** (Phase 17) complete on branch `day47`
+**Day 48 — Sparkle 2 auto-update** (Phase 17) on branch `day48`
 
 ## Recently completed
 
 - **Day 46** — Developer ID archive/export, app notarisation scripts, `Docs/RELEASE_SIGNING.md`
-- **Day 47** — DMG backgrounds (light/dark), `create_dmg.sh`, `notarize_dmg.sh`, `release_dmg.sh`
+- **Day 47** — DMG creation, layout polish, notarisation workflow (verified locally)
 
 ## Day 47 deliverables
 
 | Item | Status |
 |------|--------|
-| `Resources/DMG/` backgrounds + volume icon | Added |
-| `Scripts/create_dmg.sh` | Added |
-| `Scripts/notarize_dmg.sh` | Added |
-| `Scripts/release_dmg.sh` | Added |
-| `Docs/RELEASE_SIGNING.md` Day 47 section | Updated |
-| DMG build + notarise on clean Mac | **User must run locally** |
+| `Resources/DMG/` backgrounds + volume icon | Done |
+| `Scripts/create_dmg.sh` + polish layout step | Done |
+| `Scripts/notarize_dmg.sh` | Done |
+| `Scripts/release_dmg.sh` | Done |
+| `Docs/RELEASE_SIGNING.md` Day 47 section | Done |
+| DMG build + notarise + layout QA | Done (local) |
 
 ## Next Task
 

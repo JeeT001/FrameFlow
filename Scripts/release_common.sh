@@ -57,3 +57,12 @@ release_validate_stapled_app() {
     exit 1
   fi
 }
+
+release_eject_drazlo_volumes() {
+  local mount
+  for mount in /Volumes/Drazlo /Volumes/Drazlo\ *; do
+    [[ -d "${mount}" ]] || continue
+    echo "==> Eject ${mount}"
+    hdiutil detach "${mount}" -quiet 2>/dev/null || diskutil eject "${mount}" 2>/dev/null || true
+  done
+}

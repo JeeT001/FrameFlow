@@ -3367,3 +3367,9 @@ Clean Mac: mount DMG → drag to Applications → first launch without Gatekeepe
 ```
 chore: add DMG creation and notarisation workflow for Day 47
 ```
+
+### DMG layout polish (2026-06-19)
+- **Ghost icon fix:** removed baked-in app icon from background PNG; disabled Finder `shows icon preview` in `.DS_Store`.
+- **Centering:** 660×400 window; icon size 100; positions `(194, 150)` and `(366, 150)` baked via `polish_dmg_layout.sh` post-create step.
+- **Chrome:** path bar + tab bar hidden via System Events during `.DS_Store` write.
+- Regenerate: `python3 Scripts/generate_dmg_backgrounds.py && ./Scripts/create_dmg.sh && ./Scripts/notarize_dmg.sh`
