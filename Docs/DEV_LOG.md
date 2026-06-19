@@ -3314,3 +3314,56 @@ Prepare Developer ID archive/export + notarisation tooling for **Drazlo** (`com.
 ```
 chore: add Developer ID archive and notarisation workflow for Day 46
 ```
+
+---
+
+## Blueprint Day 47 — DMG creation + notarisation (2026-06-19)
+
+**Branch:** `day47`  
+**Phase:** 17 — Distribution + Auto-Update (Day 47 only)
+
+### Goal
+Signed + notarised **drag-to-Applications DMG** for **Drazlo** website distribution.
+
+### Repo additions
+| Path | Purpose |
+|------|---------|
+| `Resources/DMG/dmg-background-light.png` | 1600×800 light Finder background |
+| `Resources/DMG/dmg-background-dark.png` | 1600×800 dark variant |
+| `Resources/DMG/DrazloVolume.icns` | Volume icon from AppIcon |
+| `Scripts/create_dmg.sh` | `create-dmg` from stapled `build/export/Drazlo.app` |
+| `Scripts/notarize_dmg.sh` | Sign → notarytool → staple DMG |
+| `Scripts/release_dmg.sh` | Orchestrates create + notarise |
+| `Scripts/release_common.sh` | Version lookup, stapled-app validation |
+
+### Agent verification
+| Check | Result |
+|-------|--------|
+| `bash -n` on all release scripts | Pass |
+| `--help` on create_dmg / notarize_dmg | Pass |
+| `create-dmg` installed in agent env | No — script exits with brew install hint |
+| DMG build / notarise | **User must run** with Developer ID cert + NOTARY_* |
+
+### User verification (manual)
+```bash
+./Scripts/archive_release.sh && ./Scripts/notarize_app.sh
+./Scripts/create_dmg.sh && ./Scripts/notarize_dmg.sh
+spctl -a -vv -t open --context context:primary-signature build/Drazlo-1.0.dmg
+# Expected: accepted, source=Notarized Developer ID
+```
+
+Clean Mac: mount DMG → drag to Applications → first launch without Gatekeeper warning.
+
+### Blockers
+- Requires stapled app from Day 46
+- `brew install create-dmg`
+- Developer ID cert + notarisation credentials for DMG sign/submit
+
+### Next
+- **Day 48** — Sparkle 2 + Settings Check for Updates
+- **Day 49** — GitHub Actions release pipeline
+
+### Suggested commit
+```
+chore: add DMG creation and notarisation workflow for Day 47
+```

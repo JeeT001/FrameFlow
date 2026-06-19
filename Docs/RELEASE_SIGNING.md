@@ -143,4 +143,88 @@ Settings shows a placeholder alert (“Updates Coming Soon”). **Sparkle 2** is
 | `Scripts/notarize_app.sh` | Zip → notarytool → stapler |
 | `Scripts/notary.env.example` | Env var template (no secrets) |
 
-Build artifacts (`build/`, `*.xcarchive`) are gitignored.
+Build artifacts (`build/`, `*.xcarchive`, `build/Drazlo-*.dmg`) are gitignored.
+
+---
+
+## Day 47 — DMG creation + notarisation
+
+Package a **signed, stapled** `Drazlo.app` into a drag-to-Applications DMG for website download.
+
+### Prerequisites
+
+1. Complete **Day 46** locally: stapled app at `build/export/Drazlo.app` (`spctl: accepted`).
+2. Install **create-dmg**: `brew install create-dmg`
+3. Same notarisation credentials as Day 46 (`NOTARY_*` env vars).
+
+### DMG assets
+
+| Path | Role |
+|------|------|
+| `Resources/DMG/dmg-background-light.png` | Default Finder background (1600×800) |
+| `Resources/DMG/dmg-background-dark.png` | Dark variant (`DMG_BACKGROUND=dark`) |
+| `Resources/DMG/DrazloVolume.icns` | DMG volume icon |
+
+### End-to-end commands
+
+```bash
+# Day 46 — signed + stapled app (required first)
+./Scripts/archive_release.sh
+export NOTARY_APPLE_ID="you@example.com"
+export NOTARY_TEAM_ID="6XP66CQ82V"
+export NOTARY_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+./Scripts/notarize_app.sh
+
+# Day 47 — DMG
+./Scripts/create_dmg.sh
+./Scripts/notarize_dmg.sh
+
+# Or orchestrate (skips DMG notarise if NOTARY_* unset):
+./Scripts/release_dmg.sh
+```
+
+Optional: `DMG_BACKGROUND=dark ./Scripts/create_dmg.sh` for dark background art.
+
+Output: `build/Drazlo-<version>.dmg` (version from `MARKETING_VERSION`, default `1.0`).
+
+### DMG verification
+
+```bash
+codesign --verify --verbose=2 build/Drazlo-1.0.dmg
+spctl -a -vv -t open --context context:primary-signature build/Drazlo-1.0.dmg
+xcrun stapler validate build/Drazlo-1.0.dmg
+```
+
+Expected: `accepted` / `Notarized Developer ID` / `The validate action worked!`
+
+### Clean Mac test checklist
+
+On a Mac **not** logged into the developer Apple ID:
+
+1. Download or copy `Drazlo-1.0.dmg`
+2. Double-click to mount — no Gatekeeper block on the disk image
+3. Drag **Drazlo** to **Applications**
+4. Eject DMG, open **Drazlo** from Applications
+5. First launch: no “unidentified developer” warning
+6. Smoke: sign in, open Settings, confirm save-folder picker works (sandbox bookmark)
+
+### Day 47 scripts
+
+| Script | Role |
+|--------|------|
+| `Scripts/create_dmg.sh` | Validate stapled app → `create-dmg` → unsigned DMG |
+| `Scripts/notarize_dmg.sh` | Sign DMG → `notarytool submit --wait` → staple |
+| `Scripts/release_dmg.sh` | Orchestrates create + notarise (credentials required for latter) |
+| `Scripts/release_common.sh` | Shared version lookup + app validation |
+
+### DMG troubleshooting
+
+| Issue | What to check |
+|-------|----------------|
+| `create-dmg: command not found` | `brew install create-dmg` |
+| App not stapled | Run `./Scripts/notarize_app.sh` first |
+| DMG sign fails | Developer ID Application cert in Keychain; `SIGNING_IDENTITY` env override |
+| Notary rejects DMG | App inside must already be notarised; DMG signed with `--options runtime` |
+| `stapler` fails on DMG | Ensure `notarytool submit --wait` succeeded for the `.dmg` file |
+
+**Out of scope:** Sparkle appcast (Day 48), GitHub Actions (Day 49).
