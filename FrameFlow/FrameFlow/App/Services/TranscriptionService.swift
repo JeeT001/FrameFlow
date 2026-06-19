@@ -121,7 +121,14 @@ final class TranscriptionService: @unchecked Sendable {
         let pipe = try await loadWhisperKit(reporter: reporter, progress: progress)
         reporter.report(0.22, "Transcribing speech…", to: progress)
 
-        let options = DecodingOptions(task: .transcribe, wordTimestamps: true)
+        // Whisper processes long audio in 30s windows. Default `noSpeechThreshold` (0.6) skips a full
+        // window when the model thinks it is silent — screen recordings often lose the opening minute.
+        // We disable window skipping; `WhisperTranscriptSanitizer` drops blank / non-speech segments.
+        let options = DecodingOptions(
+            task: .transcribe,
+            wordTimestamps: true,
+            noSpeechThreshold: nil
+        )
         var decodeProgress: Double = 0.22
 
         let results: [TranscriptionResult]

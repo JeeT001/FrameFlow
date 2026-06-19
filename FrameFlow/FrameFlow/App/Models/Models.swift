@@ -9,6 +9,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     case home
     case settings
     case account
+    case help
 
     var id: String { rawValue }
 
@@ -17,6 +18,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .home: "Home"
         case .settings: "Settings"
         case .account: "Account"
+        case .help: "Help"
         }
     }
 
@@ -25,6 +27,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .home: "house"
         case .settings: "gearshape"
         case .account: "person.circle"
+        case .help: "questionmark.circle"
         }
     }
 }
@@ -214,6 +217,7 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
         case .home: .dashboard
         case .settings: .settings
         case .account: .profile
+        case .help: .help
         }
     }
 

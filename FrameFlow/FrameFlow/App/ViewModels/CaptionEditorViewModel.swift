@@ -114,9 +114,6 @@ final class CaptionEditorViewModel {
         recordingURL = state.videoURL
         recordingID = state.recordingID
         recordingMetadata = state.recordingMetadata
-        if let lead = state.recordingMetadata?.captionAudioLeadSeconds, lead > 0.001 {
-            videoContentStartSeconds = lead
-        }
 
         if !state.segments.isEmpty {
             segments = state.segments
@@ -139,7 +136,6 @@ final class CaptionEditorViewModel {
         recordingURL = url
         recordingID = recording.id
         recordingMetadata = recording
-        videoContentStartSeconds = max(0, recording.captionAudioLeadSeconds)
         selectedStyle = CaptionEngine.shared.loadStyle(for: url, recordingID: recording.id)
 
         if !deferPlayerLoad, player.currentItem == nil {
@@ -290,7 +286,8 @@ final class CaptionEditorViewModel {
                     segments,
                     for: videoURL,
                     recordingID: recordingID,
-                    style: selectedStyle
+                    style: selectedStyle,
+                    audioLeadSeconds: videoContentStartSeconds > 0.001 ? videoContentStartSeconds : nil
                 )
                 exportProgress = 0.15
 
@@ -397,12 +394,10 @@ final class CaptionEditorViewModel {
 
             let totalSeconds = duration.map { CMTimeGetSeconds($0) } ?? 1
 
-            if videoContentStartSeconds < 0.001 {
-                videoContentStartSeconds = await RecordingMediaTiming.leadingVideoGapSeconds(
-                    asset: asset,
-                    metadataLead: recordingMetadata?.captionAudioLeadSeconds
-                )
-            }
+            videoContentStartSeconds = await RecordingMediaTiming.leadingVideoGapSeconds(
+                asset: asset,
+                metadataLead: recordingMetadata?.captionAudioLeadSeconds
+            )
 
             guard player.currentItem != nil else { return }
 

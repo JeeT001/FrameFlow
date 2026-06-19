@@ -23,6 +23,7 @@ struct ForgotPasswordView: View {
                 label: "Email",
                 icon: "envelope",
                 text: $viewModel.email,
+                placeholder: "name@example.com",
                 isDisabled: fieldsDisabled
             )
             .textContentType(.emailAddress)
@@ -48,6 +49,9 @@ struct ForgotPasswordView: View {
             AuthFooterLink(title: "Back to Log In", icon: "arrow.left") {
                 router.navigate(to: .login)
             }
+        }
+        .onDisappear {
+            AuthFocus.dismiss()
         }
     }
 }

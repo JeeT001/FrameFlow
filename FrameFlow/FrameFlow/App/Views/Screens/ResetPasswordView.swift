@@ -20,6 +20,7 @@ struct ResetPasswordView: View {
                 label: "New password",
                 icon: "lock",
                 text: $viewModel.password,
+                placeholder: "Enter new password",
                 isSecure: true,
                 isDisabled: viewModel.isLoading
             )
@@ -29,6 +30,7 @@ struct ResetPasswordView: View {
                 label: "Confirm password",
                 icon: "lock",
                 text: $viewModel.confirmPassword,
+                placeholder: "Confirm new password",
                 isSecure: true,
                 isDisabled: viewModel.isLoading
             )
@@ -44,13 +46,19 @@ struct ResetPasswordView: View {
                 isDisabled: viewModel.isLoading
             ) {
                 Task {
-                    await viewModel.updatePassword(appState: appState, router: router)
+                    AuthFocus.dismiss()
+                    if await viewModel.updatePassword(appState: appState, router: router) {
+                        AuthFocus.dismiss()
+                    }
                 }
             }
         } footer: {
             AuthFooterLink(title: "Back to Log In", icon: "arrow.left") {
                 router.navigate(to: .login)
             }
+        }
+        .onDisappear {
+            AuthFocus.dismiss()
         }
     }
 }

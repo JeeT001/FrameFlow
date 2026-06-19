@@ -12,10 +12,23 @@ enum RecordingMediaTiming {
         asset: AVAsset,
         metadataLead: Double?
     ) async -> Double {
-        if let metadataLead, metadataLead > 0.001 {
-            return metadataLead
+        let probed = await probeFirstVideoSampleSeconds(asset: asset)
+        guard let metadataLead, metadataLead > 0.001 else {
+            return probed
         }
-        return await probeFirstVideoSampleSeconds(asset: asset)
+
+        // Recording metadata tracks audio muxed before the first video frame. The exported file
+        // may still place the first video sample near `probed`. When metadata overshoots, trust
+        // the file so captions and preview are not shifted minutes into the timeline.
+        if probed > 0.001, metadataLead > probed + 1.0 {
+            return probed
+        }
+
+        if probed <= 0.001, metadataLead > 5.0 {
+            return 0
+        }
+
+        return max(metadataLead, probed)
     }
 
     static func probeFirstVideoSampleSeconds(asset: AVAsset) async -> Double {

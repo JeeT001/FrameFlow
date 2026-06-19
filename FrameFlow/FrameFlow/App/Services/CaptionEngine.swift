@@ -3,6 +3,7 @@
 //  FrameFlow
 //
 
+import AVFoundation
 import Foundation
 
 enum CaptionEngineError: LocalizedError {
@@ -61,6 +62,12 @@ final class CaptionEngine: @unchecked Sendable {
         progress?(0.92, "Saving caption sidecar…")
         let cleaned = WhisperTranscriptSanitizer.sanitizedSegments(from: segments)
 
+        let asset = AVURLAsset(url: recordingURL)
+        let resolvedLead = await RecordingMediaTiming.leadingVideoGapSeconds(
+            asset: asset,
+            metadataLead: nil
+        )
+
         let sidecar = CaptionSidecar(
             recordingID: recordingID,
             segments: cleaned,
@@ -68,7 +75,7 @@ final class CaptionEngine: @unchecked Sendable {
             stylePreset: resolvedStyle.preset.rawValue,
             styleVerticalPosition: resolvedStyle.verticalPosition.rawValue,
             customVerticalOffsetNormalized: resolvedStyle.customVerticalOffsetNormalized,
-            captionAudioLeadSeconds: nil
+            captionAudioLeadSeconds: resolvedLead > 0.001 ? resolvedLead : nil
         )
 
         let adjacent = sidecarURLAdjacent(to: recordingURL)
@@ -101,15 +108,6 @@ final class CaptionEngine: @unchecked Sendable {
             return []
         }
         let sanitized = WhisperTranscriptSanitizer.sanitizedSegments(from: sidecar.segments)
-        // Undo mistaken A/V lead shift from a prior build that saved pre-aligned segments.
-        if let lead = sidecar.captionAudioLeadSeconds, lead > 0.001 {
-            return sanitized.map { segment in
-                var restored = segment
-                restored.startTime += lead
-                restored.endTime += lead
-                return restored
-            }
-        }
         return sanitized
     }
 
@@ -131,16 +129,21 @@ final class CaptionEngine: @unchecked Sendable {
         _ segments: [CaptionSegment],
         for recordingURL: URL,
         recordingID: UUID,
-        style: CaptionStyleConfig
+        style: CaptionStyleConfig,
+        audioLeadSeconds: Double? = nil
     ) throws {
         let cleaned = WhisperTranscriptSanitizer.sanitizedSegments(from: segments)
+        let existingLead = try? loadSidecar(for: recordingURL, recordingID: recordingID)?
+            .captionAudioLeadSeconds
+        let resolvedLead = audioLeadSeconds ?? existingLead
         let sidecar = CaptionSidecar(
             recordingID: recordingID,
             segments: cleaned,
             createdAt: Date(),
             stylePreset: style.preset.rawValue,
             styleVerticalPosition: style.verticalPosition.rawValue,
-            customVerticalOffsetNormalized: style.customVerticalOffsetNormalized
+            customVerticalOffsetNormalized: style.customVerticalOffsetNormalized,
+            captionAudioLeadSeconds: resolvedLead
         )
 
         let adjacent = sidecarURLAdjacent(to: recordingURL)

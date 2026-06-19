@@ -38,6 +38,11 @@ struct RootView: View {
         .onChange(of: appState.subscriptionStatus) { _, newStatus in
             settingsStore.clearExpiryBannerDismissedIfRecovered(from: newStatus)
         }
+        .onChange(of: appState.authStatus) { _, status in
+            if status == .authenticated {
+                AuthFocus.dismiss()
+            }
+        }
         .task {
             guard !hasBootstrapped else { return }
             hasBootstrapped = true

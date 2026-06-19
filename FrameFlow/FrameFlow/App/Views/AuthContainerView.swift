@@ -11,6 +11,9 @@ struct AuthContainerView: View {
     var body: some View {
         RouteDetailView(route: displayedRoute)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onDisappear {
+                AuthFocus.dismiss()
+            }
     }
 
     private var displayedRoute: AppRoute {

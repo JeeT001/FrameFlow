@@ -2568,7 +2568,7 @@ Complete user flow on a fresh Mac account (not developer machine):
 - In RevenueCat dashboard: add webhook URL pointing to your Supabase Edge Function
 - Switch RevenueCat from Sandbox to Production mode
 - Verify webhook fires correctly by doing a test purchase with RevenueCat sandbox
-
+-also check stripe, if connected good, if not then we are connecting stripe and making payment work.
 ---
 
 **DAY 55 — Launch Preparation**

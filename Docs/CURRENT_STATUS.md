@@ -1,16 +1,20 @@
 # FrameFlow — Current Status
 
-**Last updated:** 2026-06-12  
+**Last updated:** 2026-06-15  
 **Version:** v0.1.0
 
 ## Current Phase
 
-**Day 45.1 — UI Enhancement** — Home / Dashboard redesign on `uiFix` (in progress)
+**Day 45.2 — Free Form content zoom + export fixes** on `uiFix`
 
 ## Currently Working On
 
-- **Day 45.1** — professional UI redesign (Home complete; remaining screens pending)
+- **Day 45.1** — professional UI redesign (Home, Window Picker, Layout Picker, Recording, Settings, Auth, Help complete)
 - **Follow-up (deferred):** Persist editor state for Dashboard re-edit; timeline trim/cut/NLE (post-MVP)
+
+## Recently fixed
+
+- **Caption export burn-in** — editor preview segments passed directly to export; sidecar persisted next to exported MP4; timeline/style parity (leading gap + editor style) for burn-in vs preview
 
 ## Completed
 

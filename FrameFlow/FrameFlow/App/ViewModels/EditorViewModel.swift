@@ -822,15 +822,26 @@ final class EditorViewModel {
     }
 
     func exportRecording(isPro: Bool, appState: AppState) async {
-        if isPro, !captionViewModel.segments.isEmpty {
-            do {
-                try await saveCaptionsBeforeExport()
-            } catch SecurityScopedFileAccess.AccessError.denied {
-                exportViewModel.exportError = SecurityScopedFileAccess.accessDeniedMessage
+        exportViewModel.captionSegmentsForExport = resolvedEditorCaptionSegments()
+        exportViewModel.captionStyleForExport = captionViewModel.selectedStyle
+        exportViewModel.editorLeadingGapForExport = captionViewModel.videoContentStartSeconds
+
+        if exportViewModel.applyCaptions {
+            if exportViewModel.resolvedCaptionSegments().isEmpty {
+                exportViewModel.exportError = ExportServiceError.captionsRequiredButUnavailable.errorDescription
                 return
-            } catch {
-                exportViewModel.exportError = ExportDiskSpaceChecker.userFacingExportError(error)
-                return
+            }
+
+            if isPro {
+                do {
+                    try await saveCaptionsBeforeExport()
+                } catch SecurityScopedFileAccess.AccessError.denied {
+                    exportViewModel.exportError = SecurityScopedFileAccess.accessDeniedMessage
+                    return
+                } catch {
+                    exportViewModel.exportError = ExportDiskSpaceChecker.userFacingExportError(error)
+                    return
+                }
             }
         }
 
@@ -910,15 +921,31 @@ final class EditorViewModel {
 
     private func saveCaptionsBeforeExport() async throws {
         guard let recording = exportViewModel.recording else { return }
+        let segments = exportViewModel.resolvedCaptionSegments()
+        guard !segments.isEmpty else { return }
         let url = URL(fileURLWithPath: recording.filePath)
         try await SecurityScopedFileAccess.withAccess(to: url) {
             try CaptionEngine.shared.saveCaptions(
-                captionViewModel.segments,
+                segments,
                 for: url,
                 recordingID: recording.id,
-                style: captionViewModel.selectedStyle
+                style: captionViewModel.selectedStyle,
+                audioLeadSeconds: captionViewModel.videoContentStartSeconds > 0.001
+                    ? captionViewModel.videoContentStartSeconds
+                    : nil
             )
         }
+    }
+
+    private func resolvedEditorCaptionSegments() -> [CaptionSegment] {
+        if !captionViewModel.segments.isEmpty {
+            return captionViewModel.segments
+        }
+        let generated = CaptionGenerationState.shared.segments
+        if !generated.isEmpty {
+            return generated
+        }
+        return exportViewModel.resolvedCaptionSegments()
     }
 
     private func writeExportSRT(isPro: Bool) async {

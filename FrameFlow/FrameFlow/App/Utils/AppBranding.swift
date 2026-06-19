@@ -10,4 +10,5 @@ enum AppBranding {
     static let name = "Drazlo"
     static let proName = "Drazlo Pro"
     static let watermarkText = "Made with Drazlo"
+    static let creatorYouTubeURL = "https://www.youtube.com/@simranjit2000/featured"
 }

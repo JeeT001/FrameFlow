@@ -49,16 +49,26 @@ final class CaptionRenderer: @unchecked Sendable {
         videoURL: URL,
         segments: [CaptionSegment],
         style: CaptionStyleConfig,
-        outputURL: URL
+        outputURL: URL,
+        leadingVideoGapSeconds: Double = 0
     ) async throws {
         let cleaned = WhisperTranscriptSanitizer.sanitizedSegments(from: segments)
+        guard !cleaned.isEmpty else {
+            throw CaptionRendererError.exportFailed("No caption segments to burn in.")
+        }
+
         let asset = AVURLAsset(url: videoURL)
         let sourceVideoTracks = try await asset.loadTracks(withMediaType: .video)
         guard let sourceVideoTrack = sourceVideoTracks.first else {
             throw CaptionRendererError.noVideoTrack
         }
 
-        let duration = try await asset.load(.duration)
+        let fullDuration = try await asset.load(.duration)
+        let fullSeconds = CMTimeGetSeconds(fullDuration)
+        let leadingGap = max(0, leadingVideoGapSeconds)
+        let exportSeconds = max(0.05, fullSeconds - leadingGap)
+        let exportDuration = CMTime(seconds: exportSeconds, preferredTimescale: 600)
+
         let composition = AVMutableComposition()
 
         guard let compositionVideoTrack = composition.addMutableTrack(
@@ -68,8 +78,9 @@ final class CaptionRenderer: @unchecked Sendable {
             throw CaptionRendererError.exportFailed("Could not create composition video track.")
         }
 
+        let sourceStart = CMTime(seconds: leadingGap, preferredTimescale: 600)
         try compositionVideoTrack.insertTimeRange(
-            CMTimeRange(start: .zero, duration: duration),
+            CMTimeRange(start: sourceStart, duration: exportDuration),
             of: sourceVideoTrack,
             at: .zero
         )
@@ -80,7 +91,7 @@ final class CaptionRenderer: @unchecked Sendable {
                preferredTrackID: kCMPersistentTrackID_Invalid
            ) {
             try compositionAudioTrack.insertTimeRange(
-                CMTimeRange(start: .zero, duration: duration),
+                CMTimeRange(start: sourceStart, duration: exportDuration),
                 of: sourceAudioTrack,
                 at: .zero
             )
@@ -96,13 +107,12 @@ final class CaptionRenderer: @unchecked Sendable {
         let parentLayer = CALayer()
         parentLayer.frame = CGRect(origin: .zero, size: renderSize)
         parentLayer.isGeometryFlipped = true
-        let videoSeconds = CMTimeGetSeconds(duration)
-        if videoSeconds.isFinite, videoSeconds > 0 {
-            parentLayer.duration = videoSeconds
-        }
+        parentLayer.beginTime = AVCoreAnimationBeginTimeAtZero
+        parentLayer.duration = exportSeconds
 
         let videoLayer = CALayer()
         videoLayer.frame = parentLayer.bounds
+        videoLayer.beginTime = AVCoreAnimationBeginTimeAtZero
         parentLayer.addSublayer(videoLayer)
 
         let effectiveStyle = resolvedStyle(style)
@@ -117,7 +127,7 @@ final class CaptionRenderer: @unchecked Sendable {
         )
 
         let instruction = AVMutableVideoCompositionInstruction()
-        instruction.timeRange = CMTimeRange(start: .zero, duration: duration)
+        instruction.timeRange = CMTimeRange(start: .zero, duration: exportDuration)
         let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
         layerInstruction.setTransform(preferredTransform, at: .zero)
         instruction.layerInstructions = [layerInstruction]

@@ -3143,6 +3143,67 @@ ui: redesign Help & Support with searchable FAQ and support card
 
 ---
 
+## Bug fix — caption burn-in missing from editor export (2026-06-15)
+
+### Symptom
+Post-Record Editor preview showed captions; export with “Include captions in export” completed but MP4 had no burned-in captions.
+
+### Root cause
+1. **Preview vs export data source mismatch** — preview used in-memory `captionViewModel.segments`; export only loaded from disk sidecar via `CaptionEngine.loadCaptions()`.
+2. **`hasCaptionsAvailable` false positive** — returned `true` when `recording.hasCaptions` metadata was set even if sidecar load returned `[]`.
+3. **Silent skip** — `ExportService` skipped burn-in when sidecar was empty with no error.
+4. **Sidecar lost on first export** — `deleteStagingAndSidecars` removed adjacent + App Support sidecars after export without copying to the new save-folder MP4 path (re-export failed).
+
+### Fix
+- **`ExportOptions.captionSegments`** — pass editor in-memory segments directly to export pipeline (preferred over disk load).
+- **`ExportViewModel.captionSegmentsForExport`** + **`resolvedCaptionSegments()`** — unified segment resolution; `hasCaptionsAvailable` requires non-empty segments.
+- **`EditorViewModel.exportRecording`** — flush segments to sidecar before export; fall back to `CaptionGenerationState.shared.segments`.
+- **`ExportService`** — throw `captionsRequiredButUnavailable` instead of silent skip when captions enabled but segments empty.
+- **`persistAfterExport`** — save sidecar adjacent to exported MP4 after successful export.
+
+### Verification
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED (`Drazlo`) | Pass |
+
+### Suggested commit
+```
+fix: burn captions into export using same segments as editor preview
+```
+
+---
+
+## Bug fix — horizontal export captions partial / cough-only (2026-06-15)
+
+### Symptom
+Editor preview showed full captions (style + position correct). Export with “Include captions in export” produced MP4 with no captions or only a brief opening segment (e.g. cough), not matching preview.
+
+### Root cause
+1. **Export style from sidecar, not editor** — `ExportViewModel.export()` loaded `captionStyle` from disk; user placement/style changes in preview were not passed to burn-in.
+2. **Leading-gap double handling** — Pass A burned captions on the **full file timeline**; Pass B re-probed leading gap on the **temp captioned MP4** and trimmed again via `adjustedKeptRanges`, misaligning or dropping most burned captions.
+3. **Stale metadata trim** — when video probe returned `0` but `captionAudioLeadSeconds` metadata was large, Pass B could trim minutes of content.
+4. **Preview vs burn-in timeline mismatch** — preview matches segments using `fileTime = contentTime + videoContentStartSeconds`; burn-in used raw file times without aligning to export timeline (t=0 at first video frame).
+
+### Fix
+- **`CaptionExportTimeline`** — `segmentsForBurnIn(from:leadingGap:)` maps file-timeline segments to export timeline; `resolvedLeadingGap` prefers editor `videoContentStartSeconds`.
+- **`EditorViewModel.exportRecording`** — passes `captionStyleForExport` + `editorLeadingGapForExport` from `CaptionEditorViewModel`.
+- **`ExportViewModel`** — uses editor style when set; passes editor leading gap in `ExportOptions`.
+- **`CaptionRenderer.burnInCaptions`** — optional `leadingVideoGapSeconds`: trims video/audio insert to first frame, burns captions on export timeline; anchors `videoLayer`/`parentLayer` with `AVCoreAnimationBeginTimeAtZero`.
+- **`ExportService`** — resolves leading gap once from original source; burn-in applies trim + segment shift; Pass B sets `skipLeadingGapTrim` so captioned temp is not re-trimmed.
+- **`RecordingMediaTiming`** — when probe fails and metadata > 5s, return `0` (avoid catastrophic trim).
+
+### Verification
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED (`Drazlo`) | Pass |
+
+### Suggested commit
+```
+fix: align horizontal export caption burn-in with editor preview style and timeline
+```
+
+---
+
 ## Bug fix — long-video caption burn-in (export)
 
 ### Report
@@ -3160,3 +3221,45 @@ ui: redesign Help & Support with searchable FAQ and support card
 1. Re-export the 10-min staging file with captions (1080p).
 2. Scrub ~2 min, ~5 min, ~8 min — text + background should match editor preview.
 3. Short clip regression — captions still correct.
+
+---
+
+## Bug fix — caption preview missing first minutes
+
+### Report
+7-min horizontal recording (iPhone Continuity camera + AirPods mic): editor preview showed no captions for the first few minutes, then captions appeared mid-video. Expected captions from the start (horizontal and vertical).
+
+### Root cause
+1. **Over-trusted recording metadata** — `captionAudioLeadSeconds` from the recorder could be much larger than the first video sample PTS in the exported file. Preview used that value immediately and skipped asset probing when metadata was non-zero.
+2. **Double offset on load** — `loadCaptions` added `captionAudioLeadSeconds` back onto segment times when the sidecar stored a lead, shifting Whisper timestamps forward even though segments are already on the file/audio timeline.
+
+### Fix
+- `RecordingMediaTiming.leadingVideoGapSeconds` — when metadata overshoots probed first-video PTS by >1s, trust the file probe.
+- `CaptionEditorViewModel` — always resolve lead from the asset in `configurePlayer`; do not preset from metadata before the player loads.
+- `CaptionEngine` — store probed lead in sidecar on generate; stop adding lead on load; preserve lead when saving from the editor.
+
+### Re-test
+1. Open the 7-min recording in the caption editor — captions should appear from the first second of preview.
+2. Regenerate captions on an affected recording if an old sidecar had shifted timestamps.
+3. Horizontal + vertical export with captions — burn-in still aligned.
+
+---
+
+## Bug fix — captions missing first ~30s on long recordings (transcription)
+
+### Report
+4+ minute screen recording: segment list and preview both start at **30.0s** (first caption "creating the free account from them,"). Matches prior reports on big videos.
+
+### Root cause
+WhisperKit decodes long audio in **30-second windows** (`defaultWindowSamples = 480_000`). With default `DecodingOptions.noSpeechThreshold = 0.6`, `SegmentSeeker` **skips an entire window** when `noSpeechProb > 0.6`, advancing seek by 30s with no segments. Screen recordings (quiet intro, mic warmup, Continuity camera delay) often trigger a false silent classification on window 0.
+
+This is a **transcription** gap (segment timestamps start at 30), not a preview sync offset issue.
+
+### Fix (`TranscriptionService.swift`)
+- Pass `noSpeechThreshold: nil` so no 30s window is discarded wholesale.
+- Non-speech / blank segments still removed by `WhisperTranscriptSanitizer`.
+
+### Re-test
+1. Regenerate captions on a 4+ min recording — first segment should be near 0s, not 30s.
+2. Short clip regression — captions still accurate.
+3. Preview + export burn-in from regenerated sidecar.

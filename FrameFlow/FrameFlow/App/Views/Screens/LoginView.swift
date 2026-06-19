@@ -21,6 +21,7 @@ struct LoginView: View {
                 label: "Email",
                 icon: "envelope",
                 text: $viewModel.email,
+                placeholder: "name@example.com",
                 isDisabled: viewModel.isLoading
             )
             .textContentType(.username)
@@ -29,6 +30,7 @@ struct LoginView: View {
                 label: "Password",
                 icon: "lock",
                 text: $viewModel.password,
+                placeholder: "Enter your password",
                 isSecure: true,
                 isDisabled: viewModel.isLoading
             )
@@ -48,7 +50,9 @@ struct LoginView: View {
                 isDisabled: viewModel.isLoading
             ) {
                 Task {
+                    AuthFocus.dismiss()
                     if let user = await viewModel.logIn() {
+                        AuthFocus.dismiss()
                         await appState.markAuthenticated(user: user)
                         router.selectSidebar(.home)
                     }
@@ -69,6 +73,9 @@ struct LoginView: View {
             if let message = appState.consumePendingLoginMessage() {
                 successMessage = message
             }
+        }
+        .onDisappear {
+            AuthFocus.dismiss()
         }
     }
 }

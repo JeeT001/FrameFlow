@@ -42,6 +42,12 @@ struct ExportOptions: Sendable {
     let editorProject: EditorProjectModel?
     /// Leading gap before first video sample in the source file (legacy recordings).
     let leadingVideoGapSeconds: Double
+    /// Editor preview leading gap — preferred over metadata when > 0 (matches `CaptionEditorViewModel.videoContentStartSeconds`).
+    let editorLeadingVideoGapSeconds: Double
+    /// In-memory caption segments from the editor preview (preferred over sidecar load).
+    let captionSegments: [CaptionSegment]?
+    /// When true, Pass B encode must not re-trim leading gap (source already trimmed during burn-in).
+    let skipLeadingGapTrim: Bool
 }
 
 enum ExportServiceError: LocalizedError {
@@ -49,6 +55,8 @@ enum ExportServiceError: LocalizedError {
     case exportFailed(String)
     case saveFolderUnavailable
     case diskFull
+    case captionsRequiredButUnavailable
+    case captionsTrimmedEmpty
 
     var errorDescription: String? {
         switch self {
@@ -60,6 +68,10 @@ enum ExportServiceError: LocalizedError {
             return "Could not access the save folder. Choose a folder in Settings."
         case .diskFull:
             return ExportDiskSpaceChecker.diskFullMessage
+        case .captionsRequiredButUnavailable:
+            return "Captions are enabled but no caption data was found. Generate captions in the editor and try again."
+        case .captionsTrimmedEmpty:
+            return "Captions fall outside the visible video after sync trim. Regenerate captions and try export again."
         }
     }
 }
@@ -80,8 +92,20 @@ final class ExportService: @unchecked Sendable {
         return try await SecurityScopedFileAccess.withAccess(to: options.sourceVideoURL) {
             progress(0.05, "Preparing export…")
 
+            let originalAsset = AVURLAsset(url: options.sourceVideoURL)
+            let probedLeadingGap = await RecordingMediaTiming.leadingVideoGapSeconds(
+                asset: originalAsset,
+                metadataLead: nil
+            )
+            let resolvedLeadingGap = CaptionExportTimeline.resolvedLeadingGap(
+                editorLeadingGap: options.editorLeadingVideoGapSeconds,
+                metadataLead: options.leadingVideoGapSeconds,
+                probedFromAsset: probedLeadingGap
+            )
+
             var sourceURL = options.sourceVideoURL
             var tempCaptionURL: URL?
+            var skipLeadingGapTrim = options.skipLeadingGapTrim
 
             defer {
                 if let tempCaptionURL {
@@ -90,10 +114,13 @@ final class ExportService: @unchecked Sendable {
             }
 
             if options.applyCaptionsIfAvailable {
-                var segments = try captionEngine.loadCaptions(
-                    for: options.sourceVideoURL,
-                    recordingID: options.recordingID
-                )
+                var segments = options.captionSegments ?? []
+                if segments.isEmpty {
+                    segments = try captionEngine.loadCaptions(
+                        for: options.sourceVideoURL,
+                        recordingID: options.recordingID
+                    )
+                }
                 let timeline = (options.editorProject ?? options.editTimeline.map {
                     EditorProjectModel(timeline: $0)
                 })?.preparedForExport().timeline
@@ -103,19 +130,31 @@ final class ExportService: @unchecked Sendable {
                         editTimeline: timeline
                     )
                 }
-                if !segments.isEmpty {
-                    progress(0.12, "Burning in captions…")
-                    let temp = fileManager.temporaryDirectory
-                        .appendingPathComponent("frameflow_export_captions_\(UUID().uuidString).mp4")
-                    try await captionRenderer.burnInCaptions(
-                        videoURL: sourceURL,
-                        segments: segments,
-                        style: options.captionStyle,
-                        outputURL: temp
-                    )
-                    tempCaptionURL = temp
-                    sourceURL = temp
+                guard !segments.isEmpty else {
+                    throw ExportServiceError.captionsRequiredButUnavailable
                 }
+
+                let burnSegments = CaptionExportTimeline.segmentsForBurnIn(
+                    from: segments,
+                    leadingGap: resolvedLeadingGap
+                )
+                guard !burnSegments.isEmpty else {
+                    throw ExportServiceError.captionsTrimmedEmpty
+                }
+
+                progress(0.12, "Burning in captions…")
+                let temp = fileManager.temporaryDirectory
+                    .appendingPathComponent("frameflow_export_captions_\(UUID().uuidString).mp4")
+                try await captionRenderer.burnInCaptions(
+                    videoURL: sourceURL,
+                    segments: burnSegments,
+                    style: options.captionStyle,
+                    outputURL: temp,
+                    leadingVideoGapSeconds: resolvedLeadingGap
+                )
+                tempCaptionURL = temp
+                sourceURL = temp
+                skipLeadingGapTrim = true
             }
 
             progress(0.3, "Encoding at \(options.resolution.displayName)…")
@@ -128,7 +167,8 @@ final class ExportService: @unchecked Sendable {
                 editorProject: options.editorProject ?? options.editTimeline.map {
                     EditorProjectModel(timeline: $0)
                 }?.preparedForExport(),
-                leadingVideoGapSeconds: options.leadingVideoGapSeconds,
+                leadingVideoGapSeconds: skipLeadingGapTrim ? 0 : resolvedLeadingGap,
+                skipLeadingGapTrim: skipLeadingGapTrim,
                 progress: progress
             )
 
@@ -151,6 +191,7 @@ final class ExportService: @unchecked Sendable {
         applyWatermark: Bool,
         editorProject: EditorProjectModel?,
         leadingVideoGapSeconds: Double,
+        skipLeadingGapTrim: Bool,
         progress: @Sendable (Double, String) -> Void
     ) async throws -> URL {
         let asset = AVURLAsset(url: sourceURL)
@@ -162,10 +203,15 @@ final class ExportService: @unchecked Sendable {
         let fullDuration = try await asset.load(.duration)
         let fullSeconds = CMTimeGetSeconds(fullDuration)
 
-        let leadingGap = await RecordingMediaTiming.leadingVideoGapSeconds(
-            asset: asset,
-            metadataLead: leadingVideoGapSeconds > 0.001 ? leadingVideoGapSeconds : nil
-        )
+        let leadingGap: Double
+        if skipLeadingGapTrim {
+            leadingGap = 0
+        } else {
+            leadingGap = await RecordingMediaTiming.leadingVideoGapSeconds(
+                asset: asset,
+                metadataLead: leadingVideoGapSeconds > 0.001 ? leadingVideoGapSeconds : nil
+            )
+        }
 
         let project = editorProject
         let timeline = project?.timeline

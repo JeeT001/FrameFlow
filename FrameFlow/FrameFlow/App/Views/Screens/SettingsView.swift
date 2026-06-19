@@ -3,6 +3,7 @@
 //  FrameFlow
 //
 
+import AppKit
 import AVFoundation
 import SwiftUI
 
@@ -23,6 +24,7 @@ struct SettingsView: View {
                 cursorZoomCard
                 captionsNotificationsCard
                 appearanceCard
+                supportCreatorCard
                 aboutCard
                 debugCard
             }
@@ -288,6 +290,34 @@ struct SettingsView: View {
                 ForEach(SettingsViewModel.appearanceOptions, id: \.self) { option in
                     Text(viewModel.appearanceLabel(for: option)).tag(option)
                 }
+            }
+        }
+    }
+
+    private var supportCreatorCard: some View {
+        SettingsSectionCard(title: "Support the Creator", icon: "heart.fill") {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Enjoying \(AppBranding.name)? Subscribe on YouTube for tutorials, tips, and updates.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button {
+                    if let url = URL(string: AppBranding.creatorYouTubeURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "play.rectangle.fill")
+                        Text("Visit YouTube Channel")
+                            .font(.body.weight(.semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white)
+                .background(AppColors.primary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
         }
     }

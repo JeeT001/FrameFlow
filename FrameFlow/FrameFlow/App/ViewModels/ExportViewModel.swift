@@ -29,18 +29,20 @@ final class ExportViewModel {
 
     var isExportSheetPresented = false
 
+    /// Segments from the editor preview — preferred caption source for export.
+    var captionSegmentsForExport: [CaptionSegment] = []
+    /// Editor caption style — preferred over sidecar when set before export.
+    var captionStyleForExport: CaptionStyleConfig?
+    /// Matches `CaptionEditorViewModel.videoContentStartSeconds` for timeline parity with preview.
+    var editorLeadingGapForExport: Double = 0
+
     let player = AVPlayer()
 
     private var timeObserver: Any?
 
     var hasCaptionsAvailable: Bool {
-        guard let recording else { return false }
-        if recording.hasCaptions { return true }
-        let url = URL(fileURLWithPath: recording.filePath)
-        return (try? SecurityScopedFileAccess.withAccess(to: url) {
-            let segments = (try? CaptionEngine.shared.loadCaptions(for: url, recordingID: recording.id)) ?? []
-            return !segments.isEmpty
-        }) ?? false
+        guard recording != nil else { return false }
+        return !resolvedCaptionSegments().isEmpty
     }
 
     var showsCaptionsBadge: Bool {
@@ -69,6 +71,9 @@ final class ExportViewModel {
         editTimeline = nil
         editorProject = nil
         exportDurationOverride = nil
+        captionSegmentsForExport = []
+        captionStyleForExport = nil
+        editorLeadingGapForExport = 0
         isExportSheetPresented = false
 
         if let recording {
@@ -154,6 +159,14 @@ final class ExportViewModel {
             return
         }
 
+        if applyCaptions {
+            let segments = resolvedCaptionSegments()
+            if segments.isEmpty {
+                exportError = ExportServiceError.captionsRequiredButUnavailable.errorDescription
+                return
+            }
+        }
+
         let sourceURL = URL(fileURLWithPath: recording.filePath)
         guard SecurityScopedFileAccess.canAccess(sourceURL) else {
             exportError = SecurityScopedFileAccess.accessDeniedMessage
@@ -168,7 +181,7 @@ final class ExportViewModel {
         defer { isExporting = false }
 
         let previousPath = recording.filePath
-        let style = (try? SecurityScopedFileAccess.withAccess(to: sourceURL) {
+        let style = captionStyleForExport ?? (try? SecurityScopedFileAccess.withAccess(to: sourceURL) {
             ExportService.captionStyle(for: sourceURL, recordingID: recording.id)
         }) ?? CaptionStyleConfig.fromSettings()
         let outputFilename = Self.exportFilename(
@@ -178,17 +191,21 @@ final class ExportViewModel {
         )
         let preparedProject = editorProject?.preparedForExport()
             ?? editTimeline.map { EditorProjectModel(timeline: $0.preparedForExport()) }?.preparedForExport()
+        let exportSegments = applyCaptions ? resolvedCaptionSegments() : []
         let options = ExportOptions(
             sourceVideoURL: sourceURL,
             recordingID: recording.id,
             resolution: selectedResolution,
             isPro: isPro,
-            applyCaptionsIfAvailable: applyCaptions && hasCaptionsAvailable,
+            applyCaptionsIfAvailable: applyCaptions && !exportSegments.isEmpty,
             captionStyle: style,
             outputFilename: outputFilename,
             editTimeline: preparedProject?.timeline,
             editorProject: preparedProject,
-            leadingVideoGapSeconds: recording.captionAudioLeadSeconds
+            leadingVideoGapSeconds: recording.captionAudioLeadSeconds,
+            editorLeadingVideoGapSeconds: editorLeadingGapForExport,
+            captionSegments: applyCaptions ? exportSegments : nil,
+            skipLeadingGapTrim: false
         )
 
         do {
@@ -203,7 +220,8 @@ final class ExportViewModel {
             try persistAfterExport(
                 exportedURL: url,
                 previousPath: previousPath,
-                appState: appState
+                appState: appState,
+                captionStyle: style
             )
             if let exported = self.recording {
                 AnalyticsService.trackExportCompleted(
@@ -271,9 +289,12 @@ final class ExportViewModel {
     private func persistAfterExport(
         exportedURL: URL,
         previousPath: String,
-        appState: AppState
+        appState: AppState,
+        captionStyle: CaptionStyleConfig
     ) throws {
         guard var metadata = recording else { return }
+
+        let segmentsToPersist = applyCaptions ? resolvedCaptionSegments() : []
 
         if isPendingExport {
             RecordingFileCleanup.deleteStagingAndSidecars(for: metadata)
@@ -283,8 +304,19 @@ final class ExportViewModel {
         metadata.filePath = exportedURL.path
         metadata.fileSizeBytes = attributes?[.size] as? Int ?? metadata.fileSizeBytes
         metadata.resolution = resolutionBadge(for: selectedResolution, format: metadata.format)
-        if applyCaptions && hasCaptionsAvailable {
+        if applyCaptions, !segmentsToPersist.isEmpty {
             metadata.hasCaptions = true
+            try SecurityScopedFileAccess.withAccess(to: exportedURL) {
+                try CaptionEngine.shared.saveCaptions(
+                    segmentsToPersist,
+                    for: exportedURL,
+                    recordingID: metadata.id,
+                    style: captionStyle,
+                    audioLeadSeconds: metadata.captionAudioLeadSeconds > 0.001
+                        ? metadata.captionAudioLeadSeconds
+                        : nil
+                )
+            }
         }
         if let exportDuration = exportDurationOverride, exportDuration > 0 {
             metadata.durationSeconds = max(1, Int(exportDuration.rounded(.toNearestOrAwayFromZero)))
@@ -336,5 +368,16 @@ final class ExportViewModel {
             }
         }
         return landscape
+    }
+
+    func resolvedCaptionSegments() -> [CaptionSegment] {
+        if !captionSegmentsForExport.isEmpty {
+            return captionSegmentsForExport
+        }
+        guard let recording else { return [] }
+        let url = URL(fileURLWithPath: recording.filePath)
+        return (try? SecurityScopedFileAccess.withAccess(to: url) {
+            try CaptionEngine.shared.loadCaptions(for: url, recordingID: recording.id)
+        }) ?? []
     }
 }

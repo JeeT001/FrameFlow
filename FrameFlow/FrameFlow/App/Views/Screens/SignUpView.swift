@@ -20,6 +20,7 @@ struct SignUpView: View {
                 label: "Full name",
                 icon: "person",
                 text: $viewModel.name,
+                placeholder: "Your name",
                 isDisabled: viewModel.isLoading
             )
             .textContentType(.name)
@@ -28,6 +29,7 @@ struct SignUpView: View {
                 label: "Email",
                 icon: "envelope",
                 text: $viewModel.email,
+                placeholder: "name@example.com",
                 isDisabled: viewModel.isLoading
             )
             .textContentType(.emailAddress)
@@ -36,6 +38,7 @@ struct SignUpView: View {
                 label: "Password",
                 icon: "lock",
                 text: $viewModel.password,
+                placeholder: "Create a password",
                 isSecure: true,
                 isDisabled: viewModel.isLoading
             )
@@ -45,6 +48,7 @@ struct SignUpView: View {
                 label: "Confirm password",
                 icon: "lock",
                 text: $viewModel.confirmPassword,
+                placeholder: "Confirm your password",
                 isSecure: true,
                 isDisabled: viewModel.isLoading
             )
@@ -64,9 +68,11 @@ struct SignUpView: View {
                 isDisabled: viewModel.isLoading
             ) {
                 Task {
+                    AuthFocus.dismiss()
                     let outcome = await viewModel.signUp()
                     switch outcome {
                     case .signedIn(let user):
+                        AuthFocus.dismiss()
                         await appState.markAuthenticated(user: user)
                         router.selectSidebar(.home)
                     case .emailConfirmationRequired, .failed:
@@ -82,6 +88,9 @@ struct SignUpView: View {
                     router.navigate(to: .login)
                 }
             }
+        }
+        .onDisappear {
+            AuthFocus.dismiss()
         }
     }
 }

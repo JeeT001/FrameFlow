@@ -18,6 +18,9 @@ final class AppRouter {
 
     func navigate(to route: AppRoute) {
         currentRoute = route
+        if route == .help {
+            selectedSection = .help
+        }
     }
 
     func navigateToLegal(_ legalRoute: AppRoute, returningTo returnRoute: AppRoute) {

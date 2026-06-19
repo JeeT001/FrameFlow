@@ -9,8 +9,13 @@ struct AuthTextField: View {
     let label: String
     let icon: String
     @Binding var text: String
+    var placeholder: String = ""
     var isSecure: Bool = false
     var isDisabled: Bool = false
+
+    private var placeholderPrompt: Text {
+        Text(placeholder).foregroundStyle(AppColors.textSecondary)
+    }
 
     @State private var isVisible = false
     @FocusState private var isFocused: Bool
@@ -29,9 +34,9 @@ struct AuthTextField: View {
 
                 Group {
                     if isSecure, !isVisible {
-                        SecureField("", text: $text)
+                        SecureField("", text: $text, prompt: placeholderPrompt)
                     } else {
-                        TextField("", text: $text)
+                        TextField("", text: $text, prompt: placeholderPrompt)
                     }
                 }
                 .textFieldStyle(.plain)
