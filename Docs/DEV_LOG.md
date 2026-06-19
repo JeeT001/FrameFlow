@@ -3263,3 +3263,54 @@ This is a **transcription** gap (segment timestamps start at 30), not a preview 
 1. Regenerate captions on a 4+ min recording — first segment should be near 0s, not 30s.
 2. Short clip regression — captions still accurate.
 3. Preview + export burn-in from regenerated sidecar.
+
+---
+
+## Blueprint Day 46 — Code Signing + Notarisation (2026-06-18)
+
+**Branch:** `day46`  
+**Phase:** 17 — Distribution + Auto-Update (Day 46 only)
+
+### Goal
+Prepare Developer ID archive/export + notarisation tooling for **Drazlo** (`com.Simranjit.FrameFlow`) without DMG, Sparkle, or CI.
+
+### Repo additions
+| Path | Purpose |
+|------|---------|
+| `Scripts/ExportOptions.plist` | `developer-id` export, automatic signing, team `6XP66CQ82V` |
+| `Scripts/archive_release.sh` | `xcodebuild archive` + `-exportArchive` → `build/export/Drazlo.app` |
+| `Scripts/notarize_app.sh` | Zip → `notarytool submit --wait` → `stapler staple` |
+| `Scripts/notary.env.example` | Env var template (no secrets) |
+| `Docs/RELEASE_SIGNING.md` | Full signing/notarisation guide |
+
+### Entitlements audit (`FrameFlow.entitlements`)
+- Sandbox, network client, camera, audio input, user-selected read-write, app-scope bookmarks — **aligned with app needs**
+- Screen Recording + Accessibility: **runtime TCC only** (no entitlement)
+- Hardened Runtime: **enabled** on Release (`ENABLE_HARDENED_RUNTIME = YES`)
+- No unnecessary entitlements added
+
+### Release project settings (verified)
+- Scheme/target: **Drazlo**, `PRODUCT_NAME = Drazlo`, display name Drazlo
+- `DEVELOPMENT_TEAM = 6XP66CQ82V`, `CODE_SIGN_STYLE = Automatic`
+- Sparkle SPM present; **not wired** — Day 48
+
+### Verification
+| Check | Result |
+|-------|--------|
+| `xcodebuild -scheme Drazlo -configuration Release build` | Pass (agent run) |
+| Archive/notarise scripts | Added; require local Developer ID cert + user credentials |
+| Secrets in git | None (`Scripts/notary.env` gitignored) |
+
+### Blockers (user must run locally)
+- **Notarisation** requires `NOTARY_APPLE_ID`, `NOTARY_TEAM_ID`, `NOTARY_APP_PASSWORD` on a Mac with Developer ID Application certificate
+- Agent cannot complete staple/submit without user Apple ID credentials
+
+### Next
+- **Day 47** — DMG creation + signing (`create-dmg`)
+- **Day 48** — Sparkle 2 + Settings “Check for Updates”
+- **Day 49** — GitHub Actions release pipeline
+
+### Suggested commit
+```
+chore: add Developer ID archive and notarisation workflow for Day 46
+```

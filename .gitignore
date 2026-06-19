@@ -1,6 +1,7 @@
 # Secrets — never commit API keys
 **/Config.swift
 Config.swift
+Scripts/notary.env
 
 # macOS
 .DS_Store
@@ -11,6 +12,8 @@ Config.swift
 DerivedData/
 .derivedData/
 build/
+*.xcarchive
+**/Drazlo-notarize.zip
 *.moved-aside
 *.hmap
 *.ipa
