@@ -130,7 +130,7 @@ spctl -a -vv build/export/Drazlo.app
 
 ## Settings → Check for Updates
 
-Settings shows a placeholder alert (“Updates Coming Soon”). **Sparkle 2** is in SPM but not wired in `FrameFlowApp.swift` — planned for **Day 48**.
+Settings → **Check for Updates** uses Sparkle 2 (`AppUpdaterController`). Placeholder alert removed in Day 48.
 
 ---
 
@@ -227,4 +227,89 @@ On a Mac **not** logged into the developer Apple ID:
 | Notary rejects DMG | App inside must already be notarised; DMG signed with `--options runtime` |
 | `stapler` fails on DMG | Ensure `notarytool submit --wait` succeeded for the `.dmg` file |
 
-**Out of scope:** Sparkle appcast (Day 48), GitHub Actions (Day 49).
+**Out of scope:** GitHub Actions (Day 49), live appcast hosting (Day 49+).
+
+---
+
+## Day 48 — Sparkle 2 auto-update
+
+Wire in-app update checks for direct-download **Drazlo** builds (not Mac App Store).
+
+| Item | Value |
+|------|--------|
+| SPM package | Sparkle 2.9.x (already linked) |
+| Appcast URL (placeholder) | `https://drazlo.app/appcast.xml` |
+| Feed constant | `AppBranding.appcastFeedURL` (keep in sync with Info.plist `SUFeedURL`) |
+| Auto-check interval | 604800 s (7 days) |
+| Manual check | App menu → Check for Updates; Settings → About → Check for Updates |
+
+### Info.plist keys (`FrameFlow/Info.plist`)
+
+| Key | Purpose |
+|-----|---------|
+| `SUFeedURL` | Appcast RSS URL |
+| `SUPublicEDKey` | Sparkle EdDSA **public** key (from `generate_keys`) |
+| `SUEnableAutomaticChecks` | `true` |
+| `SUScheduledCheckInterval` | `604800` (weekly) |
+
+**Never commit** the EdDSA private key. Gitignored: `Scripts/sparkle.env`, `*.sparkle_private_key`, `~/.sparkle/`.
+
+### One-time key generation
+
+```bash
+# 1. Download Sparkle release tarball (bin/generate_keys + bin/sign_update)
+#    https://github.com/sparkle-project/Sparkle/releases
+
+export SPARKLE_BIN_DIR="$HOME/Tools/Sparkle/bin"   # adjust path
+
+# 2. Generate EdDSA key pair (private key → Keychain or file — follow Sparkle prompts)
+"${SPARKLE_BIN_DIR}/generate_keys"
+
+# 3. Copy printed PUBLIC key into FrameFlow/Info.plist → SUPublicEDKey
+#    Also verify SUFeedURL matches AppBranding.appcastFeedURL
+```
+
+### Sign a release DMG for appcast
+
+After Day 47 DMG is built and notarised:
+
+```bash
+cp Scripts/sparkle.env.example Scripts/sparkle.env   # edit locally
+chmod +x Scripts/sign_sparkle_update.sh
+./Scripts/sign_sparkle_update.sh build/Drazlo-1.0.dmg
+```
+
+Copy `sparkle:edSignature` and `length` into `Resources/Release/appcast.xml`, upload DMG + appcast to your host.
+
+### App code
+
+| File | Role |
+|------|------|
+| `App/Services/AppUpdaterController.swift` | Owns `SPUStandardUpdaterController` (app lifetime) |
+| `FrameFlowApp.swift` | Starts updater; app menu Check for Updates; injects environment |
+| `SettingsView.swift` | About → Check for Updates → Sparkle manual check |
+
+### User verification
+
+```bash
+# Build & run
+cd FrameFlow
+xcodebuild -scheme Drazlo -configuration Debug build
+
+# 1. Put SUPublicEDKey in Info.plist (from generate_keys)
+# 2. Settings → Check for Updates → Sparkle sheet (not placeholder alert)
+# 3. App menu → Drazlo → Check for Updates (same)
+# 4. After hosting appcast + signed DMG:
+#    Bump version in appcast.xml → Sparkle should offer the update
+```
+
+### Sparkle troubleshooting
+
+| Issue | What to check |
+|-------|----------------|
+| “Update Error!” invalid signature | `SUPublicEDKey` matches key pair used to sign DMG |
+| No updates found | `SUFeedURL` reachable; appcast version > installed `CFBundleVersion` |
+| Automatic checks disabled | `SUEnableAutomaticChecks` = true; user hasn’t disabled in Sparkle UI |
+| sign_update not found | Set `SPARKLE_BIN_DIR` or download Sparkle release `bin/` tools |
+
+**Out of scope:** CI appcast publish (Day 49), live domain setup.

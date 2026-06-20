@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Drazlo Sparkle appcast template (Day 48).
+
+  Host at: https://drazlo.app/appcast.xml (must match Info.plist SUFeedURL)
+
+  After building a release DMG:
+    1. ./Scripts/sign_sparkle_update.sh build/Drazlo-1.0.dmg
+    2. Copy sparkle:edSignature and length into <enclosure> below
+    3. Upload DMG + this appcast to your CDN / static host
+
+  Placeholders to replace before publishing:
+    - YOUR_ED_SIGNATURE_FROM_SIGN_UPDATE
+    - YOUR_DMG_BYTE_LENGTH
+    - pubDate (RFC 822)
+    - enclosure url (hosted DMG URL)
+-->
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Drazlo</title>
+    <link>https://drazlo.app</link>
+    <description>Drazlo for macOS — screen recording updates</description>
+    <language>en</language>
+    <item>
+      <title>Drazlo 1.0.0</title>
+      <pubDate>Mon, 01 Jun 2026 00:00:00 +0000</pubDate>
+      <sparkle:version>1.0.0</sparkle:version>
+      <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://drazlo.app/downloads/Drazlo-1.0.dmg"
+        sparkle:version="1.0.0"
+        sparkle:shortVersionString="1.0"
+        length="YOUR_DMG_BYTE_LENGTH"
+        type="application/octet-stream"
+        sparkle:edSignature="YOUR_ED_SIGNATURE_FROM_SIGN_UPDATE" />
+      <sparkle:releaseNotesLink>https://drazlo.app/release-notes/1.0.0</sparkle:releaseNotesLink>
+    </item>
+  </channel>
+</rss>

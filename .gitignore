@@ -2,6 +2,9 @@
 **/Config.swift
 Config.swift
 Scripts/notary.env
+Scripts/sparkle.env
+*.sparkle_private_key
+.sparkle/
 
 # macOS
 .DS_Store

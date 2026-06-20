@@ -17,5 +17,13 @@
 			</array>
 		</dict>
 	</array>
+	<key>SUFeedURL</key>
+	<string>https://drazlo.app/appcast.xml</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>604800</integer>
+	<key>SUPublicEDKey</key>
+	<string>REPLACE_WITH_SPARKLE_PUBLIC_EDDSA_KEY</string>
 </dict>
 </plist>

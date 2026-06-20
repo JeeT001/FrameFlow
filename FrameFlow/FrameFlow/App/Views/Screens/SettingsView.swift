@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppRouter.self) private var router
+    @Environment(AppUpdaterController.self) private var updaterController
     @State private var viewModel = SettingsViewModel()
 
     private let zoomHoldOptions: [Double] = stride(from: 0.5, through: 5.0, by: 0.5).map { $0 }
@@ -37,11 +38,6 @@ struct SettingsView: View {
         .task {
             await viewModel.refreshPermissions()
             viewModel.loadAudioDevices()
-        }
-        .alert("Updates Coming Soon", isPresented: $viewModel.showUpdatesAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Automatic update checks will be available in a future release.")
         }
     }
 
@@ -333,7 +329,7 @@ struct SettingsView: View {
                 Divider()
 
                 SettingsButtonRow(title: "Check for Updates") {
-                    viewModel.showUpdatesAlert = true
+                    updaterController.checkForUpdates()
                 }
 
                 SettingsButtonRow(title: "Help & Support") {

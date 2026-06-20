@@ -11,4 +11,6 @@ enum AppBranding {
     static let proName = "Drazlo Pro"
     static let watermarkText = "Made with Drazlo"
     static let creatorYouTubeURL = "https://www.youtube.com/@simranjit2000/featured"
+    /// Sparkle appcast RSS feed — keep in sync with Info.plist `SUFeedURL`.
+    static let appcastFeedURL = "https://drazlo.app/appcast.xml"
 }

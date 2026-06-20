@@ -3373,3 +3373,54 @@ chore: add DMG creation and notarisation workflow for Day 47
 - **Centering:** 660×400 window; icon size 100; positions `(194, 150)` and `(366, 150)` baked via `polish_dmg_layout.sh` post-create step.
 - **Chrome:** path bar + tab bar hidden via System Events during `.DS_Store` write.
 - Regenerate: `python3 Scripts/generate_dmg_backgrounds.py && ./Scripts/create_dmg.sh && ./Scripts/notarize_dmg.sh`
+
+---
+
+## Blueprint Day 48 — Sparkle 2 auto-update (2026-06-19)
+
+**Branch:** `day48`  
+**Phase:** 17 — Distribution + Auto-Update
+
+### Goal
+In-app auto-update for direct-download **Drazlo** via Sparkle 2 (SPM already linked).
+
+### Repo additions / changes
+| Path | Purpose |
+|------|---------|
+| `App/Services/AppUpdaterController.swift` | `SPUStandardUpdaterController` wrapper (app lifetime) |
+| `FrameFlowApp.swift` | Sparkle startup, app menu Check for Updates, environment injection |
+| `SettingsView.swift` | About → Check for Updates (removed placeholder alert) |
+| `AppBranding.appcastFeedURL` | Centralized feed URL (sync with Info.plist) |
+| `FrameFlow/Info.plist` | `SUFeedURL`, `SUPublicEDKey`, `SUEnableAutomaticChecks`, `SUScheduledCheckInterval` |
+| `Resources/Release/appcast.xml` | Appcast template for Drazlo 1.0.0 |
+| `Scripts/sign_sparkle_update.sh` | Sign DMG → print EdDSA signature + length |
+| `Scripts/sparkle.env.example` | Private key path template (gitignored) |
+| `.gitignore` | `Scripts/sparkle.env`, `*.sparkle_private_key`, `.sparkle/` |
+
+### Verification
+| Check | Result |
+|-------|--------|
+| `xcodebuild -scheme Drazlo -configuration Debug build` | Pass (agent run) |
+| Placeholder “Updates Coming Soon” removed | Pass |
+| Sparkle private key in git | None |
+
+### User verification
+```bash
+# 1. Download Sparkle bin/ from GitHub release; run generate_keys once
+# 2. Put SUPublicEDKey in FrameFlow/Info.plist
+# 3. Build & run Drazlo
+# 4. Settings → Check for Updates → Sparkle UI
+# 5. App menu → Check for Updates (same)
+# 6. After hosting appcast + signed DMG:
+#    ./Scripts/sign_sparkle_update.sh build/Drazlo-1.0.dmg
+#    Update Resources/Release/appcast.xml → publish → Sparkle offers update
+```
+
+### Next
+- **Day 49** — GitHub Actions release pipeline + appcast publish automation
+
+### Suggested commit
+```
+feat: Sparkle 2 auto-update with weekly check and manual trigger
+```
+

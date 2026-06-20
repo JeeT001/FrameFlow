@@ -17,7 +17,6 @@ final class SettingsViewModel {
     var microphoneStatus: AVAuthorizationStatus = .notDetermined
     var isRefreshing = false
     var audioInputDevices: [AVCaptureDevice] = []
-    var showUpdatesAlert = false
 
     static let resolutionOptions = ["720p", "1080p", "4K"]
     static let audioModeOptions = ["mic", "system", "combined", "none"]
