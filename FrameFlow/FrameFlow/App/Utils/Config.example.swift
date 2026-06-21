@@ -23,4 +23,7 @@ enum Config {
 
     /// PostHog project API key
     static let postHogAPIKey = ""
+
+    /// Day 52 — Typeform or Google Forms URL for in-app feedback prompt.
+    static let feedbackFormURL = ""
 }

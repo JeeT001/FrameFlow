@@ -101,6 +101,25 @@ final class SettingsStore {
         didSet { defaults.set(expiryBannerDismissed, forKey: Keys.expiryBannerDismissed) }
     }
 
+    /// Successful video exports completed on this Mac (Day 52 feedback eligibility).
+    var completedExportCount: Int {
+        didSet { defaults.set(completedExportCount, forKey: Keys.completedExportCount) }
+    }
+
+    /// Last time the Dashboard feedback banner was shown or dismissed (weekly cap).
+    var feedbackPromptLastPresentedAt: Date? {
+        didSet {
+            if let feedbackPromptLastPresentedAt {
+                defaults.set(
+                    feedbackPromptLastPresentedAt.timeIntervalSince1970,
+                    forKey: Keys.feedbackPromptLastPresentedAt
+                )
+            } else {
+                defaults.removeObject(forKey: Keys.feedbackPromptLastPresentedAt)
+            }
+        }
+    }
+
     var expandedSaveFolder: String {
         (defaultSaveFolder as NSString).expandingTildeInPath
     }
@@ -125,6 +144,28 @@ final class SettingsStore {
         darkModeOverride = defaults.string(forKey: Keys.darkModeOverride) ?? "system"
         showLifetimeDeal = defaults.object(forKey: Keys.showLifetimeDeal) as? Bool ?? false
         expiryBannerDismissed = defaults.object(forKey: Keys.expiryBannerDismissed) as? Bool ?? false
+        completedExportCount = defaults.object(forKey: Keys.completedExportCount) as? Int ?? 0
+        if let timestamp = defaults.object(forKey: Keys.feedbackPromptLastPresentedAt) as? TimeInterval {
+            feedbackPromptLastPresentedAt = Date(timeIntervalSince1970: timestamp)
+        } else {
+            feedbackPromptLastPresentedAt = nil
+        }
+    }
+
+    func recordSuccessfulExport() {
+        completedExportCount += 1
+    }
+
+    func shouldShowFeedbackPrompt() -> Bool {
+        FeedbackPromptPolicy.shouldShow(
+            exportCount: completedExportCount,
+            lastPresentedAt: feedbackPromptLastPresentedAt,
+            hasFormURL: FeedbackConstants.formURL != nil
+        )
+    }
+
+    func recordFeedbackPromptPresented() {
+        feedbackPromptLastPresentedAt = Date()
     }
 
     func resetExpiryBannerDismissedForLaunch() {
@@ -157,5 +198,7 @@ final class SettingsStore {
         static let darkModeOverride = "darkModeOverride"
         static let showLifetimeDeal = "showLifetimeDeal"
         static let expiryBannerDismissed = "expiryBannerDismissed"
+        static let completedExportCount = "completedExportCount"
+        static let feedbackPromptLastPresentedAt = "feedbackPromptLastPresentedAt"
     }
 }

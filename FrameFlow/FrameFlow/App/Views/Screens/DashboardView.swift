@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 private enum DashboardRecordingSort: String, CaseIterable, Identifiable {
     case recent = "Recent"
@@ -23,6 +24,7 @@ struct DashboardView: View {
     @State private var searchText = ""
     @State private var sortOption: DashboardRecordingSort = .recent
     @State private var showAllRecordings = false
+    @State private var feedbackBannerVisible = false
 
     private let gridColumns = [
         GridItem(.adaptive(minimum: 240, maximum: 300), spacing: 20)
@@ -31,38 +33,52 @@ struct DashboardView: View {
     private static let collapsedRecordingLimit = 8
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                DashboardWelcomeHeader(
-                    displayName: welcomeName,
-                    initials: UserDisplayHelpers.initials(for: appState.currentUser),
-                    showsUpgrade: !appState.isPro,
-                    searchText: $searchText,
-                    onUpgrade: {
-                        AnalyticsService.trackUpgradeClicked(source: "dashboard")
-                        router.navigate(to: .subscription)
-                    }
-                )
-
-                DashboardHeroBanner {
-                    router.navigate(to: .windowPicker)
-                }
-
-                if showsExpiryBanner {
-                    ExpiryBannerView(
-                        status: appState.subscriptionStatus,
-                        onRenew: {
-                            AnalyticsService.trackUpgradeClicked(source: "expiry_banner")
+        ZStack(alignment: .bottom) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    DashboardWelcomeHeader(
+                        displayName: welcomeName,
+                        initials: UserDisplayHelpers.initials(for: appState.currentUser),
+                        showsUpgrade: !appState.isPro,
+                        searchText: $searchText,
+                        onUpgrade: {
+                            AnalyticsService.trackUpgradeClicked(source: "dashboard")
                             router.navigate(to: .subscription)
-                        },
-                        onDismiss: { settingsStore.expiryBannerDismissed = true }
+                        }
                     )
-                }
 
-                recordingsSection
+                    DashboardHeroBanner {
+                        router.navigate(to: .windowPicker)
+                    }
+
+                    if showsExpiryBanner {
+                        ExpiryBannerView(
+                            status: appState.subscriptionStatus,
+                            onRenew: {
+                                AnalyticsService.trackUpgradeClicked(source: "expiry_banner")
+                                router.navigate(to: .subscription)
+                            },
+                            onDismiss: { settingsStore.expiryBannerDismissed = true }
+                        )
+                    }
+
+                    recordingsSection
+                }
+                .padding(28)
+                .padding(.bottom, feedbackBannerVisible ? 88 : 0)
             }
-            .padding(28)
+
+            if feedbackBannerVisible {
+                DashboardFeedbackBanner(
+                    onShareFeedback: openFeedbackForm,
+                    onDismiss: dismissFeedbackBanner
+                )
+                .padding(.horizontal, 28)
+                .padding(.bottom, 20)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .animation(.easeInOut(duration: 0.25), value: feedbackBannerVisible)
         .navigationTitle("")
         .alert("Couldn’t delete recording", isPresented: Binding(
             get: { deleteErrorMessage != nil },
@@ -77,6 +93,10 @@ struct DashboardView: View {
             #if DEBUG
             try? recordingStore.loadDebugMocksIfNeeded()
             #endif
+            refreshFeedbackBannerVisibility()
+        }
+        .onAppear {
+            refreshFeedbackBannerVisibility()
         }
         #if DEBUG
         .toolbar {
@@ -92,6 +112,17 @@ struct DashboardView: View {
                             Task {
                                 await WindowCaptureService.shared.debugLogWindowFetch()
                             }
+                        }
+                        Divider()
+                        Button("Feedback: reset prompt") {
+                            settingsStore.feedbackPromptLastPresentedAt = nil
+                            settingsStore.completedExportCount = 0
+                            refreshFeedbackBannerVisibility()
+                        }
+                        Button("Feedback: simulate 3 exports") {
+                            settingsStore.completedExportCount = 3
+                            settingsStore.feedbackPromptLastPresentedAt = nil
+                            refreshFeedbackBannerVisibility()
                         }
                     }
                 }
@@ -114,6 +145,27 @@ struct DashboardView: View {
 
     private var needsSubscriptionAttention: Bool {
         appState.subscriptionStatus == .past_due || appState.subscriptionStatus == .expired
+    }
+
+    private func refreshFeedbackBannerVisibility() {
+        let shouldShow = settingsStore.shouldShowFeedbackPrompt()
+        if shouldShow, !feedbackBannerVisible {
+            settingsStore.recordFeedbackPromptPresented()
+            AnalyticsService.trackFeedbackPromptShown(exportCount: settingsStore.completedExportCount)
+        }
+        feedbackBannerVisible = shouldShow
+    }
+
+    private func openFeedbackForm() {
+        guard let url = FeedbackConstants.formURL else { return }
+        NSWorkspace.shared.open(url)
+        AnalyticsService.trackFeedbackPromptClicked(exportCount: settingsStore.completedExportCount)
+        dismissFeedbackBanner()
+    }
+
+    private func dismissFeedbackBanner() {
+        settingsStore.recordFeedbackPromptPresented()
+        feedbackBannerVisible = false
     }
 
     @ViewBuilder

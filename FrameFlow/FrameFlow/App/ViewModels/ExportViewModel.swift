@@ -230,6 +230,7 @@ final class ExportViewModel {
                     hasCamera: exported.hasCamera
                 )
             }
+            SettingsStore.shared.recordSuccessfulExport()
             showSuccessAlert = true
         } catch SecurityScopedFileAccess.AccessError.denied {
             exportError = SecurityScopedFileAccess.accessDeniedMessage

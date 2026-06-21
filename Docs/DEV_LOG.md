@@ -3486,3 +3486,67 @@ chore: GitHub Actions CI/CD release pipeline
 ### Next
 - **Phase 19** — Days 50–55 (icon, legal pages, feedback, launch prep)
 
+---
+
+## Blueprint Day 50 — App icon (2026-06-21)
+
+**Branch:** `phase-19`  
+**Phase:** 19 — Final Preparation
+
+### Goal
+Production Drazlo app icon for macOS (Dock, Finder, Launchpad, DMG).
+
+### Deliverables
+| Item | Status |
+|------|--------|
+| `FrameFlow/Assets.xcassets/AppIcon.appiconset` | Done — 16–512 pt @1x/@2x |
+| `Resources/DMG/DrazloVolume.icns` | Done (Day 47, from AppIcon) |
+| Visible in `v1.0.4` release DMG | Done |
+
+### Notes
+- Blue play-button / rounded-square Drazlo mark; no further icon work required for v1.0 launch.
+- Metadata: `NSHumanReadableCopyright` = © 2026 Simranjit Babbar; `MARKETING_VERSION` 1.0.4 / build 4 (matches `v1.0.4` release).
+
+### Next
+- **Day 51** — Privacy Policy + Terms on website
+
+---
+
+## Day 52 — Feedback collection (2026-06-22)
+
+**Branch:** `phase-19`  
+**Phase:** 19 — Final Preparation
+
+### Goal
+After the user’s 3rd successful export, show a non-intrusive Dashboard banner linking to an external feedback form (Typeform / Google Forms). Cap at once per week via `UserDefaults`.
+
+### Deliverables
+| Item | Status |
+|------|--------|
+| `FeedbackPromptPolicy` — ≥3 exports, 7-day cap | Done |
+| `SettingsStore.completedExportCount` + `feedbackPromptLastPresentedAt` | Done |
+| Increment count on successful export (`ExportViewModel`) | Done |
+| `DashboardFeedbackBanner` pinned to bottom of Dashboard | Done |
+| Opens form in browser; dismiss + weekly cap | Done |
+| `Config.feedbackFormURL` (paste your form URL locally) | Pending URL |
+| PostHog `feedback_prompt_shown` / `feedback_prompt_clicked` | Done |
+| DEBUG menu: reset / simulate 3 exports | Done |
+
+### Setup
+1. Create a Google Form or Typeform (rating 1–5, use case, improvements, NPS).
+2. Add the URL to **`Config.swift`**: `feedbackFormURL = "https://…"`.
+3. Banner stays hidden until the URL is set.
+
+### Verification
+| Check | Result |
+|-------|--------|
+| BUILD SUCCEEDED | Pass |
+
+### Suggested commit
+```
+feat: Day 52 feedback banner after third export with weekly cap
+```
+
+### Next
+- **Day 53** — Final smoke test on fresh Mac account
+

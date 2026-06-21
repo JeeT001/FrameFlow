@@ -9,24 +9,25 @@
 
 ## Recently completed
 
+- **Day 50** — Drazlo app icon in `AppIcon.appiconset` (all macOS sizes; used in app, DMG, Dock/Finder)
 - **Day 49** — GitHub Actions release pipeline validated (`v1.0.4` green, DMG on Releases)
 - **Day 48** — Sparkle 2 auto-update (weekly check, Settings + menu manual check, appcast template)
 - **Day 47** — DMG creation, layout polish, notarisation workflow
 - **Day 46** — Developer ID archive/export, app notarisation scripts
 
-## Day 49 deliverables
+## Day 50 deliverables
 
 | Item | Status |
 |------|--------|
-| `.github/workflows/release.yml` | Done |
-| GitHub Secrets + tag release | Done (`v1.0.4` success) |
-| Signed + notarised DMG on Releases | Done |
-| CI fixes (Config, signing, Swift 6) | Done |
+| `Assets.xcassets/AppIcon.appiconset` (16–512 @1x/@2x) | Done |
+| `Resources/DMG/DrazloVolume.icns` (DMG volume icon) | Done |
+| Icon in shipped `v1.0.4` DMG / Releases build | Done |
+| Copyright + version metadata (`1.0.4` build `4`) | Done |
 
 ## Next Task
 
-1. **Day 50** — App icon + metadata (Phase 19)
-2. **Day 51** — Privacy Policy + Terms (website)
+1. **Day 51** — Privacy Policy + Terms (website)
+2. **Day 52** — Feedback collection setup (in-app banner done; paste form URL in `Config.swift`)
 3. **Day 54 / launch** — RevenueCat Production + Stripe production + webhook deploy
 
 ## Reference Docs
@@ -34,3 +35,4 @@
 - [Master Blueprint](FrameFlow_Master_Blueprint.md)
 - [Dev Log](DEV_LOG.md)
 - [Release Signing](RELEASE_SIGNING.md)
+- [Releasing Updates](RELEASING_UPDATES.md) — ship features & bug fixes (Sparkle + GitHub Releases)

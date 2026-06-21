@@ -22,19 +22,19 @@
     <description>Drazlo for macOS — screen recording updates</description>
     <language>en</language>
     <item>
-      <title>Drazlo 1.0.0</title>
+      <title>Drazlo 1.0.4</title>
       <pubDate>Mon, 01 Jun 2026 00:00:00 +0000</pubDate>
-      <sparkle:version>1.0.0</sparkle:version>
-      <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
+      <sparkle:version>1.0.4</sparkle:version>
+      <sparkle:shortVersionString>1.0.4</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <enclosure
-        url="https://drazlo.app/downloads/Drazlo-1.0.dmg"
-        sparkle:version="1.0.0"
-        sparkle:shortVersionString="1.0"
+        url="https://drazlo.app/downloads/Drazlo-1.0.4.dmg"
+        sparkle:version="1.0.4"
+        sparkle:shortVersionString="1.0.4"
         length="YOUR_DMG_BYTE_LENGTH"
         type="application/octet-stream"
         sparkle:edSignature="YOUR_ED_SIGNATURE_FROM_SIGN_UPDATE" />
-      <sparkle:releaseNotesLink>https://drazlo.app/release-notes/1.0.0</sparkle:releaseNotesLink>
+      <sparkle:releaseNotesLink>https://drazlo.app/release-notes/1.0.4</sparkle:releaseNotesLink>
     </item>
   </channel>
 </rss>

@@ -67,6 +67,14 @@ enum AnalyticsService {
         capture("feature_blocked", properties: ["feature": feature])
     }
 
+    static func trackFeedbackPromptShown(exportCount: Int) {
+        capture("feedback_prompt_shown", properties: ["export_count": exportCount])
+    }
+
+    static func trackFeedbackPromptClicked(exportCount: Int) {
+        capture("feedback_prompt_clicked", properties: ["export_count": exportCount])
+    }
+
     private static func capture(_ event: String, properties: [String: Any]? = nil) {
         guard isConfigured else { return }
         PostHogSDK.shared.capture(event, properties: properties)
