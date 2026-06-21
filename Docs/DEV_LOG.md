@@ -3479,3 +3479,10 @@ xcrun stapler validate Drazlo-1.0.0.dmg
 chore: GitHub Actions CI/CD release pipeline
 ```
 
+### Pipeline validated (2026-06-21)
+- Tag **`v1.0.4`** — workflow green (~5.5 min); `Drazlo-1.0.4.dmg` on GitHub Releases
+- CI fixes merged to `main`: Config.swift stub, Manual Developer ID signing, Swift 6 `await` in `AppState`
+
+### Next
+- **Phase 19** — Days 50–55 (icon, legal pages, feedback, launch prep)
+
