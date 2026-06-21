@@ -28,20 +28,12 @@ fi
 mkdir -p "${BUILD_DIR}"
 
 echo "==> xcodebuild archive"
-XCODE_ARGS=(
-  -project "${XCODE_PROJECT}"
-  -scheme "${SCHEME}"
-  -configuration "${CONFIGURATION}"
-  -archivePath "${ARCHIVE_PATH}"
+xcodebuild \
+  -project "${XCODE_PROJECT}" \
+  -scheme "${SCHEME}" \
+  -configuration "${CONFIGURATION}" \
+  -archivePath "${ARCHIVE_PATH}" \
   archive
-)
-if [[ -n "${DEVELOPMENT_TEAM:-}" ]]; then
-  XCODE_ARGS+=(DEVELOPMENT_TEAM="${DEVELOPMENT_TEAM}")
-fi
-if [[ -n "${CODE_SIGN_IDENTITY:-}" ]]; then
-  XCODE_ARGS+=(CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY}")
-fi
-xcodebuild "${XCODE_ARGS[@]}"
 
 echo "==> xcodebuild -exportArchive (Developer ID)"
 rm -rf "${EXPORT_PATH}"

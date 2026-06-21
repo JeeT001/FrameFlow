@@ -31,6 +31,8 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
           p12-password: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
+          keychain: build-signing
+          create-keychain: true
 
       - name: Install create-dmg
         run: brew install create-dmg
@@ -65,9 +67,6 @@ jobs:
           fi
 
       - name: Archive and export signed app
-        env:
-          DEVELOPMENT_TEAM: ${{ secrets.TEAM_ID || '6XP66CQ82V' }}
-          CODE_SIGN_IDENTITY: Developer ID Application
         run: |
           chmod +x Scripts/*.sh
           ./Scripts/archive_release.sh
