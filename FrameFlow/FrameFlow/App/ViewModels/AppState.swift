@@ -52,10 +52,9 @@ final class AppState {
     }
 
     func syncSubscriptionAfterAuth(userId: UUID) async {
-        let manager = SubscriptionManager.shared
-        await manager.logIn(appUserID: userId.uuidString)
-        await manager.fetchStatus()
-        manager.syncToAppState(self)
+        await SubscriptionManager.shared.logIn(appUserID: userId.uuidString)
+        await SubscriptionManager.shared.fetchStatus()
+        await SubscriptionManager.shared.syncToAppState(self)
     }
 
     func bootstrap(router: AppRouter) async {
