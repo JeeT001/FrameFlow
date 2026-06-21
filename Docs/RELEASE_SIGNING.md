@@ -313,3 +313,86 @@ xcodebuild -scheme Drazlo -configuration Debug build
 | sign_update not found | Set `SPARKLE_BIN_DIR` or download Sparkle release `bin/` tools |
 
 **Out of scope:** CI appcast publish (Day 49), live domain setup.
+
+---
+
+## Day 49 — GitHub Actions release pipeline
+
+Tag-triggered workflow builds a signed, notarised **Drazlo** DMG and attaches it to a GitHub Release.
+
+| Item | Value |
+|------|--------|
+| Workflow | `.github/workflows/release.yml` |
+| Trigger | Push tag `v*` (e.g. `v1.0.0`); optional `workflow_dispatch` |
+| Runner | `macos-15` |
+| Output | `build/Drazlo-<version>.dmg` on GitHub Releases |
+| Scripts reused | `archive_release.sh`, `notarize_app.sh`, `create_dmg.sh`, `notarize_dmg.sh` |
+
+### Required GitHub Secrets
+
+Configure in **Repository → Settings → Secrets and variables → Actions**:
+
+| GitHub Secret | Maps to (in scripts) | Notes |
+|---------------|----------------------|--------|
+| `CERTIFICATES_P12` | `apple-actions/import-codesign-certs` | Base64-encoded Developer ID Application `.p12` |
+| `CERTIFICATES_P12_PASSWORD` | import-codesign-certs | Password used when exporting the `.p12` |
+| `APPLE_ID` | `NOTARY_APPLE_ID` | Apple ID email for notarytool |
+| `TEAM_ID` | `NOTARY_TEAM_ID` | `6XP66CQ82V` |
+| `APPLE_APP_PASSWORD` | `NOTARY_APP_PASSWORD` | App-specific password from [appleid.apple.com](https://appleid.apple.com) |
+
+Template (no secrets): `Scripts/github-secrets.example`  
+Local notarisation env: `Scripts/notary.env.example`
+
+### Export Developer ID certificate as base64
+
+```bash
+# Keychain Access → My Certificates → Developer ID Application → Export .p12
+base64 -i DeveloperID.p12 | pbcopy   # paste into CERTIFICATES_P12 secret
+```
+
+Create an app-specific password: Apple ID → Sign-In and Security → App-Specific Passwords.
+
+### Release a version
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+1. GitHub Actions runs `.github/workflows/release.yml` (~10–15 min).
+2. Download **Drazlo-1.0.0.dmg** from **Releases** when the workflow completes.
+3. Verify locally:
+
+```bash
+spctl -a -vv -t open --context context:primary-signature Drazlo-1.0.0.dmg
+xcrun stapler validate Drazlo-1.0.0.dmg
+```
+
+### Post-release (manual)
+
+1. Upload DMG to your website CDN (when live).
+2. Update Sparkle appcast (Day 48):
+
+```bash
+./Scripts/sign_sparkle_update.sh build/Drazlo-1.0.0.dmg
+# Copy edSignature + length into Resources/Release/appcast.xml → publish appcast.xml
+```
+
+### CI notes
+
+- **`SKIP_DMG_POLISH=1`** — workflow skips Finder AppleScript polish (`polish_dmg_layout.sh`) because GitHub runners are headless. DMG still uses `create-dmg` layout + background art.
+- **`VERSION`** — derived from git tag (`v1.0.0` → `1.0.0`) so DMG filename matches the release tag.
+- **Manual dispatch** — Actions → workflow → Run workflow; uploads artifact but creates a GitHub Release **only** on tag push.
+- **Optional future:** attach signed `appcast.xml` via `SPARKLE_EDDSA_PRIVATE_KEY` secret (not implemented).
+
+### CI troubleshooting
+
+| Issue | What to check |
+|-------|----------------|
+| Certificate import fails | Valid base64 `.p12`; correct password secret |
+| Archive fails | SPM resolved; scheme `Drazlo`; team `6XP66CQ82V` in project |
+| Notary rejected | Same entitlements audit as Day 46; hardened runtime enabled |
+| DMG polish skipped | Expected on CI — local builds omit `SKIP_DMG_POLISH` for full polish |
+| Release not created | Only tag pushes create Releases; use `workflow_dispatch` for test builds + artifact |
+
+**Out of scope:** CDN deploy, live appcast hosting, Mac App Store.

@@ -1,0 +1,102 @@
+name: Build, Sign, Notarise, and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Marketing version override (e.g. 1.0.0). Defaults to Xcode MARKETING_VERSION.'
+        required: false
+
+permissions:
+  contents: write
+
+env:
+  SCHEME: Drazlo
+  CONFIGURATION: Release
+  BUILD_DIR: ${{ github.workspace }}/build
+  SKIP_DMG_POLISH: '1'
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Import signing certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
+          p12-password: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Resolve Swift package dependencies
+        working-directory: FrameFlow
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project FrameFlow.xcodeproj \
+            -scheme Drazlo
+
+      - name: Set release version
+        run: |
+          # shellcheck source=Scripts/release_common.sh
+          source Scripts/release_common.sh
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(release_marketing_version "${GITHUB_WORKSPACE}")"
+          fi
+          echo "VERSION=${VERSION}" >> "${GITHUB_ENV}"
+          echo "Release version: ${VERSION}"
+
+      - name: Archive and export signed app
+        run: |
+          chmod +x Scripts/*.sh
+          ./Scripts/archive_release.sh
+
+      - name: Notarise app
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.TEAM_ID || '6XP66CQ82V' }}
+          NOTARY_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: ./Scripts/notarize_app.sh build/export/Drazlo.app
+
+      - name: Build DMG
+        run: ./Scripts/create_dmg.sh build/export/Drazlo.app
+
+      - name: Notarise DMG
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.TEAM_ID || '6XP66CQ82V' }}
+          NOTARY_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: ./Scripts/notarize_dmg.sh "build/Drazlo-${VERSION}.dmg"
+
+      - name: Verify DMG
+        run: |
+          DMG="build/Drazlo-${VERSION}.dmg"
+          codesign --verify --verbose=2 "${DMG}"
+          spctl -a -vv -t open --context context:primary-signature "${DMG}"
+          xcrun stapler validate "${DMG}"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Drazlo-${{ env.VERSION }}-dmg
+          path: build/Drazlo-${{ env.VERSION }}.dmg
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/Drazlo-${{ env.VERSION }}.dmg
+          generate_release_notes: true
+          draft: false
+          prerelease: false

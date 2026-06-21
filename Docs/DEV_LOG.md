@@ -3424,3 +3424,58 @@ In-app auto-update for direct-download **Drazlo** via Sparkle 2 (SPM already lin
 feat: Sparkle 2 auto-update with weekly check and manual trigger
 ```
 
+---
+
+## Blueprint Day 49 — GitHub Actions release pipeline (2026-06-20)
+
+**Branch:** `day49`  
+**Phase:** 18 — CI/CD Automation
+
+### Goal
+Push `v*` tag → signed, notarised **Drazlo** DMG attached to GitHub Release (~10 min).
+
+### Repo additions
+| Path | Purpose |
+|------|---------|
+| `.github/workflows/release.yml` | Tag + manual dispatch; macos-15; full release chain |
+| `Scripts/github-secrets.example` | GitHub Actions secrets template |
+| `Scripts/create_dmg.sh` | `SKIP_DMG_POLISH=1` for headless CI (skips Finder AppleScript) |
+
+### Workflow steps
+1. Import Developer ID cert (`apple-actions/import-codesign-certs@v3`)
+2. `brew install create-dmg`
+3. Resolve SPM dependencies
+4. `./Scripts/archive_release.sh` → `./Scripts/notarize_app.sh`
+5. `./Scripts/create_dmg.sh` → `./Scripts/notarize_dmg.sh`
+6. Verify DMG (`spctl`, `stapler validate`)
+7. Upload artifact; `softprops/action-gh-release@v2` on tag push
+
+### GitHub Secrets (required)
+`CERTIFICATES_P12`, `CERTIFICATES_P12_PASSWORD`, `APPLE_ID`, `TEAM_ID`, `APPLE_APP_PASSWORD` — see `Docs/RELEASE_SIGNING.md` Day 49.
+
+### CI caveats
+- **DMG polish skipped** on CI (`SKIP_DMG_POLISH=1`) — Finder AppleScript requires GUI session; local releases still run full polish.
+- **VERSION** from tag (`v1.0.0` → `Drazlo-1.0.0.dmg`).
+- **GitHub Release** created only on tag push; `workflow_dispatch` uploads artifact only.
+
+### User verification
+```bash
+# 1. Add GitHub Secrets (Settings → Secrets and variables → Actions)
+# 2. git tag v1.0.0 && git push origin v1.0.0
+# 3. Watch Actions tab — workflow completes green
+# 4. Download Drazlo-1.0.0.dmg from GitHub Releases
+# 5. Verify:
+spctl -a -vv -t open --context context:primary-signature Drazlo-1.0.0.dmg
+xcrun stapler validate Drazlo-1.0.0.dmg
+# 6. Post-release: sign_sparkle_update.sh + update appcast.xml (manual)
+```
+
+### Next
+- Push first tag to validate pipeline on real repo
+- **Day 54 / launch** — RevenueCat + Stripe production
+
+### Suggested commit
+```
+chore: GitHub Actions CI/CD release pipeline
+```
+

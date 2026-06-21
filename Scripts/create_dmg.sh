@@ -103,7 +103,11 @@ rm -f "${DMG_PATH}"
   "${STAGING_DIR}"
 
 echo "==> Polish Finder layout (.DS_Store window size, icon positions, background)"
-BACKGROUND="${BACKGROUND}" "${SCRIPT_DIR}/polish_dmg_layout.sh" "${DMG_PATH}"
+if [[ "${SKIP_DMG_POLISH:-}" == "1" ]]; then
+  echo "    Skipped (SKIP_DMG_POLISH=1 — headless CI uses create-dmg layout only)"
+else
+  BACKGROUND="${BACKGROUND}" "${SCRIPT_DIR}/polish_dmg_layout.sh" "${DMG_PATH}"
+fi
 
 echo "==> DMG created (unsigned — run ./Scripts/notarize_dmg.sh next)"
 echo "    ${DMG_PATH}"
