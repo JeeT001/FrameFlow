@@ -56,7 +56,18 @@ jobs:
           echo "VERSION=${VERSION}" >> "${GITHUB_ENV}"
           echo "Release version: ${VERSION}"
 
+      - name: Prepare Config.swift for CI
+        run: |
+          CONFIG_DIR="FrameFlow/FrameFlow/App/Utils"
+          if [[ ! -f "${CONFIG_DIR}/Config.swift" ]]; then
+            cp "${CONFIG_DIR}/Config.example.swift" "${CONFIG_DIR}/Config.swift"
+            echo "Created Config.swift from Config.example.swift (gitignored locally on dev machines)."
+          fi
+
       - name: Archive and export signed app
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.TEAM_ID || '6XP66CQ82V' }}
+          CODE_SIGN_IDENTITY: Developer ID Application
         run: |
           chmod +x Scripts/*.sh
           ./Scripts/archive_release.sh
