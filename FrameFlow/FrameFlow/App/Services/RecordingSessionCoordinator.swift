@@ -128,6 +128,9 @@ final class RecordingSessionCoordinator {
             #if DEBUG
             print("[RecordingSessionCoordinator] writer audio sample rate: \(micSampleRate)Hz")
             #endif
+            let waitForMicAudio = (writerAudioMode == .mic || writerAudioMode == .combined || effectiveMode == .combined)
+            let waitForSystemAudio = writerAudioMode == .system
+                || (effectiveMode == .combined && shouldCaptureSystemAudio)
             try engine.start(
                 outputURL: outputURL,
                 outputSize: outputSize,
@@ -153,15 +156,24 @@ final class RecordingSessionCoordinator {
             if let audioStatus = audioCaptureService.statusMessage {
                 errorMessage = audioStatus
             }
-            let waitForMicAudio = writerAudioMode == .mic && audioCaptureService.micCaptureActive
-            engine.configureAudioTimeline(waitForAudioBeforeVideo: waitForMicAudio)
-            if writerAudioMode == .mic && !audioCaptureService.micCaptureActive {
-                engine.configureAudioTimeline(waitForAudioBeforeVideo: false)
+            var waitForAudioBeforeVideo = waitForSystemAudio
+            if waitForMicAudio, audioCaptureService.micCaptureActive {
+                waitForAudioBeforeVideo = true
+            }
+            if waitForMicAudio, !audioCaptureService.micCaptureActive,
+               writerAudioMode == .mic || writerAudioMode == .combined {
                 if errorMessage == nil {
                     errorMessage = audioCaptureService.statusMessage
                         ?? "Microphone unavailable. Recording video only."
                 }
             }
+            engine.configureAudioTimeline(waitForAudioBeforeVideo: waitForAudioBeforeVideo)
+            #if DEBUG
+            print(
+                "[RecordingSessionCoordinator] A/V wait=\(waitForAudioBeforeVideo) " +
+                "mode=\(writerAudioMode.rawValue) micActive=\(audioCaptureService.micCaptureActive)"
+            )
+            #endif
             if pipController.isCameraEnabled {
                 await cameraCapture.start(preferredCameraID: pipController.selectedCameraID)
                 if let cameraStatus = cameraCapture.statusMessage {

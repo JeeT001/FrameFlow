@@ -15,6 +15,7 @@ final class CameraCapture {
     private(set) var isRunning = false
     private(set) var isUnavailable = false
     private(set) var statusMessage: String?
+    private var hasReceivedFrameSinceStart = false
 
     private let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
@@ -29,7 +30,7 @@ final class CameraCapture {
     private var disconnectObserver: NSObjectProtocol?
 
     var frameForComposite: CIImage? {
-        guard isRunning, !isUnavailable else { return nil }
+        guard isRunning, !isUnavailable, hasReceivedFrameSinceStart else { return nil }
         return latestFrame
     }
 
@@ -58,9 +59,13 @@ final class CameraCapture {
             let delegate = CameraVideoOutputDelegate { [weak self] image in
                 Task { @MainActor [weak self] in
                     self?.latestFrame = image
+                    self?.hasReceivedFrameSinceStart = true
                     self?.isUnavailable = false
                 }
             }
+
+            latestFrame = nil
+            hasReceivedFrameSinceStart = false
 
             let startResult: SessionStartResult = await withCheckedContinuation { continuation in
                 sessionQueue.async { [session, output, outputQueue] in
@@ -167,6 +172,7 @@ final class CameraCapture {
         outputDelegate = nil
         currentInput = nil
         latestFrame = nil
+        hasReceivedFrameSinceStart = false
         isRunning = false
         isUnavailable = false
     }
@@ -194,6 +200,7 @@ final class CameraCapture {
     private func handleDeviceDisconnected() {
         isUnavailable = true
         latestFrame = nil
+        hasReceivedFrameSinceStart = false
         isRunning = false
         statusMessage = "Camera disconnected. Recording continues with a PiP placeholder."
     }

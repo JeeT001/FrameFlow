@@ -25,6 +25,8 @@ final class CaptionEditorViewModel {
     var videoDuration: Double = 1
     /// File-time offset where visible video begins (legacy A/V lead gap).
     private(set) var videoContentStartSeconds: Double = 0
+    private var audioTrackDuration: Double = 0
+    private var fileVideoDuration: Double = 0
     var selectedSegmentID: UUID?
     var isExporting = false
     var exportProgress: Double = 0
@@ -72,33 +74,34 @@ final class CaptionEditorViewModel {
     }
 
     private func activeSegmentContext() -> (segment: CaptionSegment, lookupTime: Double)? {
-        let fileTime = currentPlaybackTime + videoContentStartSeconds
+        let lookupTime = CaptionExportTimeline.audioTimelineTime(
+            videoContentTime: currentPlaybackTime,
+            leadingGap: videoContentStartSeconds,
+            audioDuration: audioTrackDuration > 0.01 ? audioTrackDuration : fileVideoDuration,
+            videoDuration: fileVideoDuration
+        )
 
         if let timeline = editTimeline, !timeline.isFullSourceExport {
-            guard let exportTime = CaptionTimelineMapper.exportTime(
-                fromSourceTime: fileTime,
+            guard CaptionTimelineMapper.exportTime(
+                fromSourceTime: lookupTime,
                 editTimeline: timeline
-            ) else {
+            ) != nil else {
                 return nil
             }
-            let exportSegments = CaptionTimelineMapper.segmentsForExportTimeline(
-                from: segments,
-                editTimeline: timeline
-            )
-            guard let segment = exportSegments.first(where: {
-                exportTime >= $0.startTime && exportTime <= $0.endTime
+            guard let segment = segments.first(where: {
+                lookupTime >= $0.startTime && lookupTime <= $0.endTime
             }) else {
                 return nil
             }
-            return (segment, exportTime)
+            return (segment, lookupTime)
         }
 
         guard let segment = segments.first(where: {
-            fileTime >= $0.startTime && fileTime <= $0.endTime
+            lookupTime >= $0.startTime && lookupTime <= $0.endTime
         }) else {
             return nil
         }
-        return (segment, fileTime)
+        return (segment, lookupTime)
     }
 
     func applyEditTimeline(_ timeline: EditTimelineModel) {
@@ -380,6 +383,8 @@ final class CaptionEditorViewModel {
         playbackRange = nil
         editTimeline = nil
         videoContentStartSeconds = 0
+        audioTrackDuration = 0
+        fileVideoDuration = 0
     }
 
     private func configurePlayer(url: URL) {
@@ -398,6 +403,21 @@ final class CaptionEditorViewModel {
                 asset: asset,
                 metadataLead: recordingMetadata?.captionAudioLeadSeconds
             )
+
+            let trackDurations = await RecordingMediaTiming.probeTrackDurations(asset: asset)
+            audioTrackDuration = trackDurations.audioSeconds
+            fileVideoDuration = trackDurations.videoSeconds > 0.01 ? trackDurations.videoSeconds : totalSeconds
+
+            #if DEBUG
+            let audioContent = max(0.01, audioTrackDuration - videoContentStartSeconds)
+            let videoContent = max(0.01, fileVideoDuration - videoContentStartSeconds)
+            print(
+                "[CaptionEditor] timeline leadingGap=\(String(format: "%.3f", videoContentStartSeconds))s " +
+                "audio=\(String(format: "%.2f", audioTrackDuration))s " +
+                "video=\(String(format: "%.2f", fileVideoDuration))s " +
+                "stretch=\(String(format: "%.3f", audioContent / videoContent))"
+            )
+            #endif
 
             guard player.currentItem != nil else { return }
 

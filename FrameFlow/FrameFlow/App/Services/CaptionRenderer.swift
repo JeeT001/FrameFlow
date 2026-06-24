@@ -65,9 +65,16 @@ final class CaptionRenderer: @unchecked Sendable {
 
         let fullDuration = try await asset.load(.duration)
         let fullSeconds = CMTimeGetSeconds(fullDuration)
+        let videoTrackRange = try await sourceVideoTrack.load(.timeRange)
+        let videoTrackSeconds = CMTimeGetSeconds(videoTrackRange.duration)
         let leadingGap = max(0, leadingVideoGapSeconds)
-        let exportSeconds = max(0.05, fullSeconds - leadingGap)
+        let exportSeconds = max(0.05, videoTrackSeconds - leadingGap)
         let exportDuration = CMTime(seconds: exportSeconds, preferredTimescale: 600)
+
+        let timedSegments = clampSegments(cleaned, exportSeconds: exportSeconds)
+        guard !timedSegments.isEmpty else {
+            throw CaptionRendererError.exportFailed("No caption segments within video duration.")
+        }
 
         let composition = AVMutableComposition()
 
@@ -102,6 +109,14 @@ final class CaptionRenderer: @unchecked Sendable {
         var renderSize = naturalSize.applying(preferredTransform)
         renderSize = CGSize(width: abs(renderSize.width), height: abs(renderSize.height))
 
+        #if DEBUG
+        print(
+            "[CaptionRenderer] burn-in renderSize=\(Int(renderSize.width))x\(Int(renderSize.height)) " +
+            "segments=\(timedSegments.count) leadingGap=\(String(format: "%.3f", leadingGap))s " +
+            "exportSeconds=\(String(format: "%.2f", exportSeconds))s"
+        )
+        #endif
+
         compositionVideoTrack.preferredTransform = preferredTransform
 
         let parentLayer = CALayer()
@@ -116,7 +131,7 @@ final class CaptionRenderer: @unchecked Sendable {
         parentLayer.addSublayer(videoLayer)
 
         let effectiveStyle = resolvedStyle(style)
-        addCaptionLayers(to: parentLayer, segments: cleaned, style: effectiveStyle, renderSize: renderSize)
+        addCaptionLayers(to: parentLayer, segments: timedSegments, style: effectiveStyle, renderSize: renderSize)
 
         let videoComposition = AVMutableVideoComposition()
         videoComposition.renderSize = renderSize
@@ -160,6 +175,19 @@ final class CaptionRenderer: @unchecked Sendable {
 
     // MARK: - Layer building
 
+    private func clampSegments(_ segments: [CaptionSegment], exportSeconds: Double) -> [CaptionSegment] {
+        segments.compactMap { segment in
+            guard segment.startTime < exportSeconds - 0.01 else { return nil }
+            var adjusted = segment
+            adjusted.startTime = max(0, min(segment.startTime, exportSeconds - 0.05))
+            adjusted.endTime = max(
+                adjusted.startTime + 0.05,
+                min(segment.endTime, exportSeconds)
+            )
+            return adjusted
+        }
+    }
+
     /// Core Animation replaces `beginTime == 0` with `CACurrentMediaTime()` during offline export.
     private func timelineTime(_ seconds: Double) -> CFTimeInterval {
         AVCoreAnimationBeginTimeAtZero + max(0, seconds)
@@ -173,19 +201,11 @@ final class CaptionRenderer: @unchecked Sendable {
         visibleOpacity: Float = 1
     ) {
         let segmentDuration = max(0.05, duration)
-        let begin = timelineTime(startTime)
-        layer.beginTime = begin
+        layer.beginTime = timelineTime(startTime)
         layer.duration = segmentDuration
-        layer.opacity = 0
-
-        let animation = CAKeyframeAnimation(keyPath: "opacity")
-        animation.beginTime = begin
-        animation.duration = segmentDuration
-        animation.values = [0, visibleOpacity, visibleOpacity, 0]
-        animation.keyTimes = [0, 0.01, 0.99, 1]
-        animation.fillMode = .both
-        animation.isRemovedOnCompletion = false
-        layer.add(animation, forKey: "captionOpacity")
+        layer.opacity = visibleOpacity
+        layer.isHidden = false
+        layer.zPosition = 10
     }
 
     private func resolvedStyle(_ style: CaptionStyleConfig) -> CaptionStyleConfig {
@@ -274,15 +294,25 @@ final class CaptionRenderer: @unchecked Sendable {
         let font = NSFont(name: style.fontName, size: fontSize) ?? NSFont.boldSystemFont(ofSize: fontSize)
 
         let textLayer = CATextLayer()
-        textLayer.string = text
-        textLayer.font = font
+        var attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: style.nsTextColor,
+        ]
+        if style.showsBackground, let background = style.nsBackgroundColor {
+            attributes[.backgroundColor] = background
+        }
+        textLayer.string = NSAttributedString(string: text, attributes: attributes)
         textLayer.fontSize = font.pointSize
-        textLayer.foregroundColor = style.nsTextColor.cgColor
         textLayer.alignmentMode = .center
         textLayer.isWrapped = true
-        textLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        textLayer.contentsScale = 2
+        textLayer.masksToBounds = false
 
         let frame = CaptionLayoutMath.captionFrame(style: style, containerSize: renderSize)
+        guard frame.width > 1, frame.height > 1 else {
+            textLayer.frame = CGRect(x: 0, y: renderSize.height * 0.75, width: renderSize.width, height: renderSize.height * 0.12)
+            return textLayer
+        }
         textLayer.frame = frame
 
         if style.showsBackground, let background = style.nsBackgroundColor {

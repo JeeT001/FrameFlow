@@ -234,8 +234,8 @@ final class RecordingEngine: @unchecked Sendable {
             }
             self.updateVideoOnlyFallbackIfNeededOnWriterQueue()
 
-            if self.shouldWaitForAudioOnWriterQueue() {
-                guard CMTimeCompare(self.currentAudioEndPTSOnWriterQueue(), .zero) > 0 else {
+            if self.shouldWaitForAudioOnWriterQueue(), !self.lastVideoPTS.isValid {
+                guard !self.pendingAudioBuffers.isEmpty else {
                     #if DEBUG
                     if !self.didLogWaitingForFirstAudio {
                         self.didLogWaitingForFirstAudio = true
@@ -266,8 +266,8 @@ final class RecordingEngine: @unchecked Sendable {
         CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
 
         try performOnWriterQueue {
-            try self.drainPendingAudioBuffersOnWriterQueue()
             try self.appendPreparedPixelBufferOnWriterQueue(pixelBuffer)
+            try self.drainPendingAudioBuffersOnWriterQueue()
         }
     }
 
@@ -291,7 +291,7 @@ final class RecordingEngine: @unchecked Sendable {
             let tapsPerSec = recordingDuration > 0 ? Double(audioSnap.tapCount) / recordingDuration : 0
             print(
                 "[RecordingEngine] stop summary: frames=\(self.videoFrameIndex) " +
-                "videoSkips=\(self.videoSkipNotReadyCount) duplicateFrames=\(self.duplicateFrameCount) " +
+                "videoSkips=\(self.videoSkipNotReadyCount) droppedFrames=\(self.duplicateFrameCount) " +
                 "audioNotReady=\(self.audioDropNotReadyCount) audioEnqueued=\(self.audioQueuedCount) " +
                 "audioWriterAppends=\(self.audioWriterAppends) " +
                 "maxPendingAudio=\(self.maxPendingAudioDepth) " +
@@ -417,22 +417,20 @@ final class RecordingEngine: @unchecked Sendable {
 
         updateVideoOnlyFallbackIfNeededOnWriterQueue()
 
-        let audioEnd = currentAudioEndPTSOnWriterQueue()
         let isFirstVideoFrame = !lastVideoPTS.isValid
         let pts: CMTime
 
-        if isFirstVideoFrame, waitForAudioBeforeVideo, !videoOnlyFallbackActive {
-            pendingAudioBuffers.removeAll()
-            nextAudioSamplePTS = nil
-            lastAudioPTS = .invalid
+        if isFirstVideoFrame {
+            if shouldWaitForAudioOnWriterQueue() {
+                // Drop mic warm-up captured while waiting; mux A/V together at t=0.
+                pendingAudioBuffers.removeAll()
+                nextAudioSamplePTS = nil
+                lastAudioPTS = .invalid
+                audioSecondsAtFirstVideoFrame = 0
+            }
             pts = .zero
-        } else if CMTimeCompare(audioEnd, .zero) > 0 {
-            pts = videoPresentationTimeOnWriterQueue(audioEnd: audioEnd)
-        } else if !waitForAudioBeforeVideo || videoOnlyFallbackActive {
-            pts = CMTime(value: videoFrameIndex, timescale: Self.videoFrameRate)
-            hasStartedMediaTimeline = true
         } else {
-            return
+            pts = CMTime(value: videoFrameIndex, timescale: Self.videoFrameRate)
         }
 
         if !adaptor.append(pixelBuffer, withPresentationTime: pts) {
@@ -441,7 +439,7 @@ final class RecordingEngine: @unchecked Sendable {
 
         if !didCaptureAudioLeadAtFirstVideo {
             didCaptureAudioLeadAtFirstVideo = true
-            audioSecondsAtFirstVideoFrame = CMTimeGetSeconds(audioEnd)
+            audioSecondsAtFirstVideoFrame = CMTimeGetSeconds(currentAudioEndPTSOnWriterQueue())
             #if DEBUG
             print(
                 "[RecordingEngine] caption audio lead at first video frame: " +
@@ -472,6 +470,9 @@ final class RecordingEngine: @unchecked Sendable {
             return
         }
         videoOnlyFallbackActive = true
+        pendingAudioBuffers.removeAll()
+        nextAudioSamplePTS = nil
+        lastAudioPTS = .invalid
         #if DEBUG
         print(
             "[RecordingEngine] WARNING: no audio after \(Self.videoOnlyFallbackDelay)s — " +
@@ -600,32 +601,6 @@ final class RecordingEngine: @unchecked Sendable {
         return .zero
     }
 
-    /// Audio-master PTS: follow `audioEnd`, duplicate with +1/frame when audio hasn't advanced.
-    private func videoPresentationTimeOnWriterQueue(audioEnd: CMTime) -> CMTime {
-        let frameStep = CMTime(value: 1, timescale: Self.videoFrameRate)
-        let maxPTS = CMTimeAdd(audioEnd, Self.audioMasterLead)
-
-        var pts = audioEnd
-        if lastVideoPTS.isValid, CMTimeCompare(pts, lastVideoPTS) <= 0 {
-            pts = CMTimeAdd(lastVideoPTS, frameStep)
-            #if DEBUG
-            duplicateFrameCount += 1
-            #endif
-        }
-
-        if CMTimeCompare(pts, maxPTS) > 0 {
-            pts = maxPTS
-            if lastVideoPTS.isValid, CMTimeCompare(pts, lastVideoPTS) <= 0 {
-                pts = CMTimeAdd(lastVideoPTS, frameStep)
-                #if DEBUG
-                duplicateFrameCount += 1
-                #endif
-            }
-        }
-
-        return pts
-    }
-
     #if DEBUG
     nonisolated private func logPeriodicSyncDiagnosticsIfNeeded() {
         let now = Date()
@@ -643,7 +618,7 @@ final class RecordingEngine: @unchecked Sendable {
             "audioEnd=\(String(format: "%.3f", audioSeconds))s " +
             "Δ=\(String(format: "%+.0f", avDeltaMs))ms " +
             "pendingAudio=\(pendingAudioBuffers.count) videoSkips=\(videoSkipNotReadyCount) " +
-            "duplicateFrames=\(duplicateFrameCount) " +
+            "droppedFrames=\(duplicateFrameCount) " +
             "micTaps=\(audioSnap.tapCount) micAppends=\(audioSnap.appendCount)"
         )
     }

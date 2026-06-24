@@ -7,6 +7,43 @@ import AVFoundation
 import Foundation
 
 enum RecordingMediaTiming {
+    struct TrackDurations: Sendable {
+        let audioSeconds: Double
+        let videoSeconds: Double
+    }
+
+    /// Probes muxed track durations from the file (used for A/V stretch caption mapping).
+    static func probeTrackDurations(asset: AVAsset) async -> TrackDurations {
+        async let videoTracksTask = asset.loadTracks(withMediaType: .video)
+        async let audioTracksTask = asset.loadTracks(withMediaType: .audio)
+
+        let videoTracks = (try? await videoTracksTask) ?? []
+        let audioTracks = (try? await audioTracksTask) ?? []
+
+        let videoSeconds: Double
+        if let videoTrack = videoTracks.first,
+           let range = try? await videoTrack.load(.timeRange) {
+            videoSeconds = CMTimeGetSeconds(range.duration)
+        } else if let duration = try? await asset.load(.duration) {
+            videoSeconds = CMTimeGetSeconds(duration)
+        } else {
+            videoSeconds = 0
+        }
+
+        let audioSeconds: Double
+        if let audioTrack = audioTracks.first,
+           let range = try? await audioTrack.load(.timeRange) {
+            audioSeconds = CMTimeGetSeconds(range.duration)
+        } else {
+            audioSeconds = videoSeconds
+        }
+
+        return TrackDurations(
+            audioSeconds: audioSeconds.isFinite ? max(0, audioSeconds) : 0,
+            videoSeconds: videoSeconds.isFinite ? max(0, videoSeconds) : 0
+        )
+    }
+
     /// Leading seconds before the first decodable video sample (audio may start earlier).
     static func leadingVideoGapSeconds(
         asset: AVAsset,

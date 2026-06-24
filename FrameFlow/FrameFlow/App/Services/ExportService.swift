@@ -102,6 +102,15 @@ final class ExportService: @unchecked Sendable {
                 metadataLead: options.leadingVideoGapSeconds,
                 probedFromAsset: probedLeadingGap
             )
+            let trackDurations = await RecordingMediaTiming.probeTrackDurations(asset: originalAsset)
+
+            #if DEBUG
+            print(
+                "[ExportService] resolvedLeadingGap=\(String(format: "%.3f", resolvedLeadingGap))s " +
+                "audio=\(String(format: "%.2f", trackDurations.audioSeconds))s " +
+                "video=\(String(format: "%.2f", trackDurations.videoSeconds))s"
+            )
+            #endif
 
             var sourceURL = options.sourceVideoURL
             var tempCaptionURL: URL?
@@ -136,11 +145,21 @@ final class ExportService: @unchecked Sendable {
 
                 let burnSegments = CaptionExportTimeline.segmentsForBurnIn(
                     from: segments,
-                    leadingGap: resolvedLeadingGap
+                    leadingGap: resolvedLeadingGap,
+                    audioDuration: trackDurations.audioSeconds,
+                    videoDuration: trackDurations.videoSeconds
                 )
                 guard !burnSegments.isEmpty else {
                     throw ExportServiceError.captionsTrimmedEmpty
                 }
+
+                #if DEBUG
+                print(
+                    "[ExportService] burn-in segments=\(burnSegments.count) " +
+                    "first=\(String(format: "%.2f", burnSegments.first?.startTime ?? -1))s " +
+                    "lastEnd=\(String(format: "%.2f", burnSegments.last?.endTime ?? -1))s"
+                )
+                #endif
 
                 progress(0.12, "Burning in captions…")
                 let temp = fileManager.temporaryDirectory
@@ -325,11 +344,17 @@ final class ExportService: @unchecked Sendable {
 
         let videoLayer = CALayer()
         videoLayer.frame = CGRect(x: xOffset, y: yOffset, width: scaledWidth, height: scaledHeight)
-        parentLayer.addSublayer(videoLayer)
 
         let videoRect = CGRect(x: xOffset, y: yOffset, width: scaledWidth, height: scaledHeight)
 
-        if let overlays = project?.imageOverlays, let timeline = project?.timeline.preparedForExport() {
+        let hasImageOverlays = !(project?.imageOverlays.isEmpty ?? true)
+        let needsCoreAnimationCompositor = applyWatermark || hasImageOverlays
+
+        if needsCoreAnimationCompositor {
+            parentLayer.addSublayer(videoLayer)
+        }
+
+        if hasImageOverlays, let overlays = project?.imageOverlays, let timeline = project?.timeline.preparedForExport() {
             for overlay in overlays {
                 EditorCompositionBuilder.addImageOverlay(
                     overlay,
@@ -348,10 +373,12 @@ final class ExportService: @unchecked Sendable {
         let videoComposition = AVMutableVideoComposition()
         videoComposition.renderSize = targetSize
         videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
-        videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
-            postProcessingAsVideoLayer: videoLayer,
-            in: parentLayer
-        )
+        if needsCoreAnimationCompositor {
+            videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
+                postProcessingAsVideoLayer: videoLayer,
+                in: parentLayer
+            )
+        }
 
         let finalTransform = preferredTransform
             .concatenating(CGAffineTransform(scaleX: scale, y: scale))

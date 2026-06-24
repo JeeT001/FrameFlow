@@ -3550,3 +3550,52 @@ feat: Day 52 feedback banner after third export with weekly cap
 ### Next
 - **Day 53** — Final smoke test on fresh Mac account
 
+---
+
+## Day 53 — Caption sync, export burn-in, PiP freeze fixes (2026-05-29)
+
+**Branch:** `phase-19`  
+**Phase:** 19 — Final Preparation (smoke test blockers)
+
+### Symptoms (9:16 + PiP + combined/mic audio)
+1. Captions matched speech for ~4–5s then **led** audio/video in editor preview.
+2. Captions visible in preview but **missing from exported MP4** burn-in.
+3. PiP camera **frozen on first frame** for opening seconds.
+
+### Root cause
+- **`RecordingEngine`** A/V deadlock: audio was held in `pendingAudioBuffers` until the first video frame, but video waited for `audioEnd > 0` (never true while drain was blocked). After 1s **video-only fallback**, ~3s of queued audio flushed at PTS 0 while video started at 0 → steady **+2600ms** offset for the whole clip.
+- First video frame also **reset** the audio timeline in some paths, worsening mux alignment.
+- **Combined audio** wait flag could be false when `micCaptureActive` was not yet set; `effectiveMode == .combined` now included in wait decision.
+- **Export burn-in:** `CAKeyframeAnimation` opacity on `CATextLayer` often renders invisible during offline `AVVideoCompositionCoreAnimationTool` export.
+
+### Fix
+| Area | Change |
+|------|--------|
+| `RecordingEngine` | Queue audio until first video frame; drain with `force:` on frame 0; video waits on `pendingAudioBuffers` not `audioEnd`; no audio reset on first frame; fallback clears pending audio; CFR capped by audio |
+| `RecordingSessionCoordinator` | Configure A/V wait after mic start; `effectiveMode == .combined` in wait logic; DEBUG `A/V wait=` log |
+| `CaptionRenderer` | Drop opacity keyframe animation; use `beginTime`/`duration` + `NSAttributedString`; guard zero-size frames |
+| `CaptionExportTimeline` / editor | (prior) stretch mapping + shared `audioTimelineTime` |
+
+### Verification
+| Check | Result |
+|-------|--------|
+| `xcodebuild -scheme Drazlo -configuration Debug build` | **BUILD SUCCEEDED** |
+| `[RecordingEngine] sync Δ` stays &lt;100ms on fresh 9:16 | Pending user retest |
+| Editor preview @ 0/10/30s | Pending user retest |
+| Export burn-in visible in QuickTime | Pending user retest |
+| 16:9 mic-only regression | Pending user retest |
+
+### Expected logs (fresh recording)
+- No `video-only timeline fallback` when mic is active
+- `caption audio lead at first video frame` ≈ 0.05–0.15s (one buffer), not 3s
+- `sync Δ` within ±100ms after first second
+
+
+### Suggested commit
+```
+fix: align caption preview/export timeline and burn-in for portrait recordings
+```
+
+### Next
+- User retest Day 53 smoke checklist on fresh recording (pre-fix files may still benefit from stretch mapping in preview/export).
+

@@ -1,6 +1,6 @@
 # FrameFlow — Current Status
 
-**Last updated:** 2026-06-21  
+**Last updated:** 2026-05-29  
 **Version:** v1.0.4
 
 ## Current Phase
@@ -9,6 +9,8 @@
 
 ## Recently completed
 
+- **Day 53 fix** — Caption preview/export A/V stretch alignment, burn-in mapping, PiP stale-frame guard (build green; manual retest pending)
+- **Day 52** — Feedback banner after 3rd export (weekly cap)
 - **Day 50** — Drazlo app icon in `AppIcon.appiconset` (all macOS sizes; used in app, DMG, Dock/Finder)
 - **Day 49** — GitHub Actions release pipeline validated (`v1.0.4` green, DMG on Releases)
 - **Day 48** — Sparkle 2 auto-update (weekly check, Settings + menu manual check, appcast template)
@@ -26,8 +28,8 @@
 
 ## Next Task
 
-1. **Day 51** — Privacy Policy + Terms (website)
-2. **Day 52** — Feedback collection setup (in-app banner done; paste form URL in `Config.swift`)
+1. **Day 53 retest** — 9:16 + PiP + captions preview/export smoke test
+2. **Day 51** — Privacy Policy + Terms (website)
 3. **Day 54 / launch** — RevenueCat Production + Stripe production + webhook deploy
 
 ## Reference Docs
