@@ -36,8 +36,6 @@ final class CameraCapture {
 
     func start(preferredCameraID: String?) async {
         await enqueueSessionOperation { [self] in
-            await performStopOnSessionQueue()
-
             let status = PermissionManager.shared.checkCameraPermission()
             if status == .notDetermined {
                 let granted = await PermissionManager.shared.requestCameraPermission()
@@ -55,6 +53,20 @@ final class CameraCapture {
                 statusMessage = "No camera available. Recording continues without PiP."
                 return
             }
+
+            if canReuseWarmSession(for: device) {
+                isUnavailable = false
+                statusMessage = nil
+                #if DEBUG
+                print(
+                    "[CameraCapture] start: reusedWarmSession=true " +
+                    "hasFrame=\(latestFrame != nil)"
+                )
+                #endif
+                return
+            }
+
+            await performStopOnSessionQueue()
 
             let delegate = CameraVideoOutputDelegate { [weak self] image in
                 Task { @MainActor [weak self] in
@@ -203,6 +215,15 @@ final class CameraCapture {
         hasReceivedFrameSinceStart = false
         isRunning = false
         statusMessage = "Camera disconnected. Recording continues with a PiP placeholder."
+    }
+
+    /// Skip teardown when layout picker or a prior start already warmed the same camera.
+    private func canReuseWarmSession(for device: AVCaptureDevice) -> Bool {
+        isRunning
+            && !isUnavailable
+            && hasReceivedFrameSinceStart
+            && latestFrame != nil
+            && currentInput?.device.uniqueID == device.uniqueID
     }
 
     private func preferredDevice(for cameraID: String?) -> AVCaptureDevice? {

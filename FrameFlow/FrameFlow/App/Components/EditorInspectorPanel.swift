@@ -173,10 +173,10 @@ struct EditorInspectorPanel: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(CaptionStylePreset.allCases, id: \.self) { preset in
+                        ForEach(CaptionStylePreset.selectablePresets, id: \.self) { preset in
                             CaptionStyleCard(
                                 preset: preset,
-                                isSelected: captionVM.selectedStyle.preset == preset,
+                                isSelected: captionVM.selectedStyle.preset.pickerSelectionEquivalent == preset,
                                 onSelect: { captionVM.selectStyle(preset) }
                             )
                         }

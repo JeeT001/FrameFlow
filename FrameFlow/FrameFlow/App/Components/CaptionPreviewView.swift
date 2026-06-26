@@ -300,19 +300,19 @@ struct CaptionOverlayView: View {
         switch style.preset {
         case .tiktokBold:
             Text(text)
-                .font(.system(size: fontSize, weight: .heavy))
+                .font(.system(size: fontSize * CaptionLayoutMath.exportFontMultiplier(for: style.preset), weight: .heavy))
                 .foregroundStyle(style.swiftUITextColor)
                 .shadow(color: .black.opacity(0.6), radius: 4, y: 2)
         case .highlightedWord:
-            highlightedTextView(fontSize: fontSize)
+            highlightedTextView(fontSize: fontSize * CaptionLayoutMath.exportFontMultiplier(for: style.preset))
         case .minimal:
             Text(text)
-                .font(.system(size: fontSize * 0.75, weight: .regular))
+                .font(.system(size: fontSize * CaptionLayoutMath.exportFontMultiplier(for: style.preset), weight: .regular))
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
         case .custom:
             Text(text)
-                .font(.system(size: fontSize * 0.85, weight: .semibold))
+                .font(.system(size: fontSize * CaptionLayoutMath.exportFontMultiplier(for: style.preset), weight: .semibold))
                 .foregroundStyle(.white)
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
@@ -320,7 +320,7 @@ struct CaptionOverlayView: View {
                 )
         default:
             Text(text)
-                .font(.system(size: fontSize * 0.85, weight: .bold))
+                .font(.system(size: fontSize * CaptionLayoutMath.exportFontMultiplier(for: style.preset), weight: .bold))
                 .foregroundStyle(.white)
         }
     }
@@ -342,10 +342,10 @@ struct CaptionOverlayView: View {
                     }
                 }
             }
-            .font(.system(size: fontSize * 0.85, weight: .semibold))
+            .font(.system(size: fontSize, weight: .semibold))
         } else {
             Text(text)
-                .font(.system(size: fontSize * 0.85, weight: .semibold))
+                .font(.system(size: fontSize, weight: .semibold))
                 .foregroundStyle(.white)
         }
     }

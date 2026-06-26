@@ -118,6 +118,15 @@ final class RecordingSessionCoordinator {
             if shouldCaptureSystemAudio {
                 try await streamManager.startSystemAudioCapture()
             }
+            if pipController.isCameraEnabled {
+                await cameraCapture.start(preferredCameraID: pipController.selectedCameraID)
+                if let cameraStatus = cameraCapture.statusMessage {
+                    errorMessage = cameraStatus
+                }
+                await waitForPiPFrameIfNeeded()
+            } else {
+                await cameraCapture.stop()
+            }
             AudioCaptureDiagnostics.resetForRecording()
             let micSampleRate: Double
             if writerAudioMode == .mic || writerAudioMode == .combined {
@@ -174,14 +183,10 @@ final class RecordingSessionCoordinator {
                 "mode=\(writerAudioMode.rawValue) micActive=\(audioCaptureService.micCaptureActive)"
             )
             #endif
-            if pipController.isCameraEnabled {
-                await cameraCapture.start(preferredCameraID: pipController.selectedCameraID)
-                if let cameraStatus = cameraCapture.statusMessage {
-                    errorMessage = cameraStatus
-                }
-            } else {
-                await cameraCapture.stop()
-            }
+            #if DEBUG
+            let pipReady = !pipController.isCameraEnabled || cameraCapture.frameForComposite != nil
+            print("[RecordingSessionCoordinator] PiP ready before first video frame: \(pipReady)")
+            #endif
             isRecording = true
             startTimer()
         } catch {
@@ -264,6 +269,18 @@ final class RecordingSessionCoordinator {
         let enabled = SettingsStore.shared.autoFocusEnabled
         guard enabled != autoFocusEnabled else { return }
         setAutoFocusEnabled(enabled)
+    }
+
+    /// Brief wait so the first composite frame can use a live PiP image instead of the stripe placeholder.
+    private func waitForPiPFrameIfNeeded(timeout: Duration = .milliseconds(500)) async {
+        guard pipController.isCameraEnabled else { return }
+        if cameraCapture.frameForComposite != nil { return }
+
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            if cameraCapture.frameForComposite != nil { return }
+            try? await Task.sleep(for: .milliseconds(16))
+        }
     }
 
     func stopAll() async {

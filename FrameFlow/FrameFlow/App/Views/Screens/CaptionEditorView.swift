@@ -138,10 +138,10 @@ struct CaptionEditorView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(CaptionStylePreset.allCases, id: \.self) { preset in
+                    ForEach(CaptionStylePreset.selectablePresets, id: \.self) { preset in
                         CaptionStyleCard(
                             preset: preset,
-                            isSelected: viewModel.selectedStyle.preset == preset,
+                            isSelected: viewModel.selectedStyle.preset.pickerSelectionEquivalent == preset,
                             onSelect: { viewModel.selectStyle(preset) }
                         )
                     }

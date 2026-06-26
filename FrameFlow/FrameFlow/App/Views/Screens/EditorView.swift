@@ -29,11 +29,20 @@ struct EditorView: View {
         .navigationTitle("")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Discard") {
-                    discardAndLeave()
+                HStack(spacing: 12) {
+                    Button("Discard") {
+                        discardAndLeave()
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(AppColors.textSecondary)
+
+                    if showsExportDoneButton {
+                        Button("Done") {
+                            finishAndGoToDashboard()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
-                .buttonStyle(.borderless)
-                .foregroundStyle(AppColors.textSecondary)
             }
             ToolbarItem(placement: .principal) {
                 Text(exportVM.recording?.name ?? "Editor")
@@ -261,6 +270,16 @@ struct EditorView: View {
             .buttonStyle(.borderedProminent)
         }
         .padding()
+    }
+
+    private var showsExportDoneButton: Bool {
+        exportVM.exportedURL != nil && !exportVM.isExporting && exportVM.exportError == nil
+    }
+
+    private func finishAndGoToDashboard() {
+        appState.exportRecordingID = nil
+        appState.pendingRecording = nil
+        router.navigate(to: .dashboard)
     }
 
     private func discardAndLeave() {

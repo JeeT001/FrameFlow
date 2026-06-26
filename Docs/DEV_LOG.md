@@ -3599,3 +3599,134 @@ fix: align caption preview/export timeline and burn-in for portrait recordings
 ### Next
 - User retest Day 53 smoke checklist on fresh recording (pre-fix files may still benefit from stretch mapping in preview/export).
 
+---
+
+## Lip-sync ~850ms offset fix (2026-05-29)
+
+**Branch:** `testingPhae19`  
+**Scope:** `RecordingEngine.swift` mux timing only (captions/export unchanged)
+
+### Symptom
+After Day 53 fixes, captions and burn-in export were correct on 10‑min 9:16 + PiP recordings, but **video appeared ~0.5–1s ahead of audio** in QuickTime. Stop summary showed a **stable +750–950ms** `Δ` (`audioEnd - videoPTS`), not growing drift (`stretch≈1.001`).
+
+### Root cause
+Mic taps called `enqueueOrAppendAudioOnWriterQueue`, which **drained all pending audio on every callback** (~10 Hz), while video appended at 24 Hz CFR. Audio PTS advanced on the mic schedule independently, establishing a fixed ~850–950ms lead over video PTS early in the session; rates then ran in parallel for the rest of the clip.
+
+### Fix
+| Change | Detail |
+|--------|--------|
+| Mic path | Queue only — **no drain** from `enqueueOrAppendAudioOnWriterQueue` |
+| Video tick | **Drain pending audio once per frame**, then append video (audio before video in same writer tick) |
+| Duration | `audioBufferDuration` uses each buffer's ASBD sample rate (not only writer default) |
+
+### Target verification
+- Stop summary `Δ` **< ±150ms** on 3‑min and 10‑min 9:16 + PiP
+- Lip sync ±100ms subjective in QuickTime; captions/export unchanged
+
+### Suggested commit
+```
+fix: align video PTS to audio for ~850ms lip-sync offset on long recordings
+```
+
+---
+
+## TikTok Bold export word-layer fix (2026-05-29)
+
+**Branch:** `testingPhae19`  
+**Scope:** `CaptionRenderer.swift` only
+
+### Symptom
+Editor TikTok Bold preview correct (one word at a time); exported MP4 showed **missing first word** and **stuck/stacked words**. Classic burn-in unchanged.
+
+### Root cause
+`addWordLayers` used `configureTimedLayer` (static `opacity = 1`). Offline `AVVideoCompositionCoreAnimationTool` does not hide `CATextLayer` sublayers after `duration` ends, so every word layer stayed visible and stacked. First word at `startTime == 0` could be dropped at `AVCoreAnimationBeginTimeAtZero`.
+
+### Fix
+- `tiktokWordWindows` — same index math as preview (`progress × word count`)
+- `configureTikTokWordLayer` — TikTok-only opacity keyframes `0→1→1→0` with `fillMode = .both`; min duration one 30fps frame; nudge first word off exact zero
+- Classic / Highlighted Word still use `configureTimedLayer`
+
+### Follow-up (export blank regression)
+Opacity keyframes with `layer.opacity = 0` made TikTok Bold **fully invisible** in offline export (same Day 53 issue as Classic).
+
+### Fix (v2)
+- **One `CATextLayer` per segment** (not per word) with static `opacity = 1` via `configureTimedLayer` (same path as Classic)
+- **`applyTikTokWordStringAnimation`** — discrete `string` keyframes swap words; empty string between windows (no opacity animation)
+- `tiktokWordWindows` timing unchanged (matches preview)
+
+### Follow-up (first word only per segment)
+Offline export ignores `CATextLayer.string` keyframes — model string (first word) renders for the whole segment.
+
+### Fix (v3)
+- **One layer per word** again with `configureTimedLayer` (`opacity = 1`, Classic-visible)
+- **`configureTikTokWordLayer`** — fade-out-only opacity `1→1→0` at window end + `hidden` snap at end (no fade-in from 0)
+- Rising `zPosition` per word index; DEBUG log all segment windows
+
+### Follow-up (first segment missing @ ~1.4s)
+Fade/hidden animations used `beginTime = 0` / local `wordDuration - 1/60` while layer `beginTime` was ~1.42s. Offline export applied fade/hidden at composition t≈0 with `fillMode = .forwards`, leaving the first chronological segment invisible; later segments unaffected.
+
+### Fix (v4)
+- Fade-out `beginTime` = absolute `timelineTime(adjustedStart)` (matches layer, per Apple export pattern)
+- Removed `hidden` animation (redundant; caused early invisibility)
+- Nudge **first word of segment 0** by `+1/60s` (not only t≈0)
+- `zPosition` = `segmentIndex * 20 + wordIndex` to avoid cross-segment stacking
+
+### Suggested commit
+```
+fix: TikTok Bold export shows first caption segment in offline burn-in
+```
+
+---
+
+## PiP stripe placeholder at recording start (2026-05-29)
+
+**Branch:** `testingPhae19`  
+**Scope:** `CameraCapture.swift`, `RecordingSessionCoordinator.swift`
+
+### Symptom
+First ~1s of 9:16 + PiP recordings showed grey/black diagonal stripes in the PiP region (matches `CompositePlaceholderImages.cameraUnavailable`). Window capture correct from frame 0; PiP normal after ~1s.
+
+### Root cause
+`startRecording` called `engine.start()` before `cameraCapture.start()`. `CameraCapture.start()` always tore down the session and cleared `latestFrame` / `hasReceivedFrameSinceStart`, so `frameForComposite` returned `nil` for ~24 composite ticks (~1s). `CompositeEngine` baked the stripe placeholder into those frames.
+
+### Fix
+- **`CameraCapture.start`** — if the same device is already running with a valid frame, skip teardown (`canReuseWarmSession`); preserves layout-picker warmup
+- **`RecordingSessionCoordinator.startRecording`** — start camera (and `waitForPiPFrameIfNeeded`, 500ms max) **before** `engine.start()` / first video tick
+- DEBUG: `reusedWarmSession`, `PiP ready before first video frame`
+
+### Suggested commit
+```
+fix: avoid PiP stripe placeholder during first second of webcam recordings
+```
+
+---
+
+## Classic / Minimal / Highlighted / Custom caption export parity (2026-05-29)
+
+**Branch:** `testingPhae19`  
+**Scope:** `CaptionRenderer.swift`, `CaptionLayoutMath.swift`, `CaptionPreviewView.swift` (shared multipliers only). TikTok Bold untouched.
+
+### Symptom
+Editor preview correct for all styles; exported MP4 for non-TikTok presets had missing first caption, text overflow outside black bar on 9:16, wrong font scale/padding, and Highlighted Word showing single word instead of full phrase.
+
+### Preview vs export (before)
+
+| Preset | Preview | Export (broken) |
+|--------|---------|-----------------|
+| Classic | ×0.85 font, padded/clipped black bar | Full font, no padding, unclipped CATextLayer |
+| Minimal | ×0.75, shadow, no background | Full font, no shadow |
+| Highlighted | Full phrase, one yellow word | Stacked dim phrase + single-word layer |
+| Custom | ×0.85 + primary border | No border, layout drift |
+| All | First segment visible | No +1/60s nudge → first segment dropped offline |
+
+### Fix
+- `CaptionLayoutMath`: `exportFontMultiplier`, `exportFontSize`, `textPaddingInsets` shared with preview
+- `makeCaptionExportLayer`: container `masksToBounds`, background @ 0.85 opacity, inset text, custom border
+- `adjustedSegmentStart` (+1/60s segment 0) for Classic/Minimal/Custom
+- `addHighlightedWordLayers`: per-word windows matching `CaptionEditorViewModel.highlightedWord`; `NSAttributedString` dim phrase + yellow active word; static opacity 1
+
+### Suggested commit
+```
+fix: align Classic, Minimal, Highlighted, and Custom caption export with editor preview
+```
+

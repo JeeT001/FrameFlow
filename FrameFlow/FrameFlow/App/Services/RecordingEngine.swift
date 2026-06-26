@@ -266,8 +266,8 @@ final class RecordingEngine: @unchecked Sendable {
         CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
 
         try performOnWriterQueue {
-            try self.appendPreparedPixelBufferOnWriterQueue(pixelBuffer)
             try self.drainPendingAudioBuffersOnWriterQueue()
+            try self.appendPreparedPixelBufferOnWriterQueue(pixelBuffer)
         }
     }
 
@@ -503,12 +503,12 @@ final class RecordingEngine: @unchecked Sendable {
             audioDropNotReadyCount += 1
             #endif
         }
-        try drainPendingAudioBuffersOnWriterQueue()
         #if DEBUG
         logPeriodicSyncDiagnosticsIfNeeded()
         #endif
     }
 
+    /// Drains queued mic buffers into the writer (called once per video frame, not from mic tap).
     nonisolated private func drainPendingAudioBuffersOnWriterQueue() throws {
         guard let audioInput else { return }
 
@@ -570,10 +570,16 @@ final class RecordingEngine: @unchecked Sendable {
     }
 
     nonisolated private func audioBufferDuration(_ sampleBuffer: CMSampleBuffer) -> CMTime {
-        let sampleRate = CMTimeScale(writerAudioSampleRate.rounded())
         let sampleCount = CMSampleBufferGetNumSamples(sampleBuffer)
+        var sampleRate = writerAudioSampleRate
+        if let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer),
+           let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescription) {
+            sampleRate = asbd.pointee.mSampleRate
+        }
+        let rate = CMTimeScale(sampleRate.rounded())
+
         if sampleCount > 0 {
-            return CMTime(value: CMTimeValue(sampleCount), timescale: sampleRate)
+            return CMTime(value: CMTimeValue(sampleCount), timescale: rate)
         }
 
         let duration = CMSampleBufferGetDuration(sampleBuffer)
@@ -581,7 +587,7 @@ final class RecordingEngine: @unchecked Sendable {
             return duration
         }
 
-        return CMTime(value: 1, timescale: sampleRate)
+        return CMTime(value: 1, timescale: rate)
     }
 
     nonisolated private func monotonicPresentationTime(_ pts: CMTime, last: CMTime) -> CMTime {

@@ -26,8 +26,19 @@ struct ExportView: View {
         .navigationTitle("Export")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Discard") {
-                    discardAndLeave()
+                HStack(spacing: 12) {
+                    Button("Discard") {
+                        discardAndLeave()
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(AppColors.textSecondary)
+
+                    if showsExportDoneButton {
+                        Button("Done") {
+                            finishAndGoToDashboard()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
             }
         }
@@ -201,6 +212,16 @@ struct ExportView: View {
             .buttonStyle(.borderedProminent)
         }
         .padding()
+    }
+
+    private var showsExportDoneButton: Bool {
+        viewModel.exportedURL != nil && !viewModel.isExporting && viewModel.exportError == nil
+    }
+
+    private func finishAndGoToDashboard() {
+        appState.exportRecordingID = nil
+        appState.pendingRecording = nil
+        router.navigate(to: .dashboard)
     }
 
     private func discardAndLeave() {

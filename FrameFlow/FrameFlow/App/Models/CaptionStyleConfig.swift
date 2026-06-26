@@ -13,6 +13,19 @@ enum CaptionStylePreset: String, Codable, CaseIterable, Sendable {
     case highlightedWord
     case minimal
     case custom
+
+    /// Presets shown in editor style pickers (Custom hidden until full styling ships).
+    static var selectablePresets: [CaptionStylePreset] {
+        allCases.filter { $0 != .custom }
+    }
+
+    /// Legacy `.custom` sidecars highlight as Classic in pickers; export config unchanged until user picks a style.
+    var pickerSelectionEquivalent: CaptionStylePreset {
+        switch self {
+        case .custom: .classic
+        default: self
+        }
+    }
 }
 
 enum CaptionVerticalPosition: String, Codable, Sendable {
