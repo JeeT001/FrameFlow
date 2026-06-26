@@ -84,9 +84,6 @@ final class CaptionEngine: @unchecked Sendable {
         let fallback = appSupportSidecarURL(recordingID: recordingID)
         try writeSidecar(sidecar, to: fallback)
 
-        let srtURL = srtURL(for: recordingURL)
-        try renderer.writeSRT(segments: cleaned, to: srtURL)
-
         if burnIn {
             progress?(0.94, "Rendering captions into video…")
             let burnedURL = burnedInURL(for: recordingURL)

@@ -49,6 +49,17 @@ final class ExportViewModel {
         hasCaptionsAvailable && applyCaptions
     }
 
+    var shouldShowExportWithoutCaptionsWarning: Bool {
+        hasCaptionsAvailable
+            && !applyCaptions
+            && !isExporting
+            && !SettingsStore.shared.exportWithoutCaptionsWarningShown
+    }
+
+    func markExportWithoutCaptionsWarningShown() {
+        SettingsStore.shared.exportWithoutCaptionsWarningShown = true
+    }
+
     func load(exportRecordingID: UUID?, pendingRecording: RecordingMetadata?, isPro: Bool) {
         guard let exportRecordingID else {
             recording = nil

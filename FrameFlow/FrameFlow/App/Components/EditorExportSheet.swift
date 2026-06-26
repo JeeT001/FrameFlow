@@ -15,6 +15,8 @@ struct EditorExportSheet: View {
     let onExport: () -> Void
     let onShowProGate: (String, String) -> Void
 
+    @State private var showExportWithoutCaptionsWarning = false
+
     private var saveFolderNeedsReauthorization: Bool {
         SettingsStore.shared.defaultSaveFolderBookmarkData == nil
     }
@@ -24,6 +26,18 @@ struct EditorExportSheet: View {
             exportSheetContent
         }
         .frame(minWidth: 420, minHeight: 480)
+        .alert("Export without captions?", isPresented: $showExportWithoutCaptionsWarning) {
+            Button("Export without captions", role: .destructive) {
+                exportVM.markExportWithoutCaptionsWarningShown()
+                onExport()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "If you export without burning in captions, you won't be able to add captions to this video later. " +
+                "Turn on \"Include captions in export\" to keep them."
+            )
+        }
     }
 
     private var exportSheetContent: some View {
@@ -92,7 +106,11 @@ struct EditorExportSheet: View {
                 Spacer()
 
                 Button {
-                    onExport()
+                    if exportVM.shouldShowExportWithoutCaptionsWarning {
+                        showExportWithoutCaptionsWarning = true
+                    } else {
+                        onExport()
+                    }
                 } label: {
                     if exportVM.isExporting {
                         ProgressView()

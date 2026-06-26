@@ -120,6 +120,11 @@ final class SettingsStore {
         }
     }
 
+    /// One-time export warning when burning in captions is turned off.
+    var exportWithoutCaptionsWarningShown: Bool {
+        didSet { defaults.set(exportWithoutCaptionsWarningShown, forKey: Keys.exportWithoutCaptionsWarningShown) }
+    }
+
     var expandedSaveFolder: String {
         (defaultSaveFolder as NSString).expandingTildeInPath
     }
@@ -150,6 +155,9 @@ final class SettingsStore {
         } else {
             feedbackPromptLastPresentedAt = nil
         }
+        exportWithoutCaptionsWarningShown = defaults.object(
+            forKey: Keys.exportWithoutCaptionsWarningShown
+        ) as? Bool ?? false
     }
 
     func recordSuccessfulExport() {
@@ -200,5 +208,6 @@ final class SettingsStore {
         static let expiryBannerDismissed = "expiryBannerDismissed"
         static let completedExportCount = "completedExportCount"
         static let feedbackPromptLastPresentedAt = "feedbackPromptLastPresentedAt"
+        static let exportWithoutCaptionsWarningShown = "exportWithoutCaptionsWarningShown"
     }
 }

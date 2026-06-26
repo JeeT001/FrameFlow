@@ -13,6 +13,7 @@ struct ExportView: View {
     @State private var showProGate = false
     @State private var proGateFeature = ""
     @State private var proGateDescription = ""
+    @State private var showExportWithoutCaptionsWarning = false
 
     var body: some View {
         Group {
@@ -74,6 +75,18 @@ struct ExportView: View {
             if let url = viewModel.exportedURL {
                 Text(url.path)
             }
+        }
+        .alert("Export without captions?", isPresented: $showExportWithoutCaptionsWarning) {
+            Button("Export without captions", role: .destructive) {
+                viewModel.markExportWithoutCaptionsWarningShown()
+                Task { await viewModel.export(isPro: appState.isPro, appState: appState) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "If you export without burning in captions, you won't be able to add captions to this video later. " +
+                "Turn on \"Include captions in export\" to keep them."
+            )
         }
     }
 
@@ -138,7 +151,11 @@ struct ExportView: View {
                 }
 
                 Button {
-                    Task { await viewModel.export(isPro: appState.isPro, appState: appState) }
+                    if viewModel.shouldShowExportWithoutCaptionsWarning {
+                        showExportWithoutCaptionsWarning = true
+                    } else {
+                        Task { await viewModel.export(isPro: appState.isPro, appState: appState) }
+                    }
                 } label: {
                     Label("Export", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)

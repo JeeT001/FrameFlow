@@ -341,7 +341,7 @@ final class CaptionRenderer: @unchecked Sendable {
         }
     }
 
-    /// Highlighted-only layer timing — preview-aligned start/end, static opacity.
+    /// Highlighted-only layer timing — preview-aligned start/end, fade-out at window end.
     private func configureHighlightedWordLayer(
         _ layer: CALayer,
         startTime: Double,
@@ -350,8 +350,21 @@ final class CaptionRenderer: @unchecked Sendable {
         wordIndex: Int,
         word: String
     ) {
-        let duration = endTime - startTime
-        configureTimedLayer(layer, startTime: startTime, duration: duration)
+        let wordDuration = max(1.0 / 30.0, endTime - startTime)
+        let begin = timelineTime(startTime)
+        configureTimedLayer(layer, startTime: startTime, duration: wordDuration)
+
+        let fadeLead = min(1.0 / 30.0, wordDuration * 0.12)
+        let fadeStartFraction = max(0, (wordDuration - fadeLead) / wordDuration)
+
+        let fadeOut = CAKeyframeAnimation(keyPath: "opacity")
+        fadeOut.beginTime = begin
+        fadeOut.duration = wordDuration
+        fadeOut.values = [NSNumber(value: 1), NSNumber(value: 1), NSNumber(value: 0)]
+        fadeOut.keyTimes = [0, NSNumber(value: fadeStartFraction), 1.0]
+        fadeOut.fillMode = .forwards
+        fadeOut.isRemovedOnCompletion = false
+        layer.add(fadeOut, forKey: "highlightedWordFadeOut")
 
         #if DEBUG
         if segmentIndex == 0, wordIndex == 0 {
@@ -359,7 +372,7 @@ final class CaptionRenderer: @unchecked Sendable {
                 "[CaptionRenderer] Highlighted seg0 word0 '\(word)' " +
                 "start=\(String(format: "%.3f", startTime)) " +
                 "end=\(String(format: "%.3f", endTime)) " +
-                "dur=\(String(format: "%.3f", duration)) (preview-aligned)"
+                "fadeEnd=\(String(format: "%.3f", startTime + wordDuration))s"
             )
         }
         #endif
