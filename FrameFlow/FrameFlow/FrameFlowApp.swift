@@ -48,9 +48,8 @@ struct FrameFlowApp: App {
                     }
                 }
                 .onOpenURL { url in
-                    appState.queueAuthCallbackURL(url)
                     Task {
-                        await appState.processAuthCallbackIfNeeded(router: router)
+                        await appState.handleIncomingURL(url, router: router)
                     }
                 }
         }

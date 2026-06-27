@@ -59,12 +59,47 @@ jobs:
           echo "Release version: ${VERSION}"
 
       - name: Prepare Config.swift for CI
+        env:
+          REVENUECAT_API_KEY: ${{ secrets.REVENUECAT_API_KEY }}
+          WEB_PURCHASE_LINK_BASE_URL: ${{ secrets.WEB_PURCHASE_LINK_BASE_URL }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          FEEDBACK_FORM_URL: ${{ secrets.FEEDBACK_FORM_URL }}
         run: |
           CONFIG_DIR="FrameFlow/FrameFlow/App/Utils"
-          if [[ ! -f "${CONFIG_DIR}/Config.swift" ]]; then
-            cp "${CONFIG_DIR}/Config.example.swift" "${CONFIG_DIR}/Config.swift"
+          CONFIG_FILE="${CONFIG_DIR}/Config.swift"
+          if [[ ! -f "${CONFIG_FILE}" ]]; then
+            cp "${CONFIG_DIR}/Config.example.swift" "${CONFIG_FILE}"
             echo "Created Config.swift from Config.example.swift (gitignored locally on dev machines)."
           fi
+          export CONFIG_FILE
+          python3 <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path(os.environ["CONFIG_FILE"])
+          text = path.read_text()
+
+          def set_string(name: str, value: str | None) -> None:
+              global text
+              if not value:
+                  return
+              escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+              pattern = rf'(static let {name} = )"[^"]*"'
+              replaced, count = re.subn(pattern, rf'\1"{escaped}"', text, count=1)
+              if count == 0:
+                  raise SystemExit(f"Could not inject {name} into Config.swift")
+              text = replaced
+
+          set_string("revenueCatAPIKey", os.environ.get("REVENUECAT_API_KEY"))
+          set_string("webPurchaseLinkBaseURL", os.environ.get("WEB_PURCHASE_LINK_BASE_URL"))
+          set_string("sentryDSN", os.environ.get("SENTRY_DSN"))
+          set_string("postHogAPIKey", os.environ.get("POSTHOG_API_KEY"))
+          set_string("feedbackFormURL", os.environ.get("FEEDBACK_FORM_URL"))
+
+          path.write_text(text)
+          PY
 
       - name: Archive and export signed app
         run: |

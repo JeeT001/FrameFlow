@@ -5,36 +5,40 @@
 
 ## Current Phase
 
-**Phase 19 — Final Preparation** (Days 50–55) on branch `phase-19`
+**Phase 19 — Final Preparation** (Days 50–55) on branch `testingPhae19` / `phase-19`
 
 ## Recently completed
 
-- **Day 53 fix** — Caption preview/export A/V stretch alignment, burn-in mapping, PiP stale-frame guard (build green; manual retest pending)
+- **Day 54 (in progress)** — `revenuecat-webhook` deployed to Supabase production; CI injects `REVENUECAT_API_KEY` on release builds; dashboard secrets + RC/Stripe Live still required manually
+- **Day 53 fixes** — Caption export parity (Classic, Highlighted, TikTok), PiP warmup, SRT on export only, post-export Done toolbar
 - **Day 52** — Feedback banner after 3rd export (weekly cap)
 - **Day 50** — Drazlo app icon in `AppIcon.appiconset` (all macOS sizes; used in app, DMG, Dock/Finder)
 - **Day 49** — GitHub Actions release pipeline validated (`v1.0.4` green, DMG on Releases)
-- **Day 48** — Sparkle 2 auto-update (weekly check, Settings + menu manual check, appcast template)
-- **Day 47** — DMG creation, layout polish, notarisation workflow
-- **Day 46** — Developer ID archive/export, app notarisation scripts
 
-## Day 50 deliverables
+## Day 54 deliverables
 
 | Item | Status |
 |------|--------|
-| `Assets.xcassets/AppIcon.appiconset` (16–512 @1x/@2x) | Done |
-| `Resources/DMG/DrazloVolume.icns` (DMG volume icon) | Done |
-| Icon in shipped `v1.0.4` DMG / Releases build | Done |
-| Copyright + version metadata (`1.0.4` build `4`) | Done |
+| Edge Function `revenuecat-webhook` deployed (`rdqohexzpxrkggcagrmq`) | Done |
+| Webhook URL registered in RevenueCat | **Manual** |
+| `REVENUECAT_WEBHOOK_SECRET` + `SUPABASE_SERVICE_ROLE_KEY` in Supabase secrets | **Manual** |
+| RevenueCat Production + Stripe Live + Default offering | **Manual** |
+| CI `REVENUECAT_API_KEY` GitHub secret + release.yml injection | Done (set secret before tag) |
+| Local production RC key in gitignored `Config.swift` | **Manual** for launch testing |
+| Purchase + webhook → `public.subscriptions` (~30s) | **Verify** after secrets |
+
+**Webhook URL:** `https://rdqohexzpxrkggcagrmq.supabase.co/functions/v1/revenuecat-webhook`
 
 ## Next Task
 
-1. **Day 53 retest** — 9:16 + PiP + captions preview/export smoke test
-2. **Day 51** — Privacy Policy + Terms (website)
-3. **Day 54 / launch** — RevenueCat Production + Stripe production + webhook deploy
+1. **Day 54 finish** — Set Supabase secrets; register webhook in RevenueCat; switch RC + Stripe to Production; verify purchase sync
+2. **Day 55** — Website, appcast, marketing launch assets
+3. **Day 51** — Privacy Policy + Terms (website)
 
 ## Reference Docs
 
 - [Master Blueprint](FrameFlow_Master_Blueprint.md)
 - [Dev Log](DEV_LOG.md)
 - [Release Signing](RELEASE_SIGNING.md)
-- [Releasing Updates](RELEASING_UPDATES.md) — ship features & bug fixes (Sparkle + GitHub Releases)
+- [Releasing Updates](RELEASING_UPDATES.md)
+- [Webhook deploy](../supabase/functions/revenuecat-webhook/README.md)

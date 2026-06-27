@@ -44,8 +44,10 @@ final class AppState {
     var isPasswordRecoveryFlow = false
     /// Shown once on Login after a successful password reset.
     var pendingLoginMessage: String?
-    /// Auth callback URL received before bootstrap completes (cold start from email link).
-    var pendingAuthCallbackURL: URL?
+    /// Deep link received before bootstrap completes (cold start).
+    var pendingIncomingURL: URL?
+    /// Shown once after browser checkout deep link activates Pro.
+    var pendingSubscriptionSuccessMessage: String?
 
     var isPro: Bool {
         subscriptionStatus == .active
@@ -66,8 +68,8 @@ final class AppState {
             return
         }
 
-        if let url = pendingAuthCallbackURL {
-            pendingAuthCallbackURL = nil
+        if let url = pendingIncomingURL, url.host == "auth" {
+            pendingIncomingURL = nil
             await processAuthCallbackURL(url, router: router)
             return
         }
@@ -89,12 +91,20 @@ final class AppState {
             await UserService.shared.debugLogSubscription(for: session.user.id)
             #endif
             router.selectSidebar(.home)
+            await finishPendingSubscriptionDeepLink(router: router)
             return
         }
 
         currentUser = nil
         authStatus = .unauthenticated
         router.navigate(to: .login)
+        await finishPendingSubscriptionDeepLink(router: router)
+    }
+
+    private func finishPendingSubscriptionDeepLink(router: AppRouter) async {
+        guard let url = pendingIncomingURL, SubscriptionDeepLink.isSuccessURL(url) else { return }
+        pendingIncomingURL = nil
+        await handleSubscriptionSuccess(url, router: router)
     }
 
     func completeOnboarding() {
@@ -116,14 +126,65 @@ final class AppState {
         await syncSubscriptionAfterAuth(userId: user.id)
     }
 
-    func queueAuthCallbackURL(_ url: URL) {
-        pendingAuthCallbackURL = url
+    func queueIncomingURL(_ url: URL) {
+        pendingIncomingURL = url
+    }
+
+    func handleIncomingURL(_ url: URL, router: AppRouter) async {
+        guard url.scheme == AuthConstants.callbackScheme else { return }
+
+        if SubscriptionDeepLink.isSuccessURL(url) {
+            pendingIncomingURL = url
+            if authStatus == .authenticated {
+                pendingIncomingURL = nil
+                await handleSubscriptionSuccess(url, router: router)
+            }
+            return
+        }
+
+        if url.host == "auth" {
+            pendingIncomingURL = url
+            await processAuthCallbackIfNeeded(router: router)
+        }
     }
 
     func processAuthCallbackIfNeeded(router: AppRouter) async {
-        guard let url = pendingAuthCallbackURL else { return }
-        pendingAuthCallbackURL = nil
+        guard let url = pendingIncomingURL, url.host == "auth" else { return }
+        pendingIncomingURL = nil
         await processAuthCallbackURL(url, router: router)
+    }
+
+    func handleSubscriptionSuccess(_ url: URL, router: AppRouter) async {
+        AppActivation.bringToForeground()
+
+        guard authStatus == .authenticated, let userId = currentUser?.id else {
+            pendingIncomingURL = url
+            return
+        }
+
+        if let linkedID = SubscriptionDeepLink.appUserID(from: url),
+           linkedID.lowercased() != userId.uuidString.lowercased() {
+            #if DEBUG
+            print("[AppState] subscription deep link app_user_id mismatch — refreshing signed-in user")
+            #endif
+        }
+
+        await SubscriptionManager.shared.refreshAfterWebPurchase(appUserID: userId.uuidString)
+        await SubscriptionManager.shared.syncToAppState(self)
+
+        if isPro {
+            pendingSubscriptionSuccessMessage = "Welcome to \(AppBranding.proName)! Your subscription is active."
+            router.selectSidebar(.account)
+        } else {
+            pendingSubscriptionSuccessMessage =
+                "Payment received. If Pro hasn’t unlocked yet, wait a moment and tap Refresh Subscription in Account."
+            router.selectSidebar(.account)
+        }
+    }
+
+    func consumePendingSubscriptionSuccessMessage() -> String? {
+        defer { pendingSubscriptionSuccessMessage = nil }
+        return pendingSubscriptionSuccessMessage
     }
 
     func processAuthCallbackURL(_ url: URL, router: AppRouter) async {

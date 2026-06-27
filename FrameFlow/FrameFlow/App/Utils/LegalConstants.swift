@@ -6,8 +6,8 @@
 import Foundation
 
 enum LegalConstants {
-    /// Set when marketing site goes live, e.g. `"https://drazlo.app"`
-    static let websiteBaseURL: String? = nil
+    /// Marketing / legal site (terms + privacy for RevenueCat Purchase Link and in-app “Open in browser”).
+    static let websiteBaseURL: String? = "https://drazlo.app"
 
     static var privacyWebURL: URL? { webURL(path: "/privacy") }
     static var termsWebURL: URL? { webURL(path: "/terms") }

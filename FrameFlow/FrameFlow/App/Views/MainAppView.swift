@@ -7,7 +7,10 @@ import SwiftUI
 
 struct MainAppView: View {
     @Environment(AppRouter.self) private var router
+    @Environment(AppState.self) private var appState
     @State private var splitVisibility: NavigationSplitViewVisibility = .all
+    @State private var showSubscriptionSuccessAlert = false
+    @State private var subscriptionSuccessMessage = ""
 
     var body: some View {
         @Bindable var router = router
@@ -35,7 +38,22 @@ struct MainAppView: View {
         }
         .onAppear {
             splitVisibility = router.currentRoute.isEditorFocused ? .detailOnly : .all
+            presentSubscriptionSuccessMessageIfNeeded()
         }
+        .onChange(of: appState.pendingSubscriptionSuccessMessage) { _, _ in
+            presentSubscriptionSuccessMessageIfNeeded()
+        }
+        .alert("Subscription", isPresented: $showSubscriptionSuccessAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(subscriptionSuccessMessage)
+        }
+    }
+
+    private func presentSubscriptionSuccessMessageIfNeeded() {
+        guard let message = appState.consumePendingSubscriptionSuccessMessage() else { return }
+        subscriptionSuccessMessage = message
+        showSubscriptionSuccessAlert = true
     }
 }
 

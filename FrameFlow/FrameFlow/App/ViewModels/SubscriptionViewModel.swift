@@ -5,6 +5,7 @@
 
 import Foundation
 import RevenueCat
+import Supabase
 
 struct SubscriptionFeatureRow: Identifiable {
     let id = UUID()
@@ -39,9 +40,19 @@ final class SubscriptionViewModel {
     var isLoadingOfferings: Bool { subscriptionManager.isFetchingOfferings }
     var offeringsError: String? { subscriptionManager.lastError }
     var hasPackages: Bool { !subscriptionManager.availablePackages.isEmpty }
+    var usesWebCheckout: Bool { subscriptionManager.usesWebCheckout }
+    var canShowPlans: Bool { subscriptionManager.canPresentPlans }
 
     func loadOfferings() async {
         await subscriptionManager.fetchOfferings()
+    }
+
+    func refreshSubscriptionStatus(appState: AppState) async {
+        if usesWebCheckout, let userID = appState.currentUser?.id.uuidString {
+            await subscriptionManager.logIn(appUserID: userID)
+        }
+        await subscriptionManager.fetchStatus(forceRefresh: usesWebCheckout)
+        subscriptionManager.syncToAppState(appState)
     }
 
     func monthlyPackage() -> Package? {
@@ -54,6 +65,25 @@ final class SubscriptionViewModel {
 
     func lifetimePackage() -> Package? {
         subscriptionManager.package(for: .lifetime)
+    }
+
+    func purchaseWeb(plan: SubscriptionPlan, appState: AppState) async {
+        guard let userID = appState.currentUser?.id.uuidString else {
+            errorMessage = SubscriptionManagerError.notSignedIn.localizedDescription
+            showErrorAlert = true
+            return
+        }
+
+        isPurchasing = true
+        defer { isPurchasing = false }
+
+        do {
+            _ = try subscriptionManager.openWebCheckout(plan: plan, appUserID: userID)
+            AnalyticsService.trackUpgradeClicked(source: "subscription_web_\(plan.rawValue)")
+        } catch {
+            errorMessage = SubscriptionManager.userFacingMessage(for: error)
+            showErrorAlert = true
+        }
     }
 
     func purchase(
@@ -83,8 +113,9 @@ final class SubscriptionViewModel {
         defer { isRestoring = false }
 
         do {
-            try await subscriptionManager.restorePurchases()
-            await subscriptionManager.fetchStatus()
+            try await subscriptionManager.restorePurchases(
+                appUserID: appState.currentUser?.id.uuidString
+            )
             subscriptionManager.syncToAppState(appState)
             showRestoreSuccessAlert = true
         } catch SubscriptionManagerError.userCancelled {

@@ -3730,3 +3730,42 @@ Editor preview correct for all styles; exported MP4 for non-TikTok presets had m
 fix: align Classic, Minimal, Highlighted, and Custom caption export with editor preview
 ```
 
+---
+
+## Blueprint Day 54 — Production RevenueCat, Stripe, webhook deploy (2026-05-29)
+
+**Branch:** `testingPhae19`  
+**Scope:** Infrastructure + release config only — no Swift purchase/subscription logic changes
+
+### Deployed (repo + Supabase)
+
+- **Edge Function** `revenuecat-webhook` deployed to project `rdqohexzpxrkggcagrmq`:
+  - URL: `https://rdqohexzpxrkggcagrmq.supabase.co/functions/v1/revenuecat-webhook`
+  - Command: `supabase link --project-ref rdqohexzpxrkggcagrmq` + `supabase functions deploy revenuecat-webhook --no-verify-jwt`
+- **CI release** (`.github/workflows/release.yml`): injects `REVENUECAT_API_KEY`, optional `SENTRY_DSN`, `POSTHOG_API_KEY`, `FEEDBACK_FORM_URL` from GitHub secrets into gitignored `Config.swift` at build time
+- **`Scripts/github-secrets.example`** — documents Day 54 secrets
+- **`Config.example.swift`** — production vs Test Store key comments
+- **`SubscriptionView`** — cosmetic copy only (“RevenueCat API key”, not “Test Store”)
+
+### Manual (dashboard — not in repo)
+
+| Step | Owner |
+|------|--------|
+| `supabase secrets set REVENUECAT_WEBHOOK_SECRET=…` | You |
+| `supabase secrets set SUPABASE_SERVICE_ROLE_KEY=…` | You |
+| RevenueCat → Integrations → Webhooks → URL + shared secret | You |
+| RevenueCat **Production** public API key → local `Config.swift` + GitHub `REVENUECAT_API_KEY` | You |
+| Stripe **Live** → RC Web Billing → Default offering (`frameflow_pro_monthly`, `frameflow_pro_annual`, `frameflow_pro_lifetime`) | You |
+| curl test: wrong secret → 401; valid `INITIAL_PURCHASE` + `public.users` row → 200 | You |
+
+Until secrets are set, webhook returns **400 Server misconfigured** (not 401).
+
+### Unchanged
+
+`SubscriptionManager`, purchase/restore/manage, Pro gates, expiry banner, webhook `index.ts` event mapping, RLS/schema, recording/captions/export.
+
+### Suggested commit
+```
+chore: Day 54 production RevenueCat, Stripe, and webhook deploy
+```
+

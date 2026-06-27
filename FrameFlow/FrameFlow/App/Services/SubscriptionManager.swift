@@ -18,6 +18,8 @@ enum SubscriptionManagerError: LocalizedError {
     case userCancelled
     case noOfferings
     case restoreFailedNoActiveSubscription
+    case notSignedIn
+    case webCheckoutNotConfigured
 
     var errorDescription: String? {
         switch self {
@@ -29,6 +31,10 @@ enum SubscriptionManagerError: LocalizedError {
             "No subscription plans are available yet. Complete RevenueCat product setup."
         case .restoreFailedNoActiveSubscription:
             "No active Pro subscription was found for this account."
+        case .notSignedIn:
+            "Sign in before subscribing so your purchase links to this account."
+        case .webCheckoutNotConfigured:
+            "Add your Production Web Purchase Link to Config.swift (webPurchaseLinkBaseURL)."
         }
     }
 }
@@ -171,6 +177,37 @@ final class SubscriptionManager: NSObject {
         availablePackages.first { matchesPlan($0, plan: plan) }
     }
 
+    var usesWebCheckout: Bool {
+        WebPurchaseLink.isConfigured
+    }
+
+    var canPresentPlans: Bool {
+        isConfigured && (usesWebCheckout || !availablePackages.isEmpty)
+    }
+
+    @discardableResult
+    func openWebCheckout(plan: SubscriptionPlan, appUserID: String) throws -> URL {
+        guard isConfigured else { throw SubscriptionManagerError.notConfigured }
+        guard WebPurchaseLink.isConfigured else { throw SubscriptionManagerError.webCheckoutNotConfigured }
+
+        let trimmedUserID = appUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedUserID.isEmpty else { throw SubscriptionManagerError.notSignedIn }
+
+        if let package = package(for: plan), let checkoutURL = package.webCheckoutUrl {
+            let url = WebPurchaseLink.url(appendingAppUserID: trimmedUserID, to: checkoutURL)
+            NSWorkspace.shared.open(url)
+            return url
+        }
+
+        let packageID = package(for: plan)?.identifier ?? WebPurchaseLink.packageID(for: plan)
+        guard let url = WebPurchaseLink.url(appUserID: trimmedUserID, packageID: packageID) else {
+            throw SubscriptionManagerError.webCheckoutNotConfigured
+        }
+
+        NSWorkspace.shared.open(url)
+        return url
+    }
+
     func purchase(package: Package) async throws {
         guard isConfigured else { throw SubscriptionManagerError.notConfigured }
 
@@ -190,13 +227,18 @@ final class SubscriptionManager: NSObject {
         }
     }
 
-    func restorePurchases() async throws {
+    func restorePurchases(appUserID: String? = nil) async throws {
         guard isConfigured else { throw SubscriptionManagerError.notConfigured }
 
         isLoading = true
         defer { isLoading = false }
 
         do {
+            if usesWebCheckout {
+                try await refreshWebSubscription(appUserID: appUserID)
+                return
+            }
+
             let customerInfo = try await Purchases.shared.restorePurchases()
             applyCustomerInfo(customerInfo)
             guard isPro else {
@@ -206,6 +248,36 @@ final class SubscriptionManager: NSObject {
             throw error
         } catch {
             throw Self.mapPurchaseError(error)
+        }
+    }
+
+    /// Force-fetch entitlements after browser checkout (deep link return).
+    func refreshAfterWebPurchase(appUserID: String) async {
+        guard isConfigured else { return }
+        let trimmed = appUserID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        await logIn(appUserID: trimmed)
+        Purchases.shared.invalidateCustomerInfoCache()
+        await fetchStatus(forceRefresh: true)
+    }
+
+    /// Web Billing purchases are tied to the Supabase App User ID, not the App Store. Force-fetch from RevenueCat.
+    func refreshWebSubscription(appUserID: String?) async throws {
+        guard isConfigured else { throw SubscriptionManagerError.notConfigured }
+
+        let trimmedUserID = appUserID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmedUserID.isEmpty else { throw SubscriptionManagerError.notSignedIn }
+
+        let (customerInfo, _) = try await Purchases.shared.logIn(trimmedUserID)
+        applyCustomerInfo(customerInfo)
+
+        Purchases.shared.invalidateCustomerInfoCache()
+        let refreshed = try await Purchases.shared.customerInfo(fetchPolicy: .fetchCurrent)
+        applyCustomerInfo(refreshed)
+
+        guard isPro else {
+            throw SubscriptionManagerError.restoreFailedNoActiveSubscription
         }
     }
 
@@ -248,7 +320,7 @@ final class SubscriptionManager: NSObject {
         return error
     }
 
-    func fetchStatus() async {
+    func fetchStatus(forceRefresh: Bool = false) async {
         guard isConfigured else {
             resetToFree()
             return
@@ -258,7 +330,8 @@ final class SubscriptionManager: NSObject {
         defer { isLoading = false }
 
         do {
-            let customerInfo = try await Purchases.shared.customerInfo()
+            let policy: CacheFetchPolicy = forceRefresh ? .fetchCurrent : .default
+            let customerInfo = try await Purchases.shared.customerInfo(fetchPolicy: policy)
             applyCustomerInfo(customerInfo)
             lastError = nil
         } catch {
@@ -325,12 +398,17 @@ final class SubscriptionManager: NSObject {
             return false
         }
 
+        // Stripe / Web Billing — open RevenueCat customer portal, not App Store subscriptions.
+        if usesWebCheckout {
+            return await openManagementURLFallback(forceRefresh: true)
+        }
+
         do {
             try await Purchases.shared.showManageSubscriptions()
             lastError = nil
             return true
         } catch {
-            return await openManagementURLFallback()
+            return await openManagementURLFallback(forceRefresh: false)
         }
     }
 
@@ -343,9 +421,10 @@ final class SubscriptionManager: NSObject {
         renewalDate = nil
     }
 
-    private func openManagementURLFallback() async -> Bool {
+    private func openManagementURLFallback(forceRefresh: Bool) async -> Bool {
         do {
-            let info = try await Purchases.shared.customerInfo()
+            let policy: CacheFetchPolicy = forceRefresh ? .fetchCurrent : .default
+            let info = try await Purchases.shared.customerInfo(fetchPolicy: policy)
             if let url = info.managementURL {
                 NSWorkspace.shared.open(url)
                 lastError = nil
@@ -355,9 +434,11 @@ final class SubscriptionManager: NSObject {
             lastError = error.localizedDescription
         }
 
-        lastError = "Subscription management is not available in-app yet. Use Renew on the Subscription screen."
+        lastError = usesWebCheckout
+            ? "Billing portal isn’t available yet. Check your subscription email for a manage link, or use Upgrade to Pro to subscribe again."
+            : "Subscription management is not available in-app yet. Use Renew on the Subscription screen."
         #if DEBUG
-        print("[SubscriptionManager] showManageSubscriptions unavailable — Test Store has no billing portal")
+        print("[SubscriptionManager] managementURL unavailable")
         #endif
         return false
     }

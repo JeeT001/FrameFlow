@@ -11,6 +11,7 @@ struct SubscriptionView: View {
     @Environment(AppRouter.self) private var router
     @Environment(SubscriptionManager.self) private var subscriptionManager
     @Environment(SettingsStore.self) private var settingsStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel = SubscriptionViewModel()
 
     var body: some View {
@@ -23,11 +24,14 @@ struct SubscriptionView: View {
                     ProgressView("Loading plans…")
                         .frame(maxWidth: .infinity, minHeight: 120)
                 } else if !viewModel.isConfigured {
-                    setupRequiredView(message: "Add your RevenueCat Test Store API key to Config.swift to enable purchases.")
-                } else if !viewModel.hasPackages {
+                    setupRequiredView(message: "Add your RevenueCat API key to Config.swift to enable purchases.")
+                } else if !viewModel.canShowPlans {
                     setupRequiredView(message: setupMessage)
                 } else {
                     planCardsSection
+                    if viewModel.usesWebCheckout {
+                        webCheckoutFooter
+                    }
                 }
 
                 if viewModel.isConfigured {
@@ -43,7 +47,7 @@ struct SubscriptionView: View {
             if viewModel.isPurchasing || viewModel.isRestoring {
                 ZStack {
                     Color.black.opacity(0.25)
-                    ProgressView(viewModel.isRestoring ? "Restoring purchase…" : "Processing purchase…")
+                    ProgressView(viewModel.isRestoring ? "Refreshing subscription…" : "Processing purchase…")
                         .padding(24)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
                 }
@@ -52,6 +56,17 @@ struct SubscriptionView: View {
         }
         .task {
             await viewModel.loadOfferings()
+        }
+        .onAppear {
+            if appState.isPro {
+                router.selectSidebar(.account)
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task {
+                await viewModel.refreshSubscriptionStatus(appState: appState)
+            }
         }
         .alert("Purchase failed", isPresented: $viewModel.showErrorAlert) {
             Button("OK", role: .cancel) {}
@@ -67,16 +82,20 @@ struct SubscriptionView: View {
 
     private var restoreSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button("Restore Purchase") {
+            Button(viewModel.usesWebCheckout ? "Refresh Subscription" : "Restore Purchase") {
                 Task {
                     await viewModel.restorePurchases(appState: appState)
                 }
             }
             .disabled(viewModel.isPurchasing || viewModel.isRestoring)
 
-            Text("Already subscribed? Restore to unlock Pro on this Mac after reinstalling.")
-                .font(.caption)
-                .foregroundStyle(AppColors.textSecondary)
+            Text(
+                viewModel.usesWebCheckout
+                    ? "After browser checkout, return here and tap Refresh Subscription to unlock Pro on this Mac."
+                    : "Already subscribed? Restore to unlock Pro on this Mac after reinstalling."
+            )
+            .font(.caption)
+            .foregroundStyle(AppColors.textSecondary)
         }
     }
 
@@ -132,37 +151,40 @@ struct SubscriptionView: View {
                 .font(.headline)
 
             HStack(alignment: .top, spacing: 16) {
-                if let package = viewModel.annualPackage() {
-                    planCard(
-                        title: "Pro Annual",
-                        priceLine: "$9/mo",
-                        detailLine: "Billed $108/yr · 7-day free trial",
-                        buttonTitle: "Start Free Trial",
-                        package: package
-                    )
-                }
+                planCard(
+                    title: "Pro Annual",
+                    priceLine: "$9/mo",
+                    detailLine: "Billed $108/yr · 7-day free trial",
+                    buttonTitle: "Start Free Trial",
+                    plan: .annual
+                )
 
-                if let package = viewModel.monthlyPackage() {
-                    planCard(
-                        title: "Pro Monthly",
-                        priceLine: "$19/mo",
-                        detailLine: "7-day free trial",
-                        buttonTitle: "Start Free Trial",
-                        package: package
-                    )
-                }
+                planCard(
+                    title: "Pro Monthly",
+                    priceLine: "$19/mo",
+                    detailLine: "7-day free trial",
+                    buttonTitle: "Start Free Trial",
+                    plan: .monthly
+                )
 
-                if settingsStore.showLifetimeDeal, let package = viewModel.lifetimePackage() {
+                if settingsStore.showLifetimeDeal {
                     planCard(
                         title: "Lifetime",
                         priceLine: "$79",
                         detailLine: "One-time purchase",
                         buttonTitle: "Get Lifetime",
-                        package: package
+                        plan: .lifetime
                     )
                 }
             }
         }
+    }
+
+    private var webCheckoutFooter: some View {
+        Text("Checkout opens in your browser (Stripe). When finished, return here and tap Refresh Subscription if Pro hasn’t unlocked yet.")
+            .font(.caption)
+            .foregroundStyle(AppColors.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func planCard(
@@ -170,7 +192,7 @@ struct SubscriptionView: View {
         priceLine: String,
         detailLine: String,
         buttonTitle: String,
-        package: Package
+        plan: SubscriptionPlan
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
@@ -187,7 +209,11 @@ struct SubscriptionView: View {
 
             Button(buttonTitle) {
                 Task {
-                    await viewModel.purchase(package: package, appState: appState, router: router)
+                    if viewModel.usesWebCheckout {
+                        await viewModel.purchaseWeb(plan: plan, appState: appState)
+                    } else if let package = packageForPlan(plan) {
+                        await viewModel.purchase(package: package, appState: appState, router: router)
+                    }
                 }
             }
             .buttonStyle(.borderedProminent)
@@ -201,6 +227,14 @@ struct SubscriptionView: View {
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(AppColors.primary.opacity(0.2))
         )
+    }
+
+    private func packageForPlan(_ plan: SubscriptionPlan) -> Package? {
+        switch plan {
+        case .monthly: viewModel.monthlyPackage()
+        case .annual: viewModel.annualPackage()
+        case .lifetime: viewModel.lifetimePackage()
+        }
     }
 
     private func featureMark(_ included: Bool) -> some View {
@@ -227,7 +261,7 @@ struct SubscriptionView: View {
                 .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("See Docs/DEV_LOG.md — Day 42 Stripe + RevenueCat Web Billing setup checklist.")
+            Text("See Docs/DEV_LOG.md — Day 54 Web Billing checkout setup.")
                 .font(.caption)
                 .foregroundStyle(AppColors.textSecondary)
         }
@@ -237,10 +271,13 @@ struct SubscriptionView: View {
     }
 
     private var setupMessage: String {
+        if viewModel.usesWebCheckout {
+            return "Plans are ready. If checkout fails, verify webPurchaseLinkBaseURL and package IDs in Config.swift match RevenueCat."
+        }
         if let error = viewModel.offeringsError, !error.isEmpty {
             return error
         }
-        return "Complete RevenueCat product setup: create Test Store products, attach to entitlement pro, and add packages to the Default offering."
+        return "Add webPurchaseLinkBaseURL to Config.swift, or complete RevenueCat product setup for the Default offering."
     }
 }
 

@@ -11,8 +11,13 @@ struct ProfileView: View {
     @Environment(AppState.self) private var appState
     @Environment(AppRouter.self) private var router
     @Environment(SubscriptionManager.self) private var subscriptionManager
+    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel = ProfileViewModel()
     @State private var showManageSubscriptionAlert = false
+    @State private var isRefreshingSubscription = false
+    @State private var showRefreshSuccessAlert = false
+    @State private var showRefreshErrorAlert = false
+    @State private var refreshErrorMessage: String?
 
     var body: some View {
         Form {
@@ -71,6 +76,27 @@ struct ProfileView: View {
                                 .foregroundStyle(AppColors.textSecondary)
                         }
                     }
+                } else {
+                    Button("Upgrade to Pro") {
+                        router.navigate(to: .subscription)
+                    }
+                }
+
+                if subscriptionManager.usesWebCheckout {
+                    Button {
+                        Task { await handleRefreshSubscription() }
+                    } label: {
+                        if isRefreshingSubscription {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Refreshing…")
+                            }
+                        } else {
+                            Text("Refresh Subscription")
+                        }
+                    }
+                    .disabled(isRefreshingSubscription)
                 }
 
                 Button("Manage Subscription") {
@@ -117,6 +143,10 @@ struct ProfileView: View {
         .onChange(of: appState.currentUser?.id) { _, _ in
             viewModel.syncDisplayName(from: appState.currentUser)
         }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, subscriptionManager.usesWebCheckout else { return }
+            Task { await refreshSubscriptionFromServer() }
+        }
         .alert(viewModel.alertTitle, isPresented: $viewModel.showAlert) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -131,12 +161,28 @@ struct ProfileView: View {
             Text("This cannot be undone. Your account and subscription data will be permanently removed.")
         }
         .alert("Manage Subscription", isPresented: $showManageSubscriptionAlert) {
-            Button("View Plans") {
-                router.navigate(to: .subscription)
+            if !appState.isPro {
+                Button("View Plans") {
+                    router.navigate(to: .subscription)
+                }
             }
             Button("OK", role: .cancel) {}
         } message: {
             Text(subscriptionManager.lastError ?? "Subscription management is not available in-app.")
+        }
+        .alert("Subscription updated", isPresented: $showRefreshSuccessAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(
+                appState.isPro
+                    ? "Your Pro subscription is active on this Mac."
+                    : "No active Pro subscription was found. Complete checkout in your browser, then try again."
+            )
+        }
+        .alert("Couldn’t refresh subscription", isPresented: $showRefreshErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(refreshErrorMessage ?? "Something went wrong.")
         }
     }
 
@@ -164,6 +210,30 @@ struct ProfileView: View {
         if !opened {
             showManageSubscriptionAlert = true
         }
+    }
+
+    private func handleRefreshSubscription() async {
+        isRefreshingSubscription = true
+        defer { isRefreshingSubscription = false }
+
+        do {
+            try await subscriptionManager.restorePurchases(
+                appUserID: appState.currentUser?.id.uuidString
+            )
+            subscriptionManager.syncToAppState(appState)
+            showRefreshSuccessAlert = true
+        } catch {
+            refreshErrorMessage = SubscriptionManager.userFacingMessage(for: error)
+            showRefreshErrorAlert = true
+        }
+    }
+
+    private func refreshSubscriptionFromServer() async {
+        if let userID = appState.currentUser?.id.uuidString {
+            await subscriptionManager.logIn(appUserID: userID)
+        }
+        await subscriptionManager.fetchStatus(forceRefresh: true)
+        subscriptionManager.syncToAppState(appState)
     }
 
     private var avatarView: some View {
