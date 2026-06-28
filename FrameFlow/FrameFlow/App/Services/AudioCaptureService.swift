@@ -13,6 +13,12 @@ final class MicCaptureState: @unchecked Sendable {
     nonisolated(unsafe) var isActive = false
 }
 
+/// Thread-safe system PCM ring consumed on the audio mix queue during combined capture.
+fileprivate final class CombinedSystemPCMRing: @unchecked Sendable {
+    nonisolated(unsafe) var samples: [Float] = []
+    nonisolated let maxSamples: Int = 480_000 * 2
+}
+
 @MainActor
 @Observable
 final class AudioCaptureService {
@@ -28,6 +34,8 @@ final class AudioCaptureService {
     private var appendSampleBuffer: ((CMSampleBuffer, CMTime) -> Void)?
     private nonisolated(unsafe) var onAppendSampleBuffer: ((CMSampleBuffer, CMTime) -> Void)?
     private var systemBufferCount = 0
+    private var writerSampleRate: Double = 48_000
+    private let combinedSystemRing = CombinedSystemPCMRing()
 
     private let micCaptureState = MicCaptureState()
     /// Larger buffer reduces HAL cycle pressure during PiP + composite recording.
@@ -58,6 +66,8 @@ final class AudioCaptureService {
         self.appendSampleBuffer = appendSampleBuffer
         self.onAppendSampleBuffer = appendSampleBuffer
         self.systemBufferCount = 0
+        self.combinedSystemRing.samples.removeAll()
+        self.writerSampleRate = 48_000
         self.statusMessage = nil
         self.liveLevel = 0
         self.micCaptureActive = false
@@ -86,6 +96,7 @@ final class AudioCaptureService {
         audioEngine = nil
         appendSampleBuffer = nil
         onAppendSampleBuffer = nil
+        combinedSystemRing.samples.removeAll()
         isRunning = false
         micCaptureActive = false
         liveLevel = 0
@@ -107,6 +118,25 @@ final class AudioCaptureService {
         }
 
         let captureHostTime = CMClockGetTime(CMClockGetHostTimeClock())
+
+        if audioMode == .combined {
+            let targetRate = writerSampleRate
+            let ring = combinedSystemRing
+            mixQueue.async {
+                guard let samples = AudioMixerEngine.interleavedPCMFromSampleBuffer(
+                    sampleBuffer,
+                    targetSampleRate: targetRate
+                ), !samples.isEmpty else {
+                    return
+                }
+                ring.samples.append(contentsOf: samples)
+                if ring.samples.count > ring.maxSamples {
+                    ring.samples.removeFirst(ring.samples.count - ring.maxSamples)
+                }
+            }
+            return
+        }
+
         AudioCaptureDiagnostics.recordAppend()
         onAppendSampleBuffer?(sampleBuffer, captureHostTime)
     }
@@ -143,8 +173,11 @@ final class AudioCaptureService {
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
         let outputSampleRate = inputFormat.sampleRate
+        self.writerSampleRate = outputSampleRate
         let canonicalFormat = AudioMixerEngine.canonicalPCMFormat(sampleRate: outputSampleRate)
         let gain = micVolume
+        let mixMode = audioMode
+        let systemGain = systemVolume
 
         #if DEBUG
         print(
@@ -169,6 +202,8 @@ final class AudioCaptureService {
             canonicalFormat: canonicalFormat,
             outputSampleRate: outputSampleRate,
             gain: gain,
+            mixMode: mixMode,
+            systemGain: systemGain,
             captureState: micCaptureState,
             onAppend: onAppend,
             onLiveLevel: liveLevelUpdater
@@ -179,8 +214,12 @@ final class AudioCaptureService {
             try engine.start()
             self.audioEngine = engine
 
-            try await Task.sleep(nanoseconds: 300_000_000)
-            let tapCount = AudioCaptureDiagnostics.snapshot().tapCount
+            try await Task.sleep(nanoseconds: micWarmupNanoseconds(for: mixMode))
+            var tapCount = AudioCaptureDiagnostics.snapshot().tapCount
+            if tapCount == 0, mixMode == .combined {
+                try await Task.sleep(nanoseconds: 500_000_000)
+                tapCount = AudioCaptureDiagnostics.snapshot().tapCount
+            }
             if tapCount == 0 {
                 micCaptureState.isActive = false
                 micCaptureActive = false
@@ -202,17 +241,24 @@ final class AudioCaptureService {
         }
     }
 
+    private func micWarmupNanoseconds(for mode: AudioModeOption) -> UInt64 {
+        mode == .combined ? 600_000_000 : 300_000_000
+    }
+
     private func installMicrophoneTap(
         on inputNode: AVAudioInputNode,
         format tapFormat: AVAudioFormat,
         canonicalFormat: AVAudioFormat,
         outputSampleRate: Double,
         gain: Float,
+        mixMode: AudioModeOption,
+        systemGain: Float,
         captureState: MicCaptureState,
         onAppend: @escaping (CMSampleBuffer, CMTime) -> Void,
         onLiveLevel: @escaping (Float) -> Void
     ) {
         let captureMixQueue = mixQueue
+        let systemRing = combinedSystemRing
         inputNode.installTap(
             onBus: 0,
             bufferSize: Self.tapBufferSize,
@@ -242,10 +288,23 @@ final class AudioCaptureService {
                 let level = AudioMixerEngine.levelFromPCMBuffer(converted) * max(0.05, gain)
                 onLiveLevel(level)
 
+                let bufferForWriter: AVAudioPCMBuffer
+                if mixMode == .combined {
+                    bufferForWriter = AudioMixerEngine.mixMicBufferWithSystemRing(
+                        micBuffer: converted,
+                        systemRing: systemRing,
+                        micGain: gain,
+                        systemGain: systemGain
+                    ) ?? converted
+                } else {
+                    bufferForWriter = converted
+                }
+
+                let writerGain: Float = mixMode == .combined ? 1.0 : gain
                 guard let sampleBuffer = AudioMixerEngine.makeSampleBuffer(
-                    from: converted,
+                    from: bufferForWriter,
                     sampleRate: outputSampleRate,
-                    gain: gain
+                    gain: writerGain
                 ) else {
                     AudioCaptureDiagnostics.recordMakeBufferFail()
                     return
@@ -309,6 +368,86 @@ enum AudioMixerEngine {
             return nil
         }
         return resampled
+    }
+
+    static func pcmBuffer(from sampleBuffer: CMSampleBuffer) -> AVAudioPCMBuffer? {
+        guard CMSampleBufferGetNumSamples(sampleBuffer) > 0,
+              let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer),
+              let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescription),
+              let format = AVAudioFormat(streamDescription: asbd) else {
+            return nil
+        }
+
+        let frameCount = AVAudioFrameCount(CMSampleBufferGetNumSamples(sampleBuffer))
+        guard frameCount > 0,
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+            return nil
+        }
+        buffer.frameLength = frameCount
+
+        let status = CMSampleBufferCopyPCMDataIntoAudioBufferList(
+            sampleBuffer,
+            at: 0,
+            frameCount: Int32(frameCount),
+            into: buffer.mutableAudioBufferList
+        )
+        guard status == noErr else { return nil }
+        return buffer
+    }
+
+    static func interleavedPCMFromSampleBuffer(
+        _ sampleBuffer: CMSampleBuffer,
+        targetSampleRate: Double
+    ) -> [Float]? {
+        guard let pcm = pcmBuffer(from: sampleBuffer) else { return nil }
+        let targetFormat = canonicalPCMFormat(sampleRate: targetSampleRate)
+        guard let converted = convert(buffer: pcm, to: targetFormat) else { return nil }
+        return interleavedFloatData(from: converted)
+    }
+
+    fileprivate static func mixMicBufferWithSystemRing(
+        micBuffer: AVAudioPCMBuffer,
+        systemRing: CombinedSystemPCMRing,
+        micGain: Float,
+        systemGain: Float
+    ) -> AVAudioPCMBuffer? {
+        guard let micInterleaved = interleavedFloatData(from: micBuffer) else { return nil }
+
+        let frameCount = Int(micBuffer.frameLength)
+        let channels = Int(micBuffer.format.channelCount)
+        guard frameCount > 0, channels > 0 else { return nil }
+
+        let needed = frameCount * channels
+        var systemSamples = [Float](repeating: 0, count: needed)
+        let available = min(needed, systemRing.samples.count)
+        if available > 0 {
+            for index in 0..<available {
+                systemSamples[index] = systemRing.samples[index]
+            }
+            systemRing.samples.removeFirst(available)
+        }
+
+        var mixed = [Float](repeating: 0, count: needed)
+        for index in 0..<needed {
+            let sum = micInterleaved[index] * micGain + systemSamples[index] * systemGain
+            mixed[index] = softLimitSample(sum, gain: 1.0)
+        }
+
+        guard let output = AVAudioPCMBuffer(
+            pcmFormat: micBuffer.format,
+            frameCapacity: micBuffer.frameCapacity
+        ) else {
+            return nil
+        }
+        output.frameLength = micBuffer.frameLength
+
+        guard let channelData = output.floatChannelData else { return nil }
+        for frame in 0..<frameCount {
+            for channel in 0..<channels {
+                channelData[channel][frame] = mixed[frame * channels + channel]
+            }
+        }
+        return output
     }
 
     private static func resamplePCMBuffer(

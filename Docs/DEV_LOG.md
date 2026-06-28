@@ -3769,3 +3769,31 @@ Until secrets are set, webhook returns **400 Server misconfigured** (not 401).
 chore: Day 54 production RevenueCat, Stripe, and webhook deploy
 ```
 
+---
+
+## Combined mic + system audio export fix (2026-06-28)
+
+**Branch:** `testingPhae19`  
+**Scope:** `RecordingSessionCoordinator.swift`, `AudioCaptureService.swift` only
+
+### Symptom
+Pro users selecting **Microphone + System Audio** got mic-only exports (Safari/YouTube inaudible). Mic-only and rest of app OK.
+
+### Root cause
+Intentional hotfix forced `writerAudioMode = .mic` for `.combined`, and `shouldCaptureSystemAudio` only ran for `.system`. System capture never started; even if it had, interleaving separate mic/system append calls on one AAC track caused A/V drift (documented in DEV_LOG A/V sync hotfix).
+
+### Fix
+- **Coordinator:** use `writerAudioMode = effectiveMode`; start system capture for `.combined` + Pro
+- **AudioCaptureService:** combined mode queues system PCM on mix queue; mic tap mixes mic + system into **one** buffer per tap (single writer append path); system-only unchanged
+
+### Verification
+| Check | Result |
+|-------|--------|
+| `xcodebuild -scheme Drazlo -configuration Debug build` | **BUILD SUCCEEDED** |
+| Combined + Safari + AirPods manual | Pending user retest |
+
+### Suggested commit
+```
+fix: include system audio in combined mode export without A/V regression
+```
+

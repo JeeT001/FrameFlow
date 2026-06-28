@@ -80,16 +80,8 @@ final class RecordingSessionCoordinator {
 
         let requestedMode = AudioModeOption(rawValue: SettingsStore.shared.defaultAudioMode) ?? .none
         let effectiveMode = effectiveAudioMode(requestedMode, isPro: isPro)
-        // Hotfix: in `.combined` we currently prioritize microphone-only for the writer append path.
-        // Combined mic+system buffers are not mixed into one PCM timeline yet, and interleaving can
-        // still cause subtle A/V drift even with a shared video/audio PTS clock.
-        let writerAudioMode: AudioModeOption = (effectiveMode == .combined) ? .mic : effectiveMode
-        #if DEBUG
-        if effectiveMode == .combined {
-            print("[RecordingSessionCoordinator] Combined writer hotfix: using mic-only for A/V stability.")
-        }
-        #endif
-        let shouldCaptureSystemAudio = (writerAudioMode == .system) && isPro
+        let writerAudioMode = effectiveMode
+        let shouldCaptureSystemAudio = (writerAudioMode == .system || writerAudioMode == .combined) && isPro
         let settings = SettingsStore.shared
         zoomController.configure(
             autoZoomOnClick: settings.autoZoomOnClick,
@@ -115,7 +107,7 @@ final class RecordingSessionCoordinator {
                 windowIDs: windowIDs,
                 captureFrameRate: DeviceCapabilityManager.shared.recordingCaptureFrameRate
             )
-            if shouldCaptureSystemAudio {
+            if shouldCaptureSystemAudio, writerAudioMode == .system {
                 try await streamManager.startSystemAudioCapture()
             }
             if pipController.isCameraEnabled {
@@ -162,6 +154,15 @@ final class RecordingSessionCoordinator {
                 preferredMicDeviceUniqueID: SettingsStore.shared.defaultMicDevice,
                 appendSampleBuffer: onAudioAppend
             )
+            if shouldCaptureSystemAudio, writerAudioMode == .combined {
+                do {
+                    try await streamManager.startSystemAudioCapture()
+                } catch {
+                    if errorMessage == nil {
+                        errorMessage = "System audio unavailable. Recording with microphone only."
+                    }
+                }
+            }
             if let audioStatus = audioCaptureService.statusMessage {
                 errorMessage = audioStatus
             }
