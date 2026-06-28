@@ -82,6 +82,8 @@ struct WindowPickerView: View {
 
                     WindowPickerSearchField(searchText: $searchText)
 
+                    WindowPickerStageManagerTip()
+
                     if viewModel.isRefreshingThumbnails {
                         HStack(spacing: 8) {
                             ProgressView()

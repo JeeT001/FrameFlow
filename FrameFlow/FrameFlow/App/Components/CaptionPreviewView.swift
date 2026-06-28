@@ -155,7 +155,6 @@ struct CaptionPreviewView<PreviewOverlay: View>: View {
                 Image(systemName: isPreviewPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 14, weight: .semibold))
             }
-            .buttonStyle(.borderless)
             .help(isPreviewPlaying ? "Pause" : "Play")
 
             Text(formatTimeDetailed(currentTime))
@@ -171,6 +170,8 @@ struct CaptionPreviewView<PreviewOverlay: View>: View {
                 .foregroundStyle(.white.opacity(0.55))
                 .frame(width: 52, alignment: .trailing)
         }
+        .buttonStyle(.borderless)
+        .foregroundStyle(.white)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color(red: 0.1, green: 0.1, blue: 0.1))
