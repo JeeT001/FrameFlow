@@ -3811,3 +3811,44 @@ Suggested commit:
 fix: remove blue arrow from DMG installer background
 ```
 
+---
+
+## Day 55 — Launch preparation (2026-06-29)
+
+Website, Sparkle appcast, and marketing launch assets.
+
+### Shipped in repo
+- **`website/index.html`** — marketing homepage (hero, features, Free vs Pro, download CTA)
+- **`website/appcast.xml`** — Sparkle feed for v1.0.6 (signed enclosure)
+- **`website/release-notes/1.0.6/`** — release notes page
+- **`website/vercel.json`** — `/download` + `/downloads/` redirects to GitHub Releases
+- **`Resources/Release/appcast.xml`** — v1.0.6, EdDSA signature, build 6
+- **`Info.plist`** — `SUPublicEDKey` set (requires next app tag to ship in binary)
+- **`Docs/LAUNCH_DAY55.md`** — launch checklist + Product Hunt / email / social drafts
+
+### Manual follow-ups
+- Deploy `website/` to Vercel → drazlo.app
+- Day 54 Production RC + Stripe + webhook verification
+- Record YouTube demo; schedule Product Hunt; send launch email
+
+Suggested commits:
+```
+feat(website): launch homepage with download, features, and pricing
+chore: publish Sparkle appcast for v1.0.6 and set SUPublicEDKey
+docs: add Day 55 launch checklist and marketing drafts
+```
+
+---
+
+## Sparkle auto-update fix — v1.0.7 (2026-06-29)
+
+- **`Info.plist`** — `SUPublicEDKey` ships in binary (v1.0.6 had placeholder)
+- **Version** 1.0.7 / build 7
+- Appcast v1.0.7 signed after CI DMG build
+
+Suggested commits:
+```
+chore: bump version to 1.0.7 for Sparkle public key fix
+chore: publish Sparkle appcast for v1.0.7
+```
+

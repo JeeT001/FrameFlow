@@ -1,45 +1,54 @@
 # FrameFlow — Current Status
 
 **Last updated:** 2026-06-29  
-**Version:** v1.0.6 (CI release in progress)
+**Version:** v1.0.7 (CI release in progress — Sparkle fix)
 
 ## Current Phase
 
-**Phase 19 — Final Preparation** (Days 50–55) on branch `testingPhae19` / `phase-19`
+**Phase 19 — Final Preparation** (Days 50–55) on branch `day55`
 
 ## Recently completed
 
-- **Day 54 (in progress)** — `revenuecat-webhook` deployed to Supabase production; CI injects `REVENUECAT_API_KEY` on release builds; dashboard secrets + RC/Stripe Live still required manually
-- **Day 53 fixes** — Caption export parity (Classic, Highlighted, TikTok), PiP warmup, SRT on export only, post-export Done toolbar
-- **Day 52** — Feedback banner after 3rd export (weekly cap)
-- **Day 50** — Drazlo app icon in `AppIcon.appiconset` (all macOS sizes; used in app, DMG, Dock/Finder)
-- **Day 49** — GitHub Actions release pipeline validated (`v1.0.4` green, DMG on Releases)
-- **v1.0.5** — CI release published: combined audio fix, UI polish, Stripe checkout (`Drazlo-1.0.5.dmg`)
+- **Day 55 (in repo)** — Launch homepage, download redirect, Sparkle appcast v1.0.6, `SUPublicEDKey`, release notes page, `Docs/LAUNCH_DAY55.md`
+- **v1.0.6** — CI release: gradient-only DMG (no arrow), notarized (`Drazlo-1.0.6.dmg`)
+- **v1.0.5** — Combined audio fix, UI polish, Stripe checkout
+- **Day 49** — GitHub Actions release pipeline validated
 
-## Day 54 deliverables
+## Day 55 deliverables
 
 | Item | Status |
 |------|--------|
-| Edge Function `revenuecat-webhook` deployed (`rdqohexzpxrkggcagrmq`) | Done |
-| Webhook URL registered in RevenueCat | **Manual** |
-| `REVENUECAT_WEBHOOK_SECRET` + `SUPABASE_SERVICE_ROLE_KEY` in Supabase secrets | **Manual** |
-| RevenueCat Production + Stripe Live + Default offering | **Manual** |
-| CI `REVENUECAT_API_KEY` GitHub secret + release.yml injection | Done (set secret before tag) |
-| Local production RC key in gitignored `Config.swift` | **Manual** for launch testing |
-| Purchase + webhook → `public.subscriptions` (~30s) | **Verify** after secrets |
+| Marketing homepage (`website/index.html`) | Done |
+| Download URL (`/download` → GitHub Release DMG) | Done (deploy to Vercel) |
+| Sparkle appcast (`website/appcast.xml`, `Resources/Release/appcast.xml`) | Done |
+| `SUPublicEDKey` in Info.plist | Done — ships in **next** app tag |
+| Release notes page `/release-notes/1.0.6/` | Done |
+| Marketing drafts (Product Hunt, email, social) | Done — `Docs/LAUNCH_DAY55.md` |
+| **Manual:** Deploy website to drazlo.app | Pending |
+| **Manual:** Publish appcast at production URL | Pending |
+| **Manual:** YouTube demo, Product Hunt, email, social | Pending |
 
-**Webhook URL:** `https://rdqohexzpxrkggcagrmq.supabase.co/functions/v1/revenuecat-webhook`
+**Download:** https://drazlo.app/download (after deploy) or [GitHub v1.0.6](https://github.com/JeeT001/FrameFlow/releases/download/v1.0.6/Drazlo-1.0.6.dmg)
+
+## Day 54 gate (billing — verify before paid launch)
+
+| Item | Status |
+|------|--------|
+| RevenueCat Production + Stripe Live | **Manual** |
+| Webhook + Supabase secrets | **Manual** |
+| Purchase → Pro unlock (~30s) | **Verify** |
 
 ## Next Task
 
-1. **Day 54 finish** — Set Supabase secrets; register webhook in RevenueCat; switch RC + Stripe to Production; verify purchase sync
-2. **Day 55** — Website, appcast, marketing launch assets
-3. **Day 51** — Privacy Policy + Terms (website)
+1. **Deploy** `website/` to Vercel (drazlo.app)
+2. **Tag v1.0.7** (or patch) to ship `SUPublicEDKey` in binary + test Sparkle
+3. **Finish Day 54** — Production billing verification
+4. **Publish** marketing assets from `LAUNCH_DAY55.md`
 
 ## Reference Docs
 
+- [Launch Day 55](LAUNCH_DAY55.md)
 - [Master Blueprint](FrameFlow_Master_Blueprint.md)
 - [Dev Log](DEV_LOG.md)
 - [Release Signing](RELEASE_SIGNING.md)
 - [Releasing Updates](RELEASING_UPDATES.md)
-- [Webhook deploy](../supabase/functions/revenuecat-webhook/README.md)

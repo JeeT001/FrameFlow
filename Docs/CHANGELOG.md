@@ -4,6 +4,11 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.7] — 2026-06-29
+
+### Fixed
+- Sparkle auto-update: ship real EdDSA public key in app (`SUPublicEDKey`) so Check for Updates works from v1.0.6
+
 ## [1.0.6] — 2026-06-29
 
 ### Changed
