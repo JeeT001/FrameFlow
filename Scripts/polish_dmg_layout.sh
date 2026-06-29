@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Re-open a built DMG in Finder to bake sidebar-hidden window settings into .DS_Store.
+# DEPRECATED — replaced by Scripts/apply_dmg_ds_store.sh (Python ds_store writer).
+# Kept for manual fallback only; create_dmg.sh no longer calls this script.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,8 +39,13 @@ if [[ -z "${DEV}" ]]; then
   exit 1
 fi
 
+eval "$(python3 "${SCRIPT_DIR}/dmg_layout.py" --shell)"
+
 sleep 2
-/usr/bin/osascript "${SCRIPT_DIR}/polish_dmg_finder.applescript" "${VOLUME_NAME}"
+/usr/bin/osascript "${SCRIPT_DIR}/polish_dmg_finder.applescript" \
+  "${VOLUME_NAME}" \
+  "${DMG_WIN_X}" "${DMG_WIN_Y}" "${DMG_WIN_W}" "${DMG_WIN_H}" \
+  "${DMG_ICON_SIZE}" "${DMG_APP_CY}" "${DMG_APP_CX}" "${DMG_APPS_CX}"
 sleep 2
 
 hdiutil detach "${DEV}" -quiet

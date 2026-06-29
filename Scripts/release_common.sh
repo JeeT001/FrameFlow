@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Shared helpers for Drazlo release scripts (Day 46–47).
-set -euo pipefail
+# set -euo pipefail
 
 release_repo_root() {
   local script_dir
@@ -59,10 +59,30 @@ release_validate_stapled_app() {
 }
 
 release_eject_drazlo_volumes() {
-  local mount
-  for mount in /Volumes/Drazlo /Volumes/Drazlo\ *; do
-    [[ -d "${mount}" ]] || continue
-    echo "==> Eject ${mount}"
-    hdiutil detach "${mount}" -quiet 2>/dev/null || diskutil eject "${mount}" 2>/dev/null || true
+  local i mount
+  # Repeat — Finder may hold volumes open; numbered mounts stack (Drazlo, Drazlo 1, …).
+  for i in $(seq 1 8); do
+    while IFS= read -r mount; do
+      [[ -n "${mount}" ]] || continue
+      echo "==> Eject ${mount}"
+      hdiutil detach "${mount}" -force -quiet 2>/dev/null \
+        || diskutil eject "${mount}" 2>/dev/null \
+        || true
+    done < <(hdiutil info 2>/dev/null | awk -F'\t' '/\/Volumes\/Drazlo/{print $3}' | sort -ru)
+
+    # Fallback: path glob (bash; skip when nomatch would error).
+    shopt -s nullglob 2>/dev/null || true
+    for mount in /Volumes/Drazlo /Volumes/Drazlo\ *; do
+      [[ -d "${mount}" ]] || continue
+      echo "==> Eject ${mount}"
+      hdiutil detach "${mount}" -force -quiet 2>/dev/null \
+        || diskutil eject "${mount}" 2>/dev/null \
+        || true
+    done
+    shopt -u nullglob 2>/dev/null || true
+
+    if ! hdiutil info 2>/dev/null | grep -q $'/Volumes/Drazlo'; then
+      return 0
+    fi
   done
 }

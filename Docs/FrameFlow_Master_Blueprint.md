@@ -2577,8 +2577,9 @@ Complete user flow on a fresh Mac account (not developer machine):
 - Update appcast.xml with v1.0.0 release info (for Sparkle auto-update)
 - Create a short demo video of FrameFlow in action for your YouTube channel
 - Set up a Product Hunt page (schedule for launch day)
-- Send a launch email to any early interest list
-- Post on Twitter/X, relevant subreddits (r/macapps, r/contentcreation, r/indiehackers)
+- Send a launch email to any early interest list - create good structured email so people can understand the product as well
+- Post on Twitter/X, relevant subreddits (r/macapps, r/contentcreation, r/indiehackers) - create good posts 
+
 
 ---
 

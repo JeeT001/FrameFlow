@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Builds a drag-to-Applications DMG from a signed, stapled Drazlo.app (Day 47).
-# Discord-style drag-to-Applications DMG (branding + arrow background).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,8 +33,10 @@ Environment:
   VERSION          Override marketing version (default from Xcode project)
   DMG_BACKGROUND   light (default) or dark background art
   BUILD_DIR        Output directory (default: build/)
+  SKIP_DMG_REGEN   Set to 1 to skip background regeneration (not recommended)
+  SKIP_DMG_LAYOUT  Set to 1 to skip custom Finder layout (debug only)
 
-Requires: create-dmg (brew install create-dmg)
+Requires: Python dmgbuild (pip install -r Scripts/requirements-dmg.txt)
 EOF
 }
 
@@ -44,11 +45,25 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
-echo "==> Drazlo DMG creation (Discord-style installer layout)"
+echo "==> Drazlo DMG creation (dmgbuild)"
 echo "    App:        ${APP_PATH}"
 echo "    Version:    ${VERSION}"
 echo "    Output:     ${DMG_PATH}"
-echo "    Background: ${BACKGROUND}"
+
+if [[ ! -f "${VOLICON}" ]]; then
+  echo "error: volume icon not found at ${VOLICON}" >&2
+  exit 1
+fi
+
+echo "==> Install DMG Python deps (dmgbuild)"
+python3 -m pip install -q -r "${SCRIPT_DIR}/requirements-dmg.txt"
+
+eval "$(python3 "${SCRIPT_DIR}/dmg_layout.py" --shell)"
+
+if [[ "${SKIP_DMG_REGEN:-}" != "1" ]]; then
+  echo "==> Regenerate DMG backgrounds (layout + 144 DPI)"
+  python3 "${SCRIPT_DIR}/generate_dmg_backgrounds.py"
+fi
 
 if [[ ! -f "${BACKGROUND}" ]]; then
   echo "error: DMG background not found at ${BACKGROUND}" >&2
@@ -56,16 +71,9 @@ if [[ ! -f "${BACKGROUND}" ]]; then
   exit 1
 fi
 
-if ! command -v create-dmg >/dev/null 2>&1; then
-  echo "error: create-dmg is not installed." >&2
-  echo "Install with: brew install create-dmg" >&2
-  exit 1
-fi
-
-if [[ ! -f "${VOLICON}" ]]; then
-  echo "error: volume icon not found at ${VOLICON}" >&2
-  exit 1
-fi
+echo "==> Background for DMG"
+echo "    Path: ${BACKGROUND}"
+echo "    SHA256: $(shasum -a 256 "${BACKGROUND}" | awk '{print $1}')"
 
 release_validate_stapled_app "${APP_PATH}"
 release_eject_drazlo_volumes
@@ -76,42 +84,48 @@ mkdir -p "${STAGING_DIR}"
 ditto "${APP_PATH}" "${STAGING_DIR}/Drazlo.app"
 xattr -cr "${STAGING_DIR}/Drazlo.app" 2>/dev/null || true
 
-# Layout constants — keep in sync with Scripts/generate_dmg_backgrounds.py
-DMG_WIN_W=660
-DMG_WIN_H=400
-DMG_ICON_SIZE=100
-DMG_ICON_Y=150
-DMG_APP_X=194
-DMG_APPS_X=366
+STAGED_APP="${STAGING_DIR}/Drazlo.app"
 
-echo "==> create-dmg"
-rm -f "${DMG_PATH}"
-"${SCRIPT_DIR}/run_create_dmg.sh" \
-  --volname "Drazlo" \
-  --volicon "${VOLICON}" \
-  --background "${BACKGROUND}" \
-  --window-pos 400 120 \
-  --window-size "${DMG_WIN_W}" "${DMG_WIN_H}" \
-  --text-size 12 \
-  --icon-size "${DMG_ICON_SIZE}" \
-  --icon "Drazlo.app" "${DMG_APP_X}" "${DMG_ICON_Y}" \
-  --hide-extension "Drazlo.app" \
-  --app-drop-link "${DMG_APPS_X}" "${DMG_ICON_Y}" \
-  --bless \
-  --no-internet-enable \
-  "${DMG_PATH}" \
-  "${STAGING_DIR}"
+echo "==> Layout (dmgbuild + Scripts/dmg_settings.py)"
+echo "    Window:       ${DMG_WIN_W} x ${DMG_WIN_H} pt @ (${DMG_WIN_X}, ${DMG_WIN_Y})"
+echo "    Drazlo.app:   (${DMG_APP_CX}, ${DMG_APP_CY})"
+echo "    Applications: (${DMG_APPS_CX}, ${DMG_APPS_CY})"
+echo "    Icon size:    ${DMG_ICON_SIZE}"
 
-echo "==> Polish Finder layout (.DS_Store window size, icon positions, background)"
-if [[ "${SKIP_DMG_POLISH:-}" == "1" ]]; then
-  echo "    Skipped (SKIP_DMG_POLISH=1 — headless CI uses create-dmg layout only)"
-else
-  BACKGROUND="${BACKGROUND}" "${SCRIPT_DIR}/polish_dmg_layout.sh" "${DMG_PATH}"
+DMG_DEFINES=(
+  -D "app=${STAGED_APP}"
+  -D "repo_root=${REPO_ROOT}"
+  -D "theme=${DMG_THEME}"
+  -D "background=${BACKGROUND}"
+  -D "volume_icon=${VOLICON}"
+)
+
+if [[ "${SKIP_DMG_LAYOUT:-}" == "1" ]]; then
+  echo "==> Skipping custom Finder layout (SKIP_DMG_LAYOUT=1)"
+  DMG_DEFINES+=(-D "skip_layout=1")
 fi
+
+if [[ "${DMG_ARROW:-}" == "0" ]]; then
+  DMG_DEFINES+=(-D "arrow=0")
+fi
+
+rm -f "${DMG_PATH}"
+
+python3 -m dmgbuild \
+  -s "${SCRIPT_DIR}/dmg_settings.py" \
+  "${DMG_DEFINES[@]}" \
+  --detach-retries 8 \
+  "Drazlo" \
+  "${DMG_PATH}"
+
+# dmgbuild should detach its RW mount; clear any stragglers before preview.
+release_eject_drazlo_volumes
 
 echo "==> DMG created (unsigned — run ./Scripts/notarize_dmg.sh next)"
 echo "    ${DMG_PATH}"
 echo ""
 echo "Preview:"
-echo "  for v in /Volumes/Drazlo*; do [[ -d \"\$v\" ]] && hdiutil detach \"\$v\" -quiet; done"
+echo "  ./Scripts/eject_drazlo_volumes.sh"
 echo "  open \"${DMG_PATH}\""
+echo ""
+echo "  (Do NOT use: open build/Drazlo-*.dmg — that opens every DMG in build/)"

@@ -19,6 +19,7 @@ build/
 **/Drazlo-notarize.zip
 build/dmg-staging/
 build/Drazlo-*.dmg
+Resources/DMG/*-debug.png
 *.moved-aside
 *.hmap
 *.ipa

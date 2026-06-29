@@ -3797,3 +3797,75 @@ Intentional hotfix forced `writerAudioMode = .mic` for `.combined`, and `shouldC
 fix: include system audio in combined mode export without A/V regression
 ```
 
+---
+
+## DMG layout — Python DS_Store writer (2026-05-29)
+
+Replaced unreliable Finder AppleScript layout with deterministic Python `.DS_Store` writing.
+
+- **`Scripts/write_ds_store.py`** — `ds_store` + `mac_alias`; sets `bwsp`, `icvp`, `Iloc` per `dmg_layout.py`
+- **`Scripts/apply_dmg_ds_store.sh`** — mount RW → write `.DS_Store` → repack UDZO
+- **`Scripts/create_dmg.sh`** — `create-dmg --skip-jenkins` (packaging only) then Python layout
+- **`Scripts/requirements-dmg.txt`** — `ds-store`, `mac_alias`
+- **`Scripts/dmg-support/template.applescript`** — unused (skipped via `--skip-jenkins`)
+- CI: install `requirements-dmg.txt`; removed `SKIP_DMG_POLISH`
+
+Suggested commit:
+```
+fix: replace DMG Finder AppleScript layout with Python ds_store writer
+```
+
+---
+
+## DMG layout — DS_Store key format + alias fix (2026-05-29)
+
+Python writer partially worked (icon visible) but Finder ignored `bwsp`/`icvp`/`Iloc` due to wrong DS_Store filename keys.
+
+### Fix
+- **`Scripts/write_ds_store.py`** — volume root uses `'\x00'` (not `'.'`); icon keys use null-terminated names (`'Drazlo.app\x00'`, `'Applications\x00'`); background alias created from mounted path `/Volumes/Drazlo/.background/dmg-background-light.png`
+- **`Scripts/apply_dmg_ds_store.sh`** — osascript `close` on mounted disk before repack; fixed `ATTACH_OUT` typo in error path
+- **`Scripts/release_common.sh`** — `release_eject_drazlo_volumes` loops 4× with `/Volumes/Drazlo*` glob to clear stacked stale mounts
+
+### Verification (audit DMG)
+| Entry | Value |
+|-------|-------|
+| `bwsp` on `'\x00'` | `ShowTabView: False`, `WindowBounds: {{400, 120}, {660, 400}}` |
+| `icvp` on `'\x00'` | `backgroundType: 2`, alias 384 bytes |
+| `Drazlo.app\x00` Iloc | `(250, 190)` |
+| `Applications\x00` Iloc | `(410, 190)` |
+
+Suggested commit:
+```
+fix: correct DS_Store key format and background alias for DMG layout
+```
+
+---
+
+## DMG layout — migrate to dmgbuild (2026-05-29)
+
+Replaced unreliable `create-dmg` + custom `write_ds_store.py` hybrid with single **dmgbuild** step.
+
+### Why
+Hybrid pipeline still failed in Finder (tab bar, missing background, icon positions). dmgbuild owns mount → copy files → background alias → `.DS_Store` in one pass.
+
+### Changes
+- **`Scripts/dmg_settings.py`** — dmgbuild settings (window, icons, background, volume icon) from `dmg_layout.py`
+- **`Scripts/create_dmg.sh`** — `python3 -m dmgbuild -s dmg_settings.py` (no create-dmg, no apply_dmg_ds_store)
+- **`Scripts/requirements-dmg.txt`** — `dmgbuild>=1.6.7` only
+- **`.github/workflows/release.yml`** — removed `brew install create-dmg`
+- Deprecated (unused): `Scripts/apply_dmg_ds_store.sh`, `Scripts/write_ds_store.py`
+
+### Verification (stub app test DMG)
+| Check | Result |
+|-------|--------|
+| `ShowTabView` | `False` |
+| `WindowBounds` | `{{400, 120}, {660, 400}}` |
+| `Drazlo.app` Iloc | `(250, 190)` |
+| `Applications` Iloc | `(410, 190)` |
+| `backgroundImageAlias` | present (`backgroundType: 2`) |
+
+Suggested commit:
+```
+fix: simplify DMG build with dmgbuild (Drazlo → Applications layout)
+```
+

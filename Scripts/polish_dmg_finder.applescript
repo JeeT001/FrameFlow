@@ -1,13 +1,23 @@
 on run argv
+	-- Layout argv from Scripts/dmg_layout.py (same center coords as create-dmg)
 	set volumeName to item 1 of argv
 	set winX to 400
 	set winY to 120
 	set winW to 660
 	set winH to 400
 	set iconSz to 100
-	set iconY to 150
-	set appX to 194
-	set appsX to 366
+	set appCy to 190
+	set appCx to 250
+	set appsCx to 410
+
+	if (count of argv) ≥ 2 then set winX to item 2 of argv as integer
+	if (count of argv) ≥ 3 then set winY to item 3 of argv as integer
+	if (count of argv) ≥ 4 then set winW to item 4 of argv as integer
+	if (count of argv) ≥ 5 then set winH to item 5 of argv as integer
+	if (count of argv) ≥ 6 then set iconSz to item 6 of argv as integer
+	if (count of argv) ≥ 7 then set appCy to item 7 of argv as integer
+	if (count of argv) ≥ 8 then set appCx to item 8 of argv as integer
+	if (count of argv) ≥ 9 then set appsCx to item 9 of argv as integer
 
 	tell application "Finder"
 		activate
@@ -35,9 +45,9 @@ on run argv
 				end try
 			end tell
 
-			set position of item "Drazlo.app" to {appX, iconY}
+			set position of item "Drazlo.app" to {appCx, appCy}
 			set the extension hidden of item "Drazlo.app" to true
-			set position of item "Applications" to {appsX, iconY}
+			set position of item "Applications" to {appsCx, appCy}
 
 			close
 			open

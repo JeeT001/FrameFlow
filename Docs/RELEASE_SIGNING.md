@@ -154,14 +154,14 @@ Package a **signed, stapled** `Drazlo.app` into a drag-to-Applications DMG for w
 ### Prerequisites
 
 1. Complete **Day 46** locally: stapled app at `build/export/Drazlo.app` (`spctl: accepted`).
-2. Install **create-dmg**: `brew install create-dmg`
+2. Install **dmgbuild**: `pip install -r Scripts/requirements-dmg.txt`
 3. Same notarisation credentials as Day 46 (`NOTARY_*` env vars).
 
 ### DMG assets
 
 | Path | Role |
 |------|------|
-| `Resources/DMG/dmg-background-light.png` | Default Finder background (1600×800) |
+| `Resources/DMG/dmg-background-light.png` | Default Finder background (1320×800 @ 144 DPI) |
 | `Resources/DMG/dmg-background-dark.png` | Dark variant (`DMG_BACKGROUND=dark`) |
 | `Resources/DMG/DrazloVolume.icns` | DMG volume icon |
 
@@ -212,7 +212,7 @@ On a Mac **not** logged into the developer Apple ID:
 
 | Script | Role |
 |--------|------|
-| `Scripts/create_dmg.sh` | Validate stapled app → `create-dmg` → unsigned DMG |
+| `Scripts/create_dmg.sh` | Validate stapled app → **dmgbuild** → unsigned DMG |
 | `Scripts/notarize_dmg.sh` | Sign DMG → `notarytool submit --wait` → staple |
 | `Scripts/release_dmg.sh` | Orchestrates create + notarise (credentials required for latter) |
 | `Scripts/release_common.sh` | Shared version lookup + app validation |
@@ -221,7 +221,7 @@ On a Mac **not** logged into the developer Apple ID:
 
 | Issue | What to check |
 |-------|----------------|
-| `create-dmg: command not found` | `brew install create-dmg` |
+| `dmgbuild` not installed | `pip install -r Scripts/requirements-dmg.txt` |
 | App not stapled | Run `./Scripts/notarize_app.sh` first |
 | DMG sign fails | Developer ID Application cert in Keychain; `SIGNING_IDENTITY` env override |
 | Notary rejects DMG | App inside must already be notarised; DMG signed with `--options runtime` |
@@ -380,7 +380,7 @@ xcrun stapler validate Drazlo-1.0.0.dmg
 
 ### CI notes
 
-- **`SKIP_DMG_POLISH=1`** — workflow skips Finder AppleScript polish (`polish_dmg_layout.sh`) because GitHub runners are headless. DMG still uses `create-dmg` layout + background art.
+- **DMG layout** — `create-dmg --skip-jenkins` packages the volume; `Scripts/write_ds_store.py` writes `.DS_Store` via Python (`ds_store` + `mac_alias`). Install deps: `pip install -r Scripts/requirements-dmg.txt`
 - **`VERSION`** — derived from git tag (`v1.0.0` → `1.0.0`) so DMG filename matches the release tag.
 - **Manual dispatch** — Actions → workflow → Run workflow; uploads artifact but creates a GitHub Release **only** on tag push.
 - **Optional future:** attach signed `appcast.xml` via `SPARKLE_EDDSA_PRIVATE_KEY` secret (not implemented).
@@ -392,7 +392,7 @@ xcrun stapler validate Drazlo-1.0.0.dmg
 | Certificate import fails | Valid base64 `.p12`; correct password secret |
 | Archive fails | SPM resolved; scheme `Drazlo`; team `6XP66CQ82V` in project |
 | Notary rejected | Same entitlements audit as Day 46; hardened runtime enabled |
-| DMG polish skipped | Expected on CI — local builds omit `SKIP_DMG_POLISH` for full polish |
+| DMG layout fails | Ensure `pip install -r Scripts/requirements-dmg.txt`; eject stale `/Volumes/Drazlo` mounts before rebuild |
 | Release not created | Only tag pushes create Releases; use `workflow_dispatch` for test builds + artifact |
 
 **Out of scope:** CDN deploy, live appcast hosting, Mac App Store.
