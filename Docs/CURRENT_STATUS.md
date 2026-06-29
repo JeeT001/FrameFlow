@@ -1,7 +1,7 @@
 # FrameFlow — Current Status
 
 **Last updated:** 2026-06-29  
-**Version:** v1.0.7 (CI release in progress — Sparkle fix)
+**Version:** v1.0.7 (released — Sparkle auto-update fixed)
 
 ## Current Phase
 

@@ -7,7 +7,7 @@
   "redirects": [
     {
       "source": "/download",
-      "destination": "https://github.com/JeeT001/FrameFlow/releases/download/v1.0.6/Drazlo-1.0.6.dmg",
+      "destination": "https://github.com/JeeT001/FrameFlow/releases/download/v1.0.7/Drazlo-1.0.7.dmg",
       "permanent": false
     },
     {
