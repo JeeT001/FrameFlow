@@ -4,6 +4,17 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.5] — 2026-06-29
+
+### Fixed
+- Combined recording mode exports mic + system audio together (AirPods mic startup)
+- Light-theme play button visibility and window picker stacking tips
+
+### Added
+- Stripe web checkout, post-payment deep link, and legal site links
+
+## [Unreleased prior]
+
 ### Planned (Blueprint Day 40.1)
 - **Post-Record Editor** — unified screen after Stop with Edit / Captions (Pro) / Export tabs
 - Replaces post-record `Caption Editor → Export` hop; keeps standalone `ExportView` for Dashboard re-export

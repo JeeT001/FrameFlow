@@ -1,7 +1,7 @@
 # FrameFlow — Current Status
 
-**Last updated:** 2026-05-29  
-**Version:** v1.0.4
+**Last updated:** 2026-06-29  
+**Version:** v1.0.5 (CI release in progress)
 
 ## Current Phase
 
