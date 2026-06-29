@@ -2,7 +2,8 @@
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy/" },
     { "source": "/terms", "destination": "/terms/" },
-    { "source": "/release-notes/1.0.6", "destination": "/release-notes/1.0.6/" }
+    { "source": "/release-notes/1.0.6", "destination": "/release-notes/1.0.6/" },
+    { "source": "/release-notes/1.0.7", "destination": "/release-notes/1.0.7/" }
   ],
   "redirects": [
     {

@@ -24,8 +24,8 @@
 | `SUPublicEDKey` in Info.plist | Done — ships in **next** app tag |
 | Release notes page `/release-notes/1.0.6/` | Done |
 | Marketing drafts (Product Hunt, email, social) | Done — `Docs/LAUNCH_DAY55.md` |
-| **Manual:** Deploy website to drazlo.app | Pending |
-| **Manual:** Publish appcast at production URL | Pending |
+| **Manual:** Deploy website to drazlo.app | **Blocked — domain NXDOMAIN** (see `Docs/SPARKLE_FEED_FIX.md`) |
+| **Manual:** Publish appcast at production URL | **Blocked — drazlo.app not in DNS** |
 | **Manual:** YouTube demo, Product Hunt, email, social | Pending |
 
 **Download:** https://drazlo.app/download (after deploy) or [GitHub v1.0.6](https://github.com/JeeT001/FrameFlow/releases/download/v1.0.6/Drazlo-1.0.6.dmg)

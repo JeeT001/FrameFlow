@@ -36,11 +36,13 @@ After each release:
 3. Add `website/release-notes/<version>/index.html` if needed
 4. Redeploy
 
-## Latest download (v1.0.6)
+## Latest download (v1.0.7)
 
 - **Homepage CTA:** https://drazlo.app/download
-- **Direct GitHub asset:** https://github.com/JeeT001/FrameFlow/releases/download/v1.0.6/Drazlo-1.0.6.dmg
+- **Direct GitHub asset:** https://github.com/JeeT001/FrameFlow/releases/download/v1.0.7/Drazlo-1.0.7.dmg
 - **Appcast:** https://drazlo.app/appcast.xml
+
+**Sparkle requires `drazlo.app` DNS + Vercel deploy.** See `Docs/SPARKLE_FEED_FIX.md` if Check for Updates fails.
 
 ## Do not commit
 

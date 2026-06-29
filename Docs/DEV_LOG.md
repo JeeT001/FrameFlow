@@ -3852,3 +3852,22 @@ chore: bump version to 1.0.7 for Sparkle public key fix
 chore: publish Sparkle appcast for v1.0.7
 ```
 
+---
+
+## Sparkle feed error — drazlo.app NXDOMAIN (2026-06-29)
+
+**Symptom:** v1.0.7 → Check for Updates → “An error occurred in retrieving update information.”
+
+**Root cause:** `drazlo.app` returns **NXDOMAIN** (domain not registered / no DNS). Sparkle cannot fetch `https://drazlo.app/appcast.xml`. Repo appcast is correct; hosting was never live.
+
+**Not the cause:** EdDSA signature, app `SUPublicEDKey` (verified in v1.0.7 binary), or sandbox network.
+
+**Fix:** Register `drazlo.app`, deploy `website/` to Vercel (root = `website/`), point DNS to Vercel. See `Docs/SPARKLE_FEED_FIX.md`.
+
+Added `.github/workflows/deploy-website.yml` (optional CI deploy; needs Vercel secrets).
+
+**User verify after deploy:**
+```bash
+curl -sf https://drazlo.app/appcast.xml | grep sparkle:version
+```
+
