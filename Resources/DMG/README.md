@@ -1,11 +1,11 @@
 # Drazlo DMG assets (Day 47)
 
-Discord-style installer: top-left **Drazlo** branding, centered **app → arrow → Applications** row.
+Discord-style installer: clean gradient background; **Drazlo.app** and **Applications** icons placed by `create-dmg` (no arrow in background art).
 
 | File | Purpose |
 |------|---------|
 | `DrazloVolume.icns` | DMG volume icon |
-| `dmg-background-light.png` | @2x background (660×400 pt window) — arrow + header |
+| `dmg-background-light.png` | @2x background (660×400 pt window) — light gradient |
 | `dmg-background-dark.png` | Dark variant |
 
 Regenerate backgrounds after art changes:

@@ -4,6 +4,11 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.6] — 2026-06-29
+
+### Changed
+- DMG installer background is a clean gradient only (blue arrow removed from background art)
+
 ## [1.0.5] — 2026-06-29
 
 ### Fixed

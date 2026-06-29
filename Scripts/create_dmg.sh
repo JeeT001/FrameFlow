@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds a drag-to-Applications DMG from a signed, stapled Drazlo.app (Day 47).
-# Discord-style drag-to-Applications DMG (branding + arrow background).
+# Discord-style drag-to-Applications DMG (gradient background, no baked arrow).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -1,7 +1,7 @@
 # FrameFlow — Current Status
 
 **Last updated:** 2026-06-29  
-**Version:** v1.0.5 (CI release in progress)
+**Version:** v1.0.6 (CI release in progress)
 
 ## Current Phase
 
@@ -14,6 +14,7 @@
 - **Day 52** — Feedback banner after 3rd export (weekly cap)
 - **Day 50** — Drazlo app icon in `AppIcon.appiconset` (all macOS sizes; used in app, DMG, Dock/Finder)
 - **Day 49** — GitHub Actions release pipeline validated (`v1.0.4` green, DMG on Releases)
+- **v1.0.5** — CI release published: combined audio fix, UI polish, Stripe checkout (`Drazlo-1.0.5.dmg`)
 
 ## Day 54 deliverables
 

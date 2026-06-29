@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal DMG background: light gradient + centered arrow only (no app icons baked in)."""
+"""Minimal DMG background: light/dark gradient only (no arrow or icons baked in)."""
 
 from __future__ import annotations
 
@@ -14,10 +14,9 @@ OUT = ROOT / "Resources" / "DMG"
 W, H = 1320, 800
 WINDOW_W, WINDOW_H = 660, 400
 ICON_SIZE = 100
-ICON_Y_FROM_BOTTOM = 150  # (400 - 100) / 2
+ICON_Y_FROM_BOTTOM = 150
 LEFT_ICON_X = 194
 RIGHT_ICON_X = 366
-ARROW_BLUE = (0x0A, 0x84, 0xFF)
 
 
 def _gradient(size: tuple[int, int], top: tuple[int, int, int], bottom: tuple[int, int, int]) -> Image.Image:
@@ -30,28 +29,10 @@ def _gradient(size: tuple[int, int], top: tuple[int, int, int], bottom: tuple[in
     return img
 
 
-def _icon_center_y_px() -> int:
-    from_top = WINDOW_H - ICON_Y_FROM_BOTTOM - (ICON_SIZE / 2)
-    return int(from_top * (H / WINDOW_H))
-
-
-def _draw_arrow(draw: ImageDraw.ImageDraw, cx: int, cy: int, color: tuple[int, int, int]) -> None:
-    half = int(56 * (W / WINDOW_W))
-    x0, x1 = cx - half, cx + half - 14
-    draw.line([(x0, cy), (x1, cy)], fill=color, width=8)
-    draw.polygon([(x1 + 18, cy), (x1 - 4, cy - 13), (x1 - 4, cy + 13)], fill=color)
-
-
 def _render(*, dark: bool) -> Image.Image:
     if dark:
-        img = _gradient((W, H), (0x1C, 0x1C, 0x1E), (0x28, 0x28, 0x2A))
-    else:
-        img = _gradient((W, H), (0xF7, 0xF7, 0xF9), (0xFF, 0xFF, 0xFF))
-
-    cx = int((WINDOW_W / 2) * (W / WINDOW_W))
-    cy = _icon_center_y_px()
-    _draw_arrow(ImageDraw.Draw(img), cx, cy, ARROW_BLUE)
-    return img
+        return _gradient((W, H), (0x1C, 0x1C, 0x1E), (0x28, 0x28, 0x2A))
+    return _gradient((W, H), (0xF7, 0xF7, 0xF9), (0xFF, 0xFF, 0xFF))
 
 
 def main() -> None:

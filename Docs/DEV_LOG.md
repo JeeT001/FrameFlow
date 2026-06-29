@@ -3797,3 +3797,17 @@ Intentional hotfix forced `writerAudioMode = .mic` for `.combined`, and `shouldC
 fix: include system audio in combined mode export without A/V regression
 ```
 
+---
+
+## DMG — remove blue arrow from installer background (2026-06-29)
+
+- **`Scripts/generate_dmg_backgrounds.py`** — gradient only; removed `_draw_arrow` and arrow constants
+- **`Resources/DMG/dmg-background-*.png`** — regenerated without arrow
+- **`Scripts/create_dmg.sh`** / **`Resources/DMG/README.md`** — docs updated
+- Release **v1.0.6** via CI tag
+
+Suggested commit:
+```
+fix: remove blue arrow from DMG installer background
+```
+
