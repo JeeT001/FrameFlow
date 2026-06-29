@@ -1,6 +1,27 @@
 {
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy/" },
-    { "source": "/terms", "destination": "/terms/" }
+    { "source": "/terms", "destination": "/terms/" },
+    { "source": "/release-notes/1.0.6", "destination": "/release-notes/1.0.6/" }
+  ],
+  "redirects": [
+    {
+      "source": "/download",
+      "destination": "https://github.com/JeeT001/FrameFlow/releases/download/v1.0.6/Drazlo-1.0.6.dmg",
+      "permanent": false
+    },
+    {
+      "source": "/downloads/Drazlo-:version.dmg",
+      "destination": "https://github.com/JeeT001/FrameFlow/releases/download/v:version/Drazlo-:version.dmg",
+      "permanent": false
+    }
+  ],
+  "headers": [
+    {
+      "source": "/appcast.xml",
+      "headers": [
+        { "key": "Content-Type", "value": "application/xml; charset=utf-8" }
+      ]
+    }
   ]
 }
