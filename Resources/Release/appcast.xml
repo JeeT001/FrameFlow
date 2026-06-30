@@ -2,9 +2,24 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <title>Drazlo</title>
-    <link>https://drazlo.app</link>
+    <link>https://drazlo.vercel.app</link>
     <description>Drazlo for macOS — screen recording updates</description>
     <language>en</language>
+    <item>
+      <title>Drazlo 1.0.8</title>
+      <pubDate>Mon, 30 Jun 2026 00:33:07 +0000</pubDate>
+      <sparkle:version>8</sparkle:version>
+      <sparkle:shortVersionString>1.0.8</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/JeeT001/FrameFlow/releases/download/v1.0.8/Drazlo-1.0.8.dmg"
+        sparkle:version="8"
+        sparkle:shortVersionString="1.0.8"
+        length="9096782"
+        type="application/octet-stream"
+        sparkle:edSignature="F+y25kP35fbfSxgjaE6jfet8meWLeypBOC93x6FDZzO3UgkoHs4xLyMRKmwee3CoPLVmHZnNb7Av05EpSVZbDg==" />
+      <sparkle:releaseNotesLink>https://drazlo.vercel.app/release-notes/1.0.8/</sparkle:releaseNotesLink>
+    </item>
     <item>
       <title>Drazlo 1.0.7</title>
       <pubDate>Sun, 29 Jun 2026 22:15:16 +0000</pubDate>
@@ -18,7 +33,7 @@
         length="9099438"
         type="application/octet-stream"
         sparkle:edSignature="BBW6ioSRi49Noi9z4HUQZb2XVOAEpXm+VYcy1t9opt6Vptzvyv7cVP0Vvzp8utISO+vmRa2uuFFS9GNYbCY3DA==" />
-      <sparkle:releaseNotesLink>https://drazlo.app/release-notes/1.0.7/</sparkle:releaseNotesLink>
+      <sparkle:releaseNotesLink>https://drazlo.vercel.app/release-notes/1.0.7/</sparkle:releaseNotesLink>
     </item>
     <item>
       <title>Drazlo 1.0.6</title>
@@ -33,7 +48,7 @@
         length="9099294"
         type="application/octet-stream"
         sparkle:edSignature="6oCuJgfCLK2Sp9DySzg+U3r4Lst5BG4w7XbXb89e+CwjYjLxRsE7zvZa9MzUuj+sAyzYQQqJ9lwtO4SUv0kKDw==" />
-      <sparkle:releaseNotesLink>https://drazlo.app/release-notes/1.0.6/</sparkle:releaseNotesLink>
+      <sparkle:releaseNotesLink>https://drazlo.vercel.app/release-notes/1.0.6/</sparkle:releaseNotesLink>
     </item>
   </channel>
 </rss>

@@ -86,9 +86,7 @@ resolve_private_key_file() {
     return 0
   fi
 
-  echo "error: EdDSA private key not found." >&2
-  echo "Set SPARKLE_EDDSA_PRIVATE_KEY_FILE or run generate_keys from Sparkle bin/." >&2
-  exit 1
+  return 1
 }
 
 SPARKLE_BIN="$(find_sparkle_bin_dir)" || {
@@ -99,12 +97,22 @@ SPARKLE_BIN="$(find_sparkle_bin_dir)" || {
 }
 
 SIGN_UPDATE="${SPARKLE_BIN}/sign_update"
-KEY_FILE="$(resolve_private_key_file)"
-
-echo "==> Signing update: ${DMG_PATH}"
-echo "    sign_update: ${SIGN_UPDATE}"
-
-SIGN_OUTPUT="$("${SIGN_UPDATE}" "${DMG_PATH}" --ed-key-file "${KEY_FILE}")"
+KEY_FILE=""
+if KEY_FILE="$(resolve_private_key_file)"; then
+  echo "==> Signing update: ${DMG_PATH}"
+  echo "    sign_update: ${SIGN_UPDATE}"
+  echo "    key file: ${KEY_FILE}"
+  SIGN_OUTPUT="$("${SIGN_UPDATE}" "${DMG_PATH}" --ed-key-file "${KEY_FILE}")"
+else
+  echo "==> Signing update: ${DMG_PATH}"
+  echo "    sign_update: ${SIGN_UPDATE}"
+  echo "    key source: macOS Keychain (from generate_keys)"
+  SIGN_OUTPUT="$("${SIGN_UPDATE}" "${DMG_PATH}")" || {
+    echo "error: EdDSA private key not found." >&2
+    echo "Run generate_keys from Sparkle bin/, or set SPARKLE_EDDSA_PRIVATE_KEY_FILE." >&2
+    exit 1
+  }
+fi
 echo "${SIGN_OUTPUT}"
 
 BYTE_LENGTH="$(wc -c < "${DMG_PATH}" | tr -d ' ')"
@@ -113,4 +121,4 @@ echo "==> Appcast values"
 echo "length=\"${BYTE_LENGTH}\""
 echo ""
 echo "Paste edSignature from sign_update output into Resources/Release/appcast.xml"
-echo "Host DMG at the enclosure url, then publish appcast.xml at https://drazlo.app/appcast.xml"
+echo "Host DMG at the enclosure url, then publish appcast.xml at https://drazlo.vercel.app/appcast.xml"
