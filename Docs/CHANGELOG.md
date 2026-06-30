@@ -4,6 +4,11 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.8] — 2026-06-30
+
+### Fixed
+- Sparkle feed URL and in-app legal links now point at `https://drazlo.vercel.app` (Vercel) instead of `drazlo.app`, which is not yet registered in DNS
+
 ## [1.0.7] — 2026-06-29
 
 ### Fixed

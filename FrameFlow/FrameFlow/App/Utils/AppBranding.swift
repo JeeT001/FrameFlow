@@ -14,5 +14,5 @@ enum AppBranding {
     /// Shown in Finder Get Info and system About metadata (`NSHumanReadableCopyright`).
     static let copyrightNotice = "© 2026 Simranjit Babbar"
     /// Sparkle appcast RSS feed — keep in sync with Info.plist `SUFeedURL`.
-    static let appcastFeedURL = "https://drazlo.app/appcast.xml"
+    static let appcastFeedURL = "https://drazlo.vercel.app/appcast.xml"
 }

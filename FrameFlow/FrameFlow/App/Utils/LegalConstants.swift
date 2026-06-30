@@ -7,7 +7,7 @@ import Foundation
 
 enum LegalConstants {
     /// Marketing / legal site (terms + privacy for RevenueCat Purchase Link and in-app “Open in browser”).
-    static let websiteBaseURL: String? = "https://drazlo.app"
+    static let websiteBaseURL: String? = "https://drazlo.vercel.app"
 
     static var privacyWebURL: URL? { webURL(path: "/privacy") }
     static var termsWebURL: URL? { webURL(path: "/terms") }

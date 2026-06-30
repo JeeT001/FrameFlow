@@ -18,7 +18,7 @@
 		</dict>
 	</array>
 	<key>SUFeedURL</key>
-	<string>https://drazlo.app/appcast.xml</string>
+	<string>https://drazlo.vercel.app/appcast.xml</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUScheduledCheckInterval</key>
