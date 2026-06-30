@@ -1,136 +1,556 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Drazlo — Record your Mac. Post everywhere.</title>
   <meta name="description" content="Drazlo is a native macOS screen recorder for creators — multi-window capture, PiP, captions, and export for YouTube, TikTok, and Shorts.">
   <meta property="og:title" content="Drazlo — Record your Mac. Post everywhere.">
-  <meta property="og:description" content="Skip the editing. Record, layout, caption, and export from one app.">
-  <meta property="og:url" content="https://drazlo.app">
+  <meta property="og:description" content="Pick up to 4 windows, add your webcam, generate captions, and export in minutes.">
+  <meta property="og:url" content="https://drazlo.vercel.app">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header class="site-header">
-    <div class="container header-inner">
-      <a class="logo" href="/">Drazlo</a>
-      <nav class="nav">
-        <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#download">Download</a>
-        <a href="/privacy/">Privacy</a>
-        <a href="/terms/">Terms</a>
-      </nav>
-      <a class="btn btn-primary btn-sm" href="#download">Download</a>
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo"><img src="/assets/logo.png" alt="Drazlo" class="nav-logo-img"></a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#usecases">Use cases</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="/privacy/" class="legal-link">Privacy</a></li>
+    <li><a href="/terms/" class="legal-link">Terms</a></li>
+  </ul>
+  <div class="nav-cta">
+    <a href="/download" class="btn btn-primary">Download Free</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-glow-2"></div>
+
+  <div class="macos-badge">
+    <svg viewBox="0 0 16 16" fill="none"><path d="M8 1C4.13 1 1 4.13 1 8s3.13 7 7 7 7-3.13 7-7-3.13-7-7-7Zm0 1.5a5.5 5.5 0 1 1 0 11A5.5 5.5 0 0 1 8 2.5Zm-.5 2v4.25l3.5 2-.5.87-4-2.37V4.5h1Z" fill="currentColor"/></svg>
+    macOS 14+ · Signed &amp; Notarized · Free to download
+  </div>
+
+  <h1>Record your Mac.<br><span class="accent">Post everywhere.</span></h1>
+  <p class="hero-sub">Pick up to 4 open windows, add your webcam, choose a layout, hit record — get a polished 1080p video with captions in minutes.</p>
+
+  <div class="hero-actions">
+    <a href="/download" class="btn btn-white btn-lg">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 13.5L5 8.5h3.5V3h3v5.5H15L10 13.5ZM3 16.5h14v-2H3v2Z" fill="#1A56DB"/></svg>
+      Download for Mac — Free
+    </a>
+    <a href="#how" class="btn btn-outline-white btn-lg">See how it works</a>
+  </div>
+  <p class="hero-note">No credit card required. <span>Upgrade to Pro in the app after install.</span> macOS Sonoma 14.0+</p>
+
+  <!-- APP MOCKUP -->
+  <div class="mockup-wrap">
+    <div class="mockup-shadow">
+      <div class="mockup-chrome">
+        <div class="dot-r"></div><div class="dot-y"></div><div class="dot-g"></div>
+        <span class="chrome-title">Dashboard — Drazlo</span>
+      </div>
+      <div class="mockup-body">
+        <!-- sidebar -->
+        <div class="mockup-sidebar">
+          <div class="sidebar-logo">
+            <img src="/assets/logo.png" alt="Drazlo" style="height:22px;width:auto;">
+          </div>
+          <div class="sidebar-item active">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M2 3h5v5H2V3Zm0 5h5v5H2V8Zm7-5h5v5H9V3Zm0 5h5v5H9V8Z" fill="currentColor"/></svg>
+            Home
+          </div>
+          <div class="sidebar-item">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2Zm0 1.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9ZM8 5v3.5l2.5 1.5-.75 1.25L7 9.5V5H8Z" fill="currentColor"/></svg>
+            Settings
+          </div>
+          <div class="sidebar-item">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M8 2a3 3 0 1 1 0 6A3 3 0 0 1 8 2Zm0 8c-3.33 0-6 1.34-6 3v1h12v-1c0-1.66-2.67-3-6-3Z" fill="currentColor"/></svg>
+            Account
+          </div>
+          <div class="sidebar-item">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM8 5a1 1 0 1 1 0 2A1 1 0 0 1 8 5Zm0 3.5h.5v3H8v-3H7.5v-1H8v1Z" fill="currentColor"/></svg>
+            Help
+          </div>
+          <div class="sidebar-pro">
+            <div class="sidebar-pro-title">Drazlo Pro</div>
+            <div class="sidebar-pro-sub">Captions, 9:16 export, no watermark</div>
+            <div class="sidebar-pro-btn">See Pro</div>
+          </div>
+        </div>
+        <!-- main -->
+        <div class="mockup-main">
+          <div class="dash-header">
+            <div>
+              <div class="dash-title">Welcome back, Simranjit!</div>
+              <div class="dash-sub">Ready to create your next amazing video?</div>
+            </div>
+            <div class="user-avatar">SB</div>
+          </div>
+          <div class="dash-banner">
+            <div class="dash-banner-text">
+              <div class="dash-banner-h">Start recording something amazing.</div>
+              <div class="dash-banner-sub">Record multiple windows, add your camera, generate captions, and export in one click.</div>
+            </div>
+            <div class="dash-banner-btn">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="white" stroke-width="1.5"/><path d="M6 5.5L11 8L6 10.5V5.5Z" fill="white"/></svg>
+              New Recording →
+            </div>
+          </div>
+          <div class="recordings-label">Recent Recordings</div>
+          <div class="recordings-grid">
+            <div class="rec-card">
+              <div class="rec-thumb" style="background:#1a2a4a;">
+                <div class="rec-thumb-bg" style="background:linear-gradient(135deg,#1a2a4a,#1e3a6e);"></div>
+                <div class="rec-play"><svg viewBox="0 0 12 12"><path d="M3 2l7 4-7 4V2Z" fill="white"/></svg></div>
+                <div class="rec-duration">0:14</div>
+              </div>
+              <div class="rec-info">
+                <div class="rec-name">Recording 27 Jun</div>
+                <div class="rec-meta"><span class="rec-badge">1080p</span><span class="rec-badge">16:9</span></div>
+              </div>
+            </div>
+            <div class="rec-card">
+              <div class="rec-thumb" style="background:#1e2a1a;">
+                <div class="rec-thumb-bg" style="background:linear-gradient(135deg,#1e2a1a,#1a3020);"></div>
+                <div class="rec-play"><svg viewBox="0 0 12 12"><path d="M3 2l7 4-7 4V2Z" fill="white"/></svg></div>
+                <div class="rec-duration">1:01</div>
+              </div>
+              <div class="rec-info">
+                <div class="rec-name">Recording 26 Jun</div>
+                <div class="rec-meta"><span class="rec-badge">1080p</span><span class="rec-badge">16:9</span></div>
+              </div>
+            </div>
+            <div class="rec-card">
+              <div class="rec-thumb" style="background:#2a1a1a;">
+                <div class="rec-thumb-bg" style="background:linear-gradient(135deg,#2a1a1a,#3a1e1e);"></div>
+                <div class="rec-play"><svg viewBox="0 0 12 12"><path d="M3 2l7 4-7 4V2Z" fill="white"/></svg></div>
+                <div class="rec-duration">0:27</div>
+              </div>
+              <div class="rec-info">
+                <div class="rec-name">Recording 26 Jun</div>
+                <div class="rec-meta"><span class="rec-badge">1080p</span><span class="rec-badge">9:16</span></div>
+              </div>
+            </div>
+            <div class="rec-card">
+              <div class="rec-thumb" style="background:#1a1a2a;">
+                <div class="rec-thumb-bg" style="background:linear-gradient(135deg,#1a1a2a,#1e1e3a);"></div>
+                <div class="rec-play"><svg viewBox="0 0 12 12"><path d="M3 2l7 4-7 4V2Z" fill="white"/></svg></div>
+                <div class="rec-duration">0:11</div>
+              </div>
+              <div class="rec-info">
+                <div class="rec-name">Recording 26 Jun</div>
+                <div class="rec-meta"><span class="rec-badge">1080p</span><span class="rec-badge">16:9</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-  </header>
+  </div>
+</section>
 
-  <main>
-    <section class="hero">
-      <div class="container hero-inner">
-        <p class="eyebrow">Native macOS screen recorder for creators</p>
-        <h1>Record your Mac.<br>Post everywhere.</h1>
-        <p class="lead">Skip the editing. Capture multiple windows, add your camera, burn in captions, and export for YouTube, TikTok, and Shorts — all from one app.</p>
-        <div class="hero-actions">
-          <a class="btn btn-primary btn-lg" href="/download" id="download">Download for macOS</a>
-          <span class="hero-meta">Version 1.0.7 · macOS 14+ · Apple Silicon recommended</span>
+<!-- PROOF BAR -->
+<div class="proof-bar">
+  <div class="proof-inner">
+    <div class="proof-item">
+      <svg viewBox="0 0 20 20" fill="none"><path d="M10 2L12.5 7h5.5l-4.5 3.5 1.8 5.5L10 14l-5.3 2 1.8-5.5L2 7h5.5L10 2Z" fill="rgba(255,255,255,0.5)"/></svg>
+      Signed &amp; Notarized by Apple
+    </div>
+    <div class="proof-item">
+      <svg viewBox="0 0 20 20" fill="none"><path d="M10 1a9 9 0 1 0 0 18A9 9 0 0 0 10 1Zm-1 13l-4-4 1.4-1.4L9 11.2l5.6-5.6L16 7l-7 7Z" fill="rgba(255,255,255,0.5)"/></svg>
+      On-device captions — no cloud
+    </div>
+    <div class="proof-item">
+      <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="10" rx="2" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/><path d="M7 17h6" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Native macOS · Zero latency
+    </div>
+    <div class="proof-item">
+      <svg viewBox="0 0 20 20" fill="none"><path d="M10 3v10M6 9l4 4 4-4" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-linecap="round"/><path d="M4 17h12" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Download as DMG — no App Store
+    </div>
+    <div class="proof-item">
+      <svg viewBox="0 0 20 20" fill="none"><path d="M10 2l2 6h6l-5 3.6 1.9 6L10 14l-4.9 3.6L7 11.6 2 8h6L10 2Z" fill="rgba(255,255,255,0.5)"/></svg>
+      7-day free trial on Pro
+    </div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="how-section section" id="how">
+  <div class="section-inner">
+    <div class="section-header" style="text-align:center;">
+      <div class="eyebrow" style="justify-content:center;"><div class="eyebrow-dot"></div>The workflow</div>
+      <h2 class="section-title" style="max-width:500px;margin:0 auto 14px;">Pick. Layout. Record. Done.</h2>
+      <p class="section-sub" style="margin:0 auto;text-align:center;">Four steps from idea to a shareable video — no editing software required.</p>
+    </div>
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="how-step-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <rect x="2" y="3" width="8" height="7" rx="2" stroke="#1A56DB" stroke-width="1.8"/>
+            <rect x="12" y="3" width="8" height="7" rx="2" stroke="#1A56DB" stroke-width="1.8"/>
+            <rect x="2" y="12" width="8" height="7" rx="2" stroke="#1A56DB" stroke-width="1.8"/>
+            <rect x="12" y="12" width="8" height="7" rx="2" stroke="#1A56DB" stroke-width="1.8"/>
+          </svg>
+        </div>
+        <h4>Pick your windows</h4>
+        <p>Choose up to 4 open Mac apps from a live thumbnail grid — Safari, VS Code, Figma, Terminal, anything.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <rect x="2" y="3" width="18" height="5" rx="2" stroke="#1A56DB" stroke-width="1.8"/>
+            <rect x="2" y="10" width="18" height="5" rx="2" stroke="#1A56DB" stroke-width="1.8"/>
+            <rect x="14" y="15" width="6" height="4" rx="1.5" stroke="#1A56DB" stroke-width="1.8"/>
+          </svg>
+        </div>
+        <h4>Choose a layout</h4>
+        <p>Stacked, side-by-side, PiP, or freeform. Preview it live before hitting record. Pick 16:9 or 9:16 vertical.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <circle cx="11" cy="11" r="8" stroke="#1A56DB" stroke-width="1.8"/>
+            <circle cx="11" cy="11" r="3" fill="#DC2626"/>
+          </svg>
+        </div>
+        <h4>Record</h4>
+        <p>Hit Start. Your HUD shows the live timer. Pause and resume. Your webcam sits on top. Stop when done.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <path d="M11 3v11M7 10l4 4 4-4" stroke="#1A56DB" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M4 18h14" stroke="#1A56DB" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h4>Caption &amp; export</h4>
+        <p>Auto-generate captions on-device, pick a style, then export 1080p MP4. No watermark on Pro.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPOSITOR DEMO -->
+<section class="compositor-section" id="features">
+  <div class="compositor-wrap">
+    <!-- animated canvas -->
+    <div class="compositor-canvas">
+      <!-- rec indicator -->
+      <div class="rec-indicator">
+        <div class="rec-dot"></div>
+        <span class="rec-time">00:42</span>
+      </div>
+      <!-- window 1: code editor -->
+      <div class="win-tile win-t1" style="background:#1e1e2e;">
+        <div class="win-tile-chrome">
+          <div class="d" style="background:#FF5F57"></div>
+          <div class="d" style="background:#FFBD2E"></div>
+          <div class="d" style="background:#28C840"></div>
+        </div>
+        <div class="win-tile-body" style="padding:6px 8px;">
+          <div style="height:6px;width:80%;background:rgba(59,130,246,0.5);border-radius:3px;margin-bottom:5px;"></div>
+          <div style="height:5px;width:60%;background:rgba(255,255,255,0.12);border-radius:3px;margin-bottom:4px;"></div>
+          <div style="height:5px;width:75%;background:rgba(255,255,255,0.08);border-radius:3px;margin-bottom:4px;"></div>
+          <div style="height:5px;width:50%;background:rgba(134,239,172,0.4);border-radius:3px;"></div>
         </div>
       </div>
-    </section>
-
-    <section class="section" id="features">
-      <div class="container">
-        <h2 class="section-title">Built for creator workflows</h2>
-        <p class="section-lead">Everything you need to go from screen to social — without opening a separate editor.</p>
-        <div class="feature-grid">
-          <article class="feature-card">
-            <h3>Multi-window capture</h3>
-            <p>Select up to four app windows and record them together with clean layout presets.</p>
-          </article>
-          <article class="feature-card">
-            <h3>9:16 vertical layouts</h3>
-            <p>Export TikTok, Reels, and Shorts with PiP camera overlays sized for vertical video.</p>
-          </article>
-          <article class="feature-card">
-            <h3>Picture-in-picture camera</h3>
-            <p>Draggable, resizable camera bubble with preset corners — no OBS required.</p>
-          </article>
-          <article class="feature-card">
-            <h3>Auto captions (Pro)</h3>
-            <p>On-device WhisperKit transcription with Classic, Highlighted, and TikTok caption styles.</p>
-          </article>
-          <article class="feature-card">
-            <h3>System + mic audio</h3>
-            <p>Capture narration and app sound together — perfect for tutorials and demos.</p>
-          </article>
-          <article class="feature-card">
-            <h3>Export ready to post</h3>
-            <p>720p, 1080p, or 4K MP4 with optional watermark-free exports on Pro.</p>
-          </article>
+      <!-- window 2: browser -->
+      <div class="win-tile win-t2" style="background:#ffffff10;backdrop-filter:blur(2px);">
+        <div class="win-tile-chrome" style="background:#e8e8e8;">
+          <div class="d" style="background:#FF5F57"></div>
+          <div class="d" style="background:#FFBD2E"></div>
+          <div class="d" style="background:#28C840"></div>
+        </div>
+        <div style="background:#f0f0f0;height:12px;margin:4px 8px;border-radius:3px;"></div>
+        <div style="padding:4px 8px;">
+          <div style="height:5px;width:90%;background:#ddd;border-radius:2px;margin-bottom:3px;"></div>
+          <div style="height:5px;width:70%;background:#ddd;border-radius:2px;margin-bottom:3px;"></div>
+          <div style="height:5px;width:80%;background:#ddd;border-radius:2px;"></div>
         </div>
       </div>
-    </section>
-
-    <section class="section section-alt" id="pricing">
-      <div class="container">
-        <h2 class="section-title">Free vs Pro</h2>
-        <p class="section-lead">Start free. Upgrade in the app when you need more.</p>
-        <div class="pricing-table-wrap">
-          <table class="pricing-table">
-            <thead>
-              <tr>
-                <th>Feature</th>
-                <th>Free</th>
-                <th>Drazlo Pro</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>Screen recording</td><td>✓</td><td>✓</td></tr>
-              <tr><td>Window selection</td><td>Up to 2</td><td>Up to 4</td></tr>
-              <tr><td>Export resolution</td><td>720p</td><td>1080p &amp; 4K</td></tr>
-              <tr><td>9:16 vertical layouts</td><td>—</td><td>✓</td></tr>
-              <tr><td>System &amp; combined audio</td><td>—</td><td>✓</td></tr>
-              <tr><td>PiP camera overlay</td><td>—</td><td>✓</td></tr>
-              <tr><td>Auto captions &amp; styles</td><td>—</td><td>✓</td></tr>
-              <tr><td>Watermark-free export</td><td>—</td><td>✓</td></tr>
-            </tbody>
-          </table>
+      <!-- window 3: terminal -->
+      <div class="win-tile win-t3" style="background:#0d1117;">
+        <div class="win-tile-chrome" style="background:#161b22;">
+          <div class="d" style="background:#FF5F57"></div>
+          <div class="d" style="background:#FFBD2E"></div>
+          <div class="d" style="background:#28C840"></div>
         </div>
-        <p class="pricing-note">Subscribe from <strong>Settings → Drazlo Pro</strong> in the app, or use web checkout when available. No account required to download and try the free tier.</p>
+        <div style="padding:5px 8px;">
+          <div style="height:5px;width:70%;background:rgba(134,239,172,0.5);border-radius:2px;margin-bottom:4px;"></div>
+          <div style="height:5px;width:50%;background:rgba(255,255,255,0.15);border-radius:2px;margin-bottom:4px;"></div>
+          <div style="height:5px;width:60%;background:rgba(59,130,246,0.4);border-radius:2px;"></div>
+        </div>
       </div>
-    </section>
+      <!-- window 4: figma-like -->
+      <div class="win-tile win-t4" style="background:#1c1c1c;">
+        <div class="win-tile-chrome" style="background:#2c2c2c;">
+          <div class="d" style="background:#FF5F57"></div>
+          <div class="d" style="background:#FFBD2E"></div>
+          <div class="d" style="background:#28C840"></div>
+        </div>
+        <div style="padding:5px 8px;display:flex;gap:4px;flex-wrap:wrap;">
+          <div style="width:30px;height:20px;background:rgba(59,130,246,0.3);border-radius:3px;"></div>
+          <div style="width:24px;height:20px;background:rgba(239,68,68,0.3);border-radius:50%;"></div>
+          <div style="width:28px;height:20px;background:rgba(134,239,172,0.3);border-radius:3px;"></div>
+        </div>
+      </div>
+      <!-- webcam -->
+      <div class="webcam-bubble">
+        <svg viewBox="0 0 26 26" fill="none">
+          <circle cx="13" cy="10" r="4" fill="rgba(255,255,255,0.5)"/>
+          <path d="M5 21c0-4 3.58-7 8-7s8 3 8 7" stroke="rgba(255,255,255,0.5)" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
 
-    <section class="section" id="requirements">
-      <div class="container narrow">
-        <h2 class="section-title">System requirements</h2>
-        <ul class="requirements-list">
-          <li>macOS 14.0 (Sonoma) or later</li>
-          <li>Apple Silicon Mac recommended for captions and 4K export</li>
-          <li>Screen Recording, Camera, and Microphone permissions when you use those features</li>
-          <li>Internet required for sign-in, Pro subscription, and app updates</li>
+    <!-- text -->
+    <div class="compositor-text">
+      <div class="eyebrow"><div class="eyebrow-dot"></div>Multi-window compositing</div>
+      <h2 class="section-title">Four windows.<br>One recording.</h2>
+      <p class="section-sub">Drazlo composites your chosen windows into a single live canvas — no editing after, no switching between captures.</p>
+      <div class="compositor-steps">
+        <div class="comp-step">
+          <div class="comp-step-num">1</div>
+          <div class="comp-step-text">
+            <h4>Pick any open windows</h4>
+            <p>Free users get 2, Pro gets 4. Live thumbnails show exactly what you'll capture.</p>
+          </div>
+        </div>
+        <div class="comp-step">
+          <div class="comp-step-num">2</div>
+          <div class="comp-step-text">
+            <h4>Webcam sits on top</h4>
+            <p>Face cam is a draggable PiP bubble. Circular or rounded rect, with a white or blue border.</p>
+          </div>
+        </div>
+        <div class="comp-step">
+          <div class="comp-step-num">3</div>
+          <div class="comp-step-text">
+            <h4>Record the whole composition</h4>
+            <p>H.264 1080p MP4 at 30fps. Pause and resume without gaps in the final file.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES GRID -->
+<section class="features-section section">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="eyebrow"><div class="eyebrow-dot"></div>Everything included</div>
+      <h2 class="section-title">Built for creators who ship.</h2>
+      <p class="section-sub">Every feature is designed around one goal: go from screen to post-ready video as fast as possible.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feat-card span2">
+        <div class="feat-icon">
+          <svg viewBox="0 0 22 22" fill="none"><rect x="2" y="3" width="8" height="7" rx="1.5" stroke="white" stroke-width="1.8"/><rect x="12" y="3" width="8" height="7" rx="1.5" stroke="white" stroke-width="1.8"/><rect x="2" y="12" width="8" height="7" rx="1.5" stroke="white" stroke-width="1.8"/><rect x="12" y="12" width="8" height="7" rx="1.5" stroke="white" stroke-width="1.8"/></svg>
+        </div>
+        <h3>Up to 4 windows — composed live</h3>
+        <p>Pick Safari, VS Code, Figma, Terminal — anything that's open. Drazlo arranges them into Stacked, Side-by-Side, PiP, or Freeform layouts with a live preview before you record a single frame. No post-editing required.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 22 22" fill="none"><rect x="3" y="5" width="16" height="12" rx="2" stroke="white" stroke-width="1.8"/><path d="M8 10h6M8 13h4" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+        <h3>Auto captions — on device</h3>
+        <p>WhisperKit transcribes your audio locally. No audio leaves your Mac. Choose from Classic, TikTok Bold, Highlighted, or Minimal styles. Drag placement. Export SRT.</p>
+        <div class="feat-pro-tag">⭐ Pro</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 22 22" fill="none"><rect x="4" y="8" width="14" height="10" rx="2" stroke="white" stroke-width="1.8"/><path d="M8 8V6a3 3 0 0 1 6 0v2" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <h3>9:16 vertical export</h3>
+        <p>Record in portrait mode for YouTube Shorts, TikTok, and Instagram Reels. Platform safe-zone overlays show where your content will be visible before you record.</p>
+        <div class="feat-pro-tag">⭐ Pro</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8" stroke="white" stroke-width="1.8"/><circle cx="11" cy="11" r="3" fill="white" opacity="0.5"/></svg>
+        </div>
+        <h3>Webcam PiP overlay</h3>
+        <p>Your face cam as a draggable bubble — 6 preset positions, circular or rounded rect shape, mirror toggle. Sits on top of all windows. Resizable in Freeform mode.</p>
+        <div class="feat-pro-tag">⭐ Pro</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 22 22" fill="none"><path d="M4 8h14M4 12h10M4 16h7" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <h3>System + mic audio</h3>
+        <p>Capture system audio, microphone, both combined, or nothing. Separate volume sliders for each source. Works with AirPods and Bluetooth headsets for mic input.</p>
+        <div class="feat-pro-tag">⭐ Pro</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 22 22" fill="none"><path d="M11 3v11M7 10l4 4 4-4" stroke="white" stroke-width="1.8" stroke-linecap="round"/><path d="M4 18h14" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <h3>1080p &amp; 4K export</h3>
+        <p>Free tier exports 720p with a small watermark. Pro unlocks 1080p and 4K (Apple Silicon), with no watermark. H.264 MP4 — ready for any platform.</p>
+        <div class="feat-pro-tag">⭐ Pro</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="4" stroke="white" stroke-width="1.8"/><path d="M11 3v2M11 17v2M3 11h2M17 11h2M5.6 5.6l1.4 1.4M15 15l1.4 1.4M5.6 16.4L7 15M15 7l1.4-1.4" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+        <h3>Auto-focus &amp; click zoom</h3>
+        <p>Drazlo highlights the active window automatically and can zoom toward cursor clicks up to 4×. Cursor highlight and ripple effects keep your audience focused on what matters.</p>
+        <div class="feat-pro-tag">⭐ Pro</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- USE CASES -->
+<section class="usecases-section section" id="usecases">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="eyebrow"><div class="eyebrow-dot"></div>Who uses Drazlo</div>
+      <h2 class="section-title">Made for creators<br>of every kind.</h2>
+      <p class="section-sub">From tutorial makers to stock traders to gamers — Drazlo handles any screen-based content format.</p>
+    </div>
+    <div class="usecases-grid">
+      <div class="usecase-card uc1">
+        <span class="usecase-icon">🎮</span>
+        <h4>Gaming reactions &amp; highlights</h4>
+        <p>Record gameplay + face + overlay simultaneously. Clip shorts from the best moments.</p>
+      </div>
+      <div class="usecase-card uc2">
+        <span class="usecase-icon">💻</span>
+        <h4>Coding tutorials</h4>
+        <p>Show your IDE, terminal, browser preview, and face all at once — no switching required.</p>
+      </div>
+      <div class="usecase-card uc3">
+        <span class="usecase-icon">📈</span>
+        <h4>Stock market tutorials</h4>
+        <p>Display your broker dashboard, charts, and commentary in a single professional layout.</p>
+      </div>
+      <div class="usecase-card uc4">
+        <span class="usecase-icon">🎵</span>
+        <h4>Music &amp; movie reactions</h4>
+        <p>Show the original content side-by-side with your face. High-RPM YouTube niche.</p>
+      </div>
+    </div>
+    <div class="usecases-grid-2">
+      <div class="usecase-card uc5">
+        <span class="usecase-icon">📺</span>
+        <h4>News anchoring</h4>
+        <p>Display headlines, articles, and your face simultaneously as an independent commentator.</p>
+      </div>
+      <div class="usecase-card uc6">
+        <span class="usecase-icon">🎨</span>
+        <h4>Design &amp; Figma courses</h4>
+        <p>Walk through your design process with Figma, references, and commentary in one frame.</p>
+      </div>
+      <div class="usecase-card uc7">
+        <span class="usecase-icon">⚡</span>
+        <h4>Vibe coding / build-in-public</h4>
+        <p>Document your app builds live. Code editor, terminal, browser — all captured, no switching.</p>
+      </div>
+      <div class="usecase-card uc8">
+        <span class="usecase-icon">🎬</span>
+        <h4>SaaS product demos</h4>
+        <p>Professional demo recordings for startups. Show multiple app windows with narration.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing-section section" id="pricing">
+  <div class="section-inner">
+    <div class="section-header" style="text-align:center;">
+      <div class="eyebrow" style="justify-content:center;"><div class="eyebrow-dot"></div>Pricing</div>
+      <h2 class="section-title">Start free. Go Pro when you're ready.</h2>
+      <p class="section-sub" style="margin:0 auto;text-align:center;">7-day free trial on all Pro plans. No credit card needed for the free tier.</p>
+    </div>
+    <div class="pricing-grid">
+      <!-- free -->
+      <div class="pricing-card">
+        <div class="pricing-plan">Free</div>
+        <div class="pricing-price">
+          <span class="pricing-amount">$0</span>
+          <span class="pricing-per">/forever</span>
+        </div>
+        <div class="pricing-billed">No credit card needed</div>
+        <ul class="pricing-features">
+          <li class="pricing-feature"><span class="check">✓</span> Up to 2 windows</li>
+          <li class="pricing-feature"><span class="check">✓</span> 16:9 landscape format</li>
+          <li class="pricing-feature"><span class="check">✓</span> Microphone audio</li>
+          <li class="pricing-feature"><span class="check">✓</span> 720p export</li>
+          <li class="pricing-feature"><span class="cross">✗</span> 9:16 vertical (Shorts/Reels)</li>
+          <li class="pricing-feature"><span class="cross">✗</span> Auto captions</li>
+          <li class="pricing-feature"><span class="cross">✗</span> Webcam PiP</li>
+          <li class="pricing-feature"><span class="cross">✗</span> Watermark-free export</li>
         </ul>
+        <a href="/download" class="btn btn-primary pricing-cta">Download Free</a>
       </div>
-    </section>
-
-    <section class="section cta-section">
-      <div class="container cta-inner">
-        <h2>Ready to record?</h2>
-        <p>Download the notarized installer, drag Drazlo to Applications, and start your first capture in minutes.</p>
-        <a class="btn btn-primary btn-lg" href="/download">Download Drazlo 1.0.7</a>
+      <!-- pro -->
+      <div class="pricing-card featured">
+        <div class="pricing-badge">Most popular</div>
+        <div class="pricing-plan" style="color:var(--blue)">Drazlo Pro — Annual</div>
+        <div class="pricing-price">
+          <span class="pricing-amount">$9</span>
+          <span class="pricing-per">/mo</span>
+        </div>
+        <div class="pricing-billed">Billed $108/yr · 7-day free trial</div>
+        <ul class="pricing-features">
+          <li class="pricing-feature"><span class="check">✓</span> Everything in Free</li>
+          <li class="pricing-feature"><span class="check">✓</span> Up to <strong>4 windows</strong></li>
+          <li class="pricing-feature"><span class="check">✓</span> 9:16 vertical — Shorts &amp; Reels</li>
+          <li class="pricing-feature"><span class="check">✓</span> System &amp; combined audio</li>
+          <li class="pricing-feature"><span class="check">✓</span> Webcam PiP overlay</li>
+          <li class="pricing-feature"><span class="check">✓</span> Auto captions (on-device)</li>
+          <li class="pricing-feature"><span class="check">✓</span> 1080p &amp; 4K export</li>
+          <li class="pricing-feature"><span class="check">✓</span> No watermark</li>
+        </ul>
+        <a href="#pricing" class="btn btn-primary pricing-cta btn-lg">Upgrade in App</a>
+        <div class="pricing-trial">Cancel anytime. Also available at $19/mo monthly.</div>
       </div>
-    </section>
-  </main>
-
-  <footer class="site-footer">
-    <div class="container footer-inner">
-      <p>© 2026 Simranjit Babbar · Drazlo</p>
-      <nav class="footer-nav">
-        <a href="/privacy/">Privacy</a>
-        <a href="/terms/">Terms</a>
-        <a href="/release-notes/1.0.6/">Release notes</a>
-        <a href="mailto:kiwibooking.nz@gmail.com">Support</a>
-      </nav>
     </div>
-  </footer>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="cta-section" id="download">
+  <div class="cta-glow"></div>
+  <h2>Record your Mac.<br>Post everywhere.</h2>
+  <p>Download Drazlo free — signed, notarized, and ready to run on macOS Sonoma.</p>
+  <div class="cta-actions">
+    <a href="/download" class="btn btn-white btn-lg">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 13.5L5 8.5h3.5V3h3v5.5H15L10 13.5ZM3 16.5h14v-2H3v2Z" fill="#1A56DB"/></svg>
+      Download Drazlo — Free
+    </a>
+    <a href="#pricing" class="btn btn-outline-white btn-lg">See Pro plans</a>
+  </div>
+  <p class="cta-note">macOS 14.0+ required · Apple Silicon &amp; Intel · v1.0.7</p>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo-wrap"><img src="/assets/logo.png" alt="Drazlo" class="footer-logo-img"></div>
+    <div class="footer-links">
+      <a href="/privacy/">Privacy Policy</a>
+      <a href="/terms/">Terms of Service</a>
+      <a href="mailto:kiwibooking.nz@gmail.com">Help &amp; Support</a>
+      <a href="https://www.youtube.com/@simranjit2000" target="_blank">YouTube</a>
+    </div>
+    <div class="footer-copy">© 2026 Simranjit Babbar · drazlo.app</div>
+  </div>
+</footer>
+<!-- Deployed via GitHub Actions -->
 </body>
 </html>
