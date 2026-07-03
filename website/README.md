@@ -1,6 +1,8 @@
-# Drazlo website (`drazlo.app`)
+# Drazlo website
 
-Static marketing site + legal pages + Sparkle appcast. Deployed via **Vercel** (or any static host).
+Static marketing site + legal pages + Sparkle appcast. Deployed on **Vercel** at [drazlo.vercel.app](https://drazlo.vercel.app).
+
+Release DMGs are hosted on the **public** [GitHub Releases](https://github.com/JeeT001/FrameFlow/releases) page — no GitHub login required to download.
 
 ## Structure
 
@@ -10,7 +12,7 @@ Static marketing site + legal pages + Sparkle appcast. Deployed via **Vercel** (
 | `/download` | Redirect → latest GitHub Release DMG |
 | `/downloads/Drazlo-x.y.z.dmg` | Redirect → matching GitHub Release asset |
 | `/appcast.xml` | Sparkle auto-update feed (copy of `Resources/Release/appcast.xml`) |
-| `/release-notes/1.0.6/` | Release notes for Sparkle `releaseNotesLink` |
+| `/release-notes/1.0.x/` | Release notes for Sparkle `releaseNotesLink` |
 | `/privacy/`, `/terms/` | Legal pages |
 
 ## Local preview
@@ -25,24 +27,22 @@ Note: `/download` redirect only works on Vercel; locally use the GitHub Releases
 
 ## Deploy to Vercel
 
-1. Connect repo (or `website/` folder) to Vercel
-2. Set production domain: **drazlo.app**
-3. Deploy from `main` when `website/` changes
+1. Connect repo (root directory = `website/`) to Vercel
+2. Production URL: **https://drazlo.vercel.app** (optional custom domain: `drazlo.app`)
+3. Push `website/` changes to `main` → **Deploy Website** GitHub Action runs automatically
 
-After each release:
+After each app release:
 
-1. Update `vercel.json` `/download` redirect to latest version (or use `/downloads/Drazlo-<version>.dmg`)
-2. Copy `Resources/Release/appcast.xml` → `website/appcast.xml`
+1. Sign DMG → update `website/appcast.xml` + `Resources/Release/appcast.xml`
+2. Update `vercel.json` `/download` redirect to latest version
 3. Add `website/release-notes/<version>/index.html` if needed
-4. Redeploy
+4. Push to `main`
 
-## Latest download (v1.0.7)
+## Latest download (v1.0.8)
 
-- **Homepage CTA:** https://drazlo.app/download
-- **Direct GitHub asset:** https://github.com/JeeT001/FrameFlow/releases/download/v1.0.7/Drazlo-1.0.7.dmg
-- **Appcast:** https://drazlo.app/appcast.xml
-
-**Sparkle requires `drazlo.app` DNS + Vercel deploy.** See `Docs/SPARKLE_FEED_FIX.md` if Check for Updates fails.
+- **Homepage CTA:** https://drazlo.vercel.app/download
+- **Direct GitHub asset:** https://github.com/JeeT001/FrameFlow/releases/download/v1.0.8/Drazlo-1.0.8.dmg
+- **Appcast:** https://drazlo.vercel.app/appcast.xml
 
 ## Do not commit
 

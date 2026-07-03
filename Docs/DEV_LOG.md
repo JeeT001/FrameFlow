@@ -3871,3 +3871,26 @@ Added `.github/workflows/deploy-website.yml` (optional CI deploy; needs Vercel s
 curl -sf https://drazlo.app/appcast.xml | grep sparkle:version
 ```
 
+---
+
+## Public repo — security audit & MIT license (2026-07-03)
+
+**Goal:** Allow anonymous DMG downloads (private repo forced GitHub login on release assets).
+
+**Audit (Phase 1):** No secrets in tracked files or git history — `Config.swift`, notary/sparkle env, signing certs, RevenueCat production keys, service-role JWT all clean. Supabase anon key in `Config.example.swift` is intentional (RLS enforced).
+
+**Phase 2:** Added MIT `LICENSE`, root `README.md`, hardened `.gitignore` (`.cursor/`, `supabase/.temp/`, `*.log`, `.env`).
+
+**Visibility:** `JeeT001/FrameFlow` set to **public** via `gh repo edit`.
+
+**Verified (logged-out):**
+- `https://github.com/.../Drazlo-1.0.8.dmg` → **302** to release asset (was 404 when private)
+- `https://drazlo.vercel.app/download` → v1.0.8 DMG
+- Appcast build **8** enclosure URL downloads without auth
+- Release CI workflow unchanged; GitHub Actions secrets intact
+
+**Suggested commit:**
+```
+docs: note public repo and anonymous release downloads
+```
+

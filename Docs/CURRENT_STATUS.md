@@ -1,17 +1,19 @@
 # FrameFlow — Current Status
 
-**Last updated:** 2026-06-29  
-**Version:** v1.0.7 (released — Sparkle auto-update fixed)
+**Last updated:** 2026-07-03  
+**Version:** v1.0.8 (released — Sparkle feed on Vercel)  
+**Repository:** [public on GitHub](https://github.com/JeeT001/FrameFlow) — anonymous DMG download works
 
 ## Current Phase
 
-**Phase 19 — Final Preparation** (Days 50–55) on branch `day55`
+**Phase 19 — Final Preparation** (Days 50–55) — **launch-ready** (marketing pending)
 
 ## Recently completed
 
-- **Day 55 (in repo)** — Launch homepage, download redirect, Sparkle appcast v1.0.6, `SUPublicEDKey`, release notes page, `Docs/LAUNCH_DAY55.md`
-- **v1.0.6** — CI release: gradient-only DMG (no arrow), notarized (`Drazlo-1.0.6.dmg`)
-- **v1.0.5** — Combined audio fix, UI polish, Stripe checkout
+- **Day 54 billing** — RevenueCat Production, Stripe Live, webhook + Supabase secrets, test purchase → Pro unlock, CI `REVENUECAT_API_KEY`
+- **v1.0.8** — Sparkle + legal URLs point to `https://drazlo.vercel.app`; Check for Updates verified
+- **Day 55 (technical)** — Marketing site on Vercel, GitHub Actions auto-deploy, appcast build 8, `/download` → v1.0.8 DMG
+- **v1.0.7** — `SUPublicEDKey` shipped in binary
 - **Day 49** — GitHub Actions release pipeline validated
 
 ## Day 55 deliverables
@@ -19,31 +21,30 @@
 | Item | Status |
 |------|--------|
 | Marketing homepage (`website/index.html`) | Done |
-| Download URL (`/download` → GitHub Release DMG) | Done (deploy to Vercel) |
-| Sparkle appcast (`website/appcast.xml`, `Resources/Release/appcast.xml`) | Done |
-| `SUPublicEDKey` in Info.plist | Done — ships in **next** app tag |
-| Release notes page `/release-notes/1.0.6/` | Done |
+| **GitHub repo public** | Done — releases downloadable without login |
+| Vercel deploy + auto-deploy on `main` | Done — `https://drazlo.vercel.app` |
+| Download URL (`/download` → GitHub Release DMG) | Done — v1.0.8 |
+| Sparkle appcast | Done — build 8 on Vercel |
+| Release notes `/release-notes/1.0.8/` | Done |
 | Marketing drafts (Product Hunt, email, social) | Done — `Docs/LAUNCH_DAY55.md` |
-| **Manual:** Deploy website to drazlo.app | **Blocked — domain NXDOMAIN** (see `Docs/SPARKLE_FEED_FIX.md`) |
-| **Manual:** Publish appcast at production URL | **Blocked — drazlo.app not in DNS** |
-| **Manual:** YouTube demo, Product Hunt, email, social | Pending |
+| **Manual:** YouTube demo, Product Hunt, email, social | **Pending** |
+| **Optional:** Register `drazlo.app` → same Vercel project | Deferred |
 
-**Download:** https://drazlo.app/download (after deploy) or [GitHub v1.0.6](https://github.com/JeeT001/FrameFlow/releases/download/v1.0.6/Drazlo-1.0.6.dmg)
+**Download:** https://drazlo.vercel.app/download · [GitHub v1.0.8](https://github.com/JeeT001/FrameFlow/releases/download/v1.0.8/Drazlo-1.0.8.dmg) (no GitHub account required)
 
-## Day 54 gate (billing — verify before paid launch)
+## Day 54 gate (billing)
 
 | Item | Status |
 |------|--------|
-| RevenueCat Production + Stripe Live | **Manual** |
-| Webhook + Supabase secrets | **Manual** |
-| Purchase → Pro unlock (~30s) | **Verify** |
+| RevenueCat Production + Stripe Live | Done |
+| Webhook + Supabase secrets | Done |
+| Purchase → Pro unlock (~30s) | Done |
+| GitHub secret `REVENUECAT_API_KEY` (CI) | Done |
 
 ## Next Task
 
-1. **Deploy** `website/` to Vercel (drazlo.app)
-2. **Tag v1.0.7** (or patch) to ship `SUPublicEDKey` in binary + test Sparkle
-3. **Finish Day 54** — Production billing verification
-4. **Publish** marketing assets from `LAUNCH_DAY55.md`
+1. **Publish marketing** — demo video, Product Hunt, email, social (use `drazlo.vercel.app` links in drafts)
+2. **Optional later** — register `drazlo.app`, add to Vercel Domains
 
 ## Reference Docs
 
