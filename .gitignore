@@ -6,6 +6,13 @@ Scripts/sparkle.env
 *.sparkle_private_key
 .sparkle/
 
+# Editor / local tooling
+.cursor/
+supabase/.temp/
+*.log
+.env
+.env.*
+
 # macOS
 .DS_Store
 
