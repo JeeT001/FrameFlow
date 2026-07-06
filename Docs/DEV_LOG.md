@@ -3916,3 +3916,5 @@ docs: note public repo and anonymous release downloads
 fix: export captions from editor memory and hide dev UI in Release (v1.0.9)
 ```
 
+**Shipped:** Tag `v1.0.9` — CI green, appcast build 9, `/download` → v1.0.9 DMG (2026-07-06).
+

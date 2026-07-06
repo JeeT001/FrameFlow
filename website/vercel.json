@@ -4,12 +4,13 @@
     { "source": "/terms", "destination": "/terms/" },
     { "source": "/release-notes/1.0.6", "destination": "/release-notes/1.0.6/" },
     { "source": "/release-notes/1.0.7", "destination": "/release-notes/1.0.7/" },
-    { "source": "/release-notes/1.0.8", "destination": "/release-notes/1.0.8/" }
+    { "source": "/release-notes/1.0.8", "destination": "/release-notes/1.0.8/" },
+    { "source": "/release-notes/1.0.9", "destination": "/release-notes/1.0.9/" }
   ],
   "redirects": [
     {
       "source": "/download",
-      "destination": "https://github.com/JeeT001/FrameFlow/releases/download/v1.0.8/Drazlo-1.0.8.dmg",
+      "destination": "https://github.com/JeeT001/FrameFlow/releases/download/v1.0.9/Drazlo-1.0.9.dmg",
       "permanent": false
     },
     {
