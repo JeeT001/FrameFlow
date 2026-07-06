@@ -6,6 +6,7 @@
 import AVFoundation
 import AppKit
 import Foundation
+import os.log
 import QuartzCore
 import UserNotifications
 
@@ -79,6 +80,8 @@ enum ExportServiceError: LocalizedError {
 final class ExportService: @unchecked Sendable {
     static let shared = ExportService()
 
+    private static let log = Logger(subsystem: "com.Simranjit.FrameFlow", category: "ExportService")
+
     private let captionEngine = CaptionEngine.shared
     private let captionRenderer = CaptionRenderer.shared
     private let fileManager = FileManager.default
@@ -103,6 +106,10 @@ final class ExportService: @unchecked Sendable {
                 probedFromAsset: probedLeadingGap
             )
             let trackDurations = await RecordingMediaTiming.probeTrackDurations(asset: originalAsset)
+
+            Self.log.info(
+                "export start burn=\(options.applyCaptionsIfAvailable) gap=\(resolvedLeadingGap, format: .fixed(precision: 3)) audio=\(trackDurations.audioSeconds, format: .fixed(precision: 2)) video=\(trackDurations.videoSeconds, format: .fixed(precision: 2))"
+            )
 
             #if DEBUG
             print(
@@ -152,6 +159,8 @@ final class ExportService: @unchecked Sendable {
                 guard !burnSegments.isEmpty else {
                     throw ExportServiceError.captionsTrimmedEmpty
                 }
+
+                Self.log.info("burn-in segments=\(burnSegments.count) first=\(burnSegments.first?.startTime ?? -1, format: .fixed(precision: 2)) lastEnd=\(burnSegments.last?.endTime ?? -1, format: .fixed(precision: 2))")
 
                 #if DEBUG
                 print(

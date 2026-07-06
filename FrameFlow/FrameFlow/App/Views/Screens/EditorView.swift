@@ -51,6 +51,10 @@ struct EditorView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
+                    exportVM.prepareEditorExport(
+                        segments: viewModel.resolvedEditorCaptionSegmentsForExport(),
+                        leadingGap: captionVM.videoContentStartSeconds
+                    )
                     exportVM.isExportSheetPresented = true
                 } label: {
                     Label("Export Video", systemImage: "square.and.arrow.up.fill")

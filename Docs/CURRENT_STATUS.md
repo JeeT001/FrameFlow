@@ -1,7 +1,7 @@
 # FrameFlow — Current Status
 
-**Last updated:** 2026-07-03  
-**Version:** v1.0.8 (released — Sparkle feed on Vercel)  
+**Last updated:** 2026-07-06  
+**Version:** v1.0.9 (ready to tag — caption export fix + dev UI gated)  
 **Repository:** [public on GitHub](https://github.com/JeeT001/FrameFlow) — anonymous DMG download works
 
 ## Current Phase
@@ -11,6 +11,8 @@
 ## Recently completed
 
 - **Day 54 billing** — RevenueCat Production, Stripe Live, webhook + Supabase secrets, test purchase → Pro unlock, CI `REVENUECAT_API_KEY`
+- **v1.0.9 (local)** — Editor caption burn-in when sidecar unavailable; dev route picker + debug Settings hidden in Release
+- **Public repo** — GitHub public; anonymous DMG download via `/download`
 - **v1.0.8** — Sparkle + legal URLs point to `https://drazlo.vercel.app`; Check for Updates verified
 - **Day 55 (technical)** — Marketing site on Vercel, GitHub Actions auto-deploy, appcast build 8, `/download` → v1.0.8 DMG
 - **v1.0.7** — `SUPublicEDKey` shipped in binary
@@ -43,8 +45,9 @@
 
 ## Next Task
 
-1. **Publish marketing** — demo video, Product Hunt, email, social (use `drazlo.vercel.app` links in drafts)
-2. **Optional later** — register `drazlo.app`, add to Vercel Domains
+1. **Tag v1.0.9** → CI DMG → Sparkle appcast + `/download`
+2. **Publish marketing** — demo video, Product Hunt, email, social (use `drazlo.vercel.app` links in drafts)
+3. **Optional later** — register `drazlo.app`, add to Vercel Domains
 
 ## Reference Docs
 

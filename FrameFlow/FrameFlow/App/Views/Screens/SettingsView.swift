@@ -27,7 +27,9 @@ struct SettingsView: View {
                 appearanceCard
                 supportCreatorCard
                 aboutCard
+                #if DEBUG
                 debugCard
+                #endif
             }
             .padding(28)
             .frame(maxWidth: 720, alignment: .leading)
@@ -355,6 +357,7 @@ struct SettingsView: View {
         }
     }
 
+    #if DEBUG
     private var debugCard: some View {
         SettingsSectionCard(title: "Device Capabilities (Debug)", icon: "cpu") {
             VStack(alignment: .leading, spacing: 14) {
@@ -375,17 +378,16 @@ struct SettingsView: View {
                     value: "\(viewModel.capabilities.compositeFrameRate)"
                 )
 
-                #if DEBUG
                 Divider()
 
                 SettingsToggleRow(
                     title: "Show Lifetime plan on Subscription screen",
                     isOn: Bindable(viewModel.settings).showLifetimeDeal
                 )
-                #endif
             }
         }
     }
+    #endif
 
     private var micDeviceSelection: Binding<String?> {
         Binding(

@@ -86,7 +86,9 @@ final class EditorViewModel {
 
         lines.append("Length: \(TrimHelpers.formatTimelineTime(sourceDurationSeconds))")
 
-        if isPro, applyCaptions, exportViewModel.hasCaptionsAvailable, !captionViewModel.segments.isEmpty {
+        let editorSegments = resolvedEditorCaptionSegments()
+        let willBurnCaptions = applyCaptions && !editorSegments.isEmpty
+        if isPro, willBurnCaptions {
             let style = captionViewModel.selectedStyle
             let position = style.verticalPosition.rawValue.capitalized
             lines.append("Captions: burned in (\(style.displayName), \(position))")
@@ -95,7 +97,7 @@ final class EditorViewModel {
         lines.append("Resolution: \(resolution.displayName)")
         lines.append(isPro ? "No watermark" : "Watermark: \(AppBranding.name)")
 
-        if isPro, alsoSaveSRT, applyCaptions, !captionViewModel.segments.isEmpty {
+        if isPro, alsoSaveSRT, willBurnCaptions {
             lines.append("SRT file saved alongside MP4")
         }
 
@@ -822,9 +824,12 @@ final class EditorViewModel {
     }
 
     func exportRecording(isPro: Bool, appState: AppState) async {
-        exportViewModel.captionSegmentsForExport = resolvedEditorCaptionSegments()
+        let segments = resolvedEditorCaptionSegments()
+        exportViewModel.prepareEditorExport(
+            segments: segments,
+            leadingGap: captionViewModel.videoContentStartSeconds
+        )
         exportViewModel.captionStyleForExport = captionViewModel.selectedStyle
-        exportViewModel.editorLeadingGapForExport = captionViewModel.videoContentStartSeconds
 
         if exportViewModel.applyCaptions {
             if exportViewModel.resolvedCaptionSegments().isEmpty {
@@ -935,6 +940,10 @@ final class EditorViewModel {
                     : nil
             )
         }
+    }
+
+    func resolvedEditorCaptionSegmentsForExport() -> [CaptionSegment] {
+        resolvedEditorCaptionSegments()
     }
 
     private func resolvedEditorCaptionSegments() -> [CaptionSegment] {

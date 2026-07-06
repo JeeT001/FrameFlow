@@ -4,6 +4,12 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.9] — 2026-07-06
+
+### Fixed
+- Export now burns in captions when segments exist in the post-record editor but the caption sidecar is not yet on disk (common with Developer ID installs and security-scoped save folders)
+- Hide developer route picker and Settings “Device Capabilities (Debug)” section in Release builds
+
 ## [1.0.8] — 2026-06-30
 
 ### Fixed

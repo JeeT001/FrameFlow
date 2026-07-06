@@ -42,7 +42,19 @@ final class ExportViewModel {
 
     var hasCaptionsAvailable: Bool {
         guard recording != nil else { return false }
+        if !captionSegmentsForExport.isEmpty {
+            return true
+        }
         return !resolvedCaptionSegments().isEmpty
+    }
+
+    /// Editor path: captions often exist only in memory until export. Sync before showing the sheet.
+    func prepareEditorExport(segments: [CaptionSegment], leadingGap: Double) {
+        captionSegmentsForExport = segments
+        editorLeadingGapForExport = leadingGap
+        if !segments.isEmpty {
+            applyCaptions = true
+        }
     }
 
     var showsCaptionsBadge: Bool {

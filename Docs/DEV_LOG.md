@@ -3894,3 +3894,25 @@ curl -sf https://drazlo.app/appcast.xml | grep sparkle:version
 docs: note public repo and anonymous release downloads
 ```
 
+---
+
+## v1.0.9 — caption export + hide dev UI (2026-07-06)
+
+**Symptom:** Installed CI v1.0.8 DMG — editor preview showed captions but export had no burn-in and A/V drift ~30s. Xcode Release on same branch worked.
+
+**Root cause:** Not branch drift (`v1.0.8` tag = same Swift as `day55`). Export used `applyCaptionsIfAvailable: applyCaptions && !segments.isEmpty` but `applyCaptions` was false when caption sidecar was not on disk (Developer ID app vs dev cert bookmarks). In-memory editor segments were ignored for the burn-in gate.
+
+**Fix:**
+- `ExportViewModel.prepareEditorExport()` — sync segments + leading gap before export sheet/export
+- `hasCaptionsAvailable` considers in-memory `captionSegmentsForExport`
+- Release `os_log` in `ExportService` for burn-in diagnostics
+
+**Also:** `RoutePickerMenu` and Settings `debugCard` wrapped in `#if DEBUG` (were shipping in v1.0.8 DMG).
+
+**Verify:** `./Scripts/archive_release.sh` → install → export with captions; no dev UI in Release.
+
+**Suggested commit:**
+```
+fix: export captions from editor memory and hide dev UI in Release (v1.0.9)
+```
+

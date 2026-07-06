@@ -24,11 +24,13 @@ struct MainAppView: View {
             )
         } detail: {
             RouteDetailView(route: router.currentRoute)
+                #if DEBUG
                 .toolbar {
                     ToolbarItem(placement: .automatic) {
                         RoutePickerMenu(selection: $router.currentRoute)
                     }
                 }
+                #endif
         }
         .navigationSplitViewStyle(.balanced)
         .background(AppColors.background)
@@ -57,6 +59,7 @@ struct MainAppView: View {
     }
 }
 
+#if DEBUG
 private struct RoutePickerMenu: View {
     @Binding var selection: AppRoute
 
@@ -70,6 +73,7 @@ private struct RoutePickerMenu: View {
         .labelsHidden()
     }
 }
+#endif
 
 #Preview {
     MainAppView()
