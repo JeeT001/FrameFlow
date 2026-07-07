@@ -5,6 +5,7 @@
 
 import AVFoundation
 import AppKit
+import os.log
 import QuartzCore
 
 enum CaptionRendererError: LocalizedError {
@@ -23,6 +24,8 @@ enum CaptionRendererError: LocalizedError {
 
 final class CaptionRenderer: @unchecked Sendable {
     static let shared = CaptionRenderer()
+
+    private static let log = Logger(subsystem: "com.Simranjit.FrameFlow", category: "CaptionRenderer")
 
     private init() {}
 
@@ -108,6 +111,12 @@ final class CaptionRenderer: @unchecked Sendable {
         let preferredTransform = try await sourceVideoTrack.load(.preferredTransform)
         var renderSize = naturalSize.applying(preferredTransform)
         renderSize = CGSize(width: abs(renderSize.width), height: abs(renderSize.height))
+
+        if let first = timedSegments.first {
+            Self.log.info(
+                "burn-in segments=\(timedSegments.count) firstLen=\(first.text.count) render=\(Int(renderSize.width))x\(Int(renderSize.height))"
+            )
+        }
 
         #if DEBUG
         print(
@@ -396,7 +405,7 @@ final class CaptionRenderer: @unchecked Sendable {
             return container
         }
         container.frame = boxFrame
-        container.masksToBounds = true
+        container.masksToBounds = false
 
         let cornerRadius = CaptionLayoutMath.cornerRadius(style: style, containerHeight: renderSize.height)
         if style.showsBackground, let background = style.nsBackgroundColor {
@@ -418,20 +427,38 @@ final class CaptionRenderer: @unchecked Sendable {
             height: boxFrame.height - padding.vertical * 2
         )
 
-        let textLayer = CATextLayer()
-        textLayer.frame = textFrame
-        textLayer.string = makeCaptionAttributedString(
-            text: text,
-            style: style,
-            renderSize: renderSize,
-            highlightedWord: highlightedWord
-        )
-        textLayer.alignmentMode = .center
-        textLayer.isWrapped = true
-        textLayer.truncationMode = .end
-        textLayer.contentsScale = 2
-        textLayer.masksToBounds = true
-        container.addSublayer(textLayer)
+        let fontSize = CaptionLayoutMath.exportFontSize(style: style, containerHeight: renderSize.height)
+        let font = exportFont(style: style, fontSize: fontSize)
+        let textColor = exportTextColor(style: style)
+
+        if let highlightedWord, text.contains(highlightedWord) {
+            let attributed = makeCaptionAttributedString(
+                text: text,
+                style: style,
+                renderSize: renderSize,
+                highlightedWord: highlightedWord
+            )
+            let rasterLayer = makeRasterizedTextLayer(
+                attributedString: attributed,
+                frame: textFrame,
+                renderSize: renderSize
+            )
+            container.addSublayer(rasterLayer)
+        } else {
+            let textLayer = CATextLayer()
+            configureOfflineCATextLayer(
+                textLayer,
+                text: text,
+                font: font,
+                foregroundColor: textColor,
+                frame: textFrame,
+                renderSize: renderSize
+            )
+            if style.preset == .minimal {
+                applyMinimalExportShadow(to: textLayer, renderSize: renderSize)
+            }
+            container.addSublayer(textLayer)
+        }
 
         if style.preset == .custom {
             let layoutScale = CaptionLayoutMath.scale(for: renderSize.height)
@@ -655,39 +682,159 @@ final class CaptionRenderer: @unchecked Sendable {
         layer.add(fadeOut, forKey: "tiktokWordFadeOut")
     }
 
-    private func makeTextLayer(text: String, style: CaptionStyleConfig, renderSize: CGSize) -> CATextLayer {
+    private func makeTextLayer(text: String, style: CaptionStyleConfig, renderSize: CGSize) -> CALayer {
         let fontSize = CaptionLayoutMath.scaledFontSize(style: style, containerHeight: renderSize.height)
         let font = NSFont(name: style.fontName, size: fontSize) ?? NSFont.boldSystemFont(ofSize: fontSize)
-
-        let textLayer = CATextLayer()
-        var attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: style.nsTextColor,
-        ]
-        if style.showsBackground, let background = style.nsBackgroundColor {
-            attributes[.backgroundColor] = background
-        }
-        textLayer.string = NSAttributedString(string: text, attributes: attributes)
-        textLayer.fontSize = font.pointSize
-        textLayer.alignmentMode = .center
-        textLayer.isWrapped = true
-        textLayer.contentsScale = 2
-        textLayer.masksToBounds = false
-
         let frame = CaptionLayoutMath.captionFrame(style: style, containerSize: renderSize)
+
+        let container = CALayer()
         guard frame.width > 1, frame.height > 1 else {
-            textLayer.frame = CGRect(x: 0, y: renderSize.height * 0.75, width: renderSize.width, height: renderSize.height * 0.12)
-            return textLayer
+            container.frame = CGRect(
+                x: 0,
+                y: renderSize.height * 0.75,
+                width: renderSize.width,
+                height: renderSize.height * 0.12
+            )
+            let textLayer = CATextLayer()
+            configureOfflineCATextLayer(
+                textLayer,
+                text: text,
+                font: font,
+                foregroundColor: style.nsTextColor,
+                frame: container.bounds,
+                renderSize: renderSize
+            )
+            container.addSublayer(textLayer)
+            return container
         }
-        textLayer.frame = frame
+
+        container.frame = frame
 
         if style.showsBackground, let background = style.nsBackgroundColor {
             let cornerRadius = CaptionLayoutMath.cornerRadius(style: style, containerHeight: renderSize.height)
-            textLayer.backgroundColor = background.cgColor
-            textLayer.cornerRadius = cornerRadius
+            let backgroundLayer = CALayer()
+            backgroundLayer.frame = container.bounds
+            backgroundLayer.backgroundColor = background.cgColor
+            backgroundLayer.cornerRadius = cornerRadius
+            container.addSublayer(backgroundLayer)
         }
 
-        return textLayer
+        let textLayer = CATextLayer()
+        configureOfflineCATextLayer(
+            textLayer,
+            text: text,
+            font: font,
+            foregroundColor: style.nsTextColor,
+            frame: container.bounds,
+            renderSize: renderSize
+        )
+        container.addSublayer(textLayer)
+
+        return container
+    }
+
+    /// CATextLayer settings that render reliably in AVFoundation offline export (matches WatermarkCompositor).
+    private func configureOfflineCATextLayer(
+        _ textLayer: CATextLayer,
+        text: String,
+        font: NSFont,
+        foregroundColor: NSColor,
+        frame: CGRect,
+        renderSize: CGSize
+    ) {
+        textLayer.frame = frame
+        textLayer.string = text
+        textLayer.font = font
+        textLayer.fontSize = font.pointSize
+        textLayer.foregroundColor = foregroundColor.cgColor
+        textLayer.alignmentMode = .center
+        textLayer.isWrapped = true
+        textLayer.truncationMode = .end
+        textLayer.contentsScale = exportContentsScale(for: renderSize)
+        textLayer.masksToBounds = false
+        textLayer.beginTime = AVCoreAnimationBeginTimeAtZero
+        textLayer.duration = 1e6
+    }
+
+    private func applyMinimalExportShadow(to textLayer: CATextLayer, renderSize: CGSize) {
+        let scale = CaptionLayoutMath.scale(for: renderSize.height)
+        textLayer.shadowColor = NSColor.black.cgColor
+        textLayer.shadowOpacity = 0.8
+        textLayer.shadowRadius = 2 * scale
+        textLayer.shadowOffset = CGSize(width: 0, height: -1)
+    }
+
+    private func exportContentsScale(for renderSize: CGSize) -> CGFloat {
+        max(2, (renderSize.height / CaptionLayoutMath.referenceHeight) * 2)
+    }
+
+    /// Rasterize multi-style attributed text for offline export (highlighted phrases).
+    private func makeRasterizedTextLayer(
+        attributedString: NSAttributedString,
+        frame: CGRect,
+        renderSize: CGSize
+    ) -> CALayer {
+        let layer = CALayer()
+        layer.frame = frame
+        layer.contentsScale = exportContentsScale(for: renderSize)
+        layer.contents = rasterizedContents(
+            from: attributedString,
+            size: frame.size,
+            scale: layer.contentsScale
+        )
+        layer.masksToBounds = false
+        layer.beginTime = AVCoreAnimationBeginTimeAtZero
+        layer.duration = 1e6
+        return layer
+    }
+
+    private func rasterizedContents(
+        from attributedString: NSAttributedString,
+        size: CGSize,
+        scale: CGFloat
+    ) -> CGImage? {
+        guard size.width > 1, size.height > 1 else { return nil }
+
+        let pixelWidth = max(1, Int((size.width * scale).rounded(.up)))
+        let pixelHeight = max(1, Int((size.height * scale).rounded(.up)))
+
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: pixelWidth,
+            pixelsHigh: pixelHeight,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else { return nil }
+
+        rep.size = size
+
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+
+        let textStorage = NSTextStorage(attributedString: attributedString)
+        let layoutManager = NSLayoutManager()
+        textStorage.addLayoutManager(layoutManager)
+        let textContainer = NSTextContainer(size: size)
+        textContainer.lineFragmentPadding = 0
+        textContainer.maximumNumberOfLines = 0
+        textContainer.lineBreakMode = .byWordWrapping
+        layoutManager.addTextContainer(textContainer)
+
+        let glyphRange = layoutManager.glyphRange(for: textContainer)
+        let usedRect = layoutManager.usedRect(for: textContainer)
+        let drawOrigin = CGPoint(
+            x: max(0, (size.width - usedRect.width) / 2),
+            y: max(0, (size.height - usedRect.height) / 2)
+        )
+        layoutManager.drawGlyphs(forGlyphRange: glyphRange, at: drawOrigin)
+
+        NSGraphicsContext.restoreGraphicsState()
+        return rep.cgImage
     }
 
     private func srtTimestamp(_ seconds: Double) -> String {

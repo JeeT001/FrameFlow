@@ -1,7 +1,7 @@
 # FrameFlow — Current Status
 
-**Last updated:** 2026-07-06  
-**Version:** v1.0.10 (released — caption export on all paths)  
+**Last updated:** 2026-07-07  
+**Version:** v1.0.11 (local — caption text burn-in fix)  
 **Repository:** [public on GitHub](https://github.com/JeeT001/FrameFlow) — anonymous DMG download works
 
 ## Current Phase
@@ -12,7 +12,7 @@
 
 - **Day 54 billing** — RevenueCat Production, Stripe Live, webhook + Supabase secrets, test purchase → Pro unlock, CI `REVENUECAT_API_KEY`
 - **v1.0.9 (released)** — Editor caption burn-in when sidecar unavailable; dev route picker + debug Settings hidden in Release
-- **v1.0.10 (released)** — Export screen syncs in-memory captions (Dashboard/Detail → Export path); staged handoff via AppState
+- **v1.0.11 (local)** — CaptionRenderer uses offline-export-safe CATextLayer (plain string + font) so Classic captions show text, not just bar
 - **Public repo** — GitHub public; anonymous DMG download via `/download`
 - **v1.0.8** — Sparkle + legal URLs point to `https://drazlo.vercel.app`; Check for Updates verified
 - **Day 55 (technical)** — Marketing site on Vercel, GitHub Actions auto-deploy, appcast build 8, `/download` → v1.0.8 DMG

@@ -3941,3 +3941,24 @@ fix: sync in-memory captions on Export screen path (v1.0.10)
 
 **Shipped:** Tag `v1.0.10` — CI green, appcast build 10, `/download` → v1.0.10 DMG (2026-07-07).
 
+---
+
+## v1.0.11 — caption text in export burn-in (2026-07-07)
+
+**Symptom:** v1.0.10 DMG — editor preview shows captions; exported MP4 shows black caption **bar** but **no text** in QuickTime.
+
+**Root cause:** `makeCaptionExportLayer` used `CATextLayer.string = NSAttributedString(...)` without plain `font` / `fontSize` / `foregroundColor`. AVFoundation offline Core Animation export renders the background layer but not attributed-string text. SwiftUI preview unaffected.
+
+**Fix:**
+- `configureOfflineCATextLayer` — plain string + font + foregroundColor + `AVCoreAnimationBeginTimeAtZero` timing (matches `WatermarkCompositor`)
+- Highlighted phrases rasterized to `CGImage` via `NSLayoutManager`
+- TikTok word layers use same pattern with background container
+- Release `os_log` on burn-in segment count + first segment text length
+
+**Verify:** `./Scripts/archive_release.sh` → install → Classic export → **readable text in QuickTime** (not empty bar).
+
+**Suggested commit:**
+```
+fix: render caption text in export burn-in (v1.0.11)
+```
+

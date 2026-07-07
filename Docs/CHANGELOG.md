@@ -4,7 +4,12 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
-## [1.0.10] — 2026-07-06
+## [1.0.11] — 2026-07-07
+
+### Fixed
+- Caption burn-in export now renders **readable text** in Classic, Minimal, TikTok, and Highlighted styles — not just the background bar — using Core Animation text settings compatible with AVFoundation offline export
+
+## [1.0.10] — 2026-07-07
 
 ### Fixed
 - Export screen (Dashboard / Recording Detail → Export) now syncs in-memory captions from `CaptionGenerationState` and staged handoff — not only disk sidecar — so caption burn-in works on installed Developer ID builds when the v1.0.9 editor-only fix did not apply
