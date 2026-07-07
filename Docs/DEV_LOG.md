@@ -3993,3 +3993,5 @@ fix: Sparkle in-app updates for sandboxed Drazlo builds
 Enable Installer Launcher Service and add Sparkle XPC mach-lookup entitlements so Check for Updates can install without "launching the installer" errors.
 ```
 
+**Shipped:** Tag `v1.0.12` — CI green, appcast build 12, `/download` → v1.0.12 DMG (2026-07-07).
+
