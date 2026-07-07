@@ -4058,3 +4058,21 @@ fix(layout): seed Free-form windows in TL/TR/BL/BR grid by count
 Replace center-cluster defaults with count-aware quadrant centers and smaller max fractions so 1–4 selected windows no longer overlap in layout preview.
 ```
 
+---
+
+## Marketing website — layouts & trim showcase (2026-07-07)
+
+**Goal:** Update `website/` to highlight v1.0.13 trim editor, 9:16 vertical layouts, and creator layout examples.
+
+**Changes:**
+- New sections: `#layouts` (16:9 vs 9:16 + preset strip), `#layout-examples` (6 creator cards), `#editor` (trim range slider mockup)
+- Nav links, hero/meta/OG copy, 5-step workflow, features + use cases + pricing updates
+- CSS mockups only — no new JS or build step
+
+**Suggested commit:**
+```
+docs(website): showcase trim editor, vertical layouts, and layout examples
+
+Add layouts section with 9:16 Shorts/Reels/TikTok preview, post-recording trim editor block, and creator layout example cards including mobile dev 4-window Free grid.
+```
+

@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Drazlo — Record your Mac. Post everywhere.</title>
-  <meta name="description" content="Drazlo is a native macOS screen recorder for creators — multi-window capture, PiP, captions, and export for YouTube, TikTok, and Shorts.">
+  <meta name="description" content="Drazlo is a native macOS screen recorder for creators — multi-window layouts, 9:16 Shorts/Reels/TikTok preview, post-recording trim, captions, and export.">
   <meta property="og:title" content="Drazlo — Record your Mac. Post everywhere.">
-  <meta property="og:description" content="Pick up to 4 windows, add your webcam, generate captions, and export in minutes.">
+  <meta property="og:description" content="Pick windows, preview layouts for YouTube or TikTok, record, trim in the editor, and export with captions.">
   <meta property="og:url" content="https://drazlo.vercel.app">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -18,6 +18,8 @@
   <a href="/" class="nav-logo"><img src="/assets/logo.png" alt="Drazlo" class="nav-logo-img"></a>
   <ul class="nav-links">
     <li><a href="#features">Features</a></li>
+    <li><a href="#layouts">Layouts</a></li>
+    <li><a href="#editor">Trim editor</a></li>
     <li><a href="#how">How it works</a></li>
     <li><a href="#usecases">Use cases</a></li>
     <li><a href="#pricing">Pricing</a></li>
@@ -40,7 +42,7 @@
   </div>
 
   <h1>Record your Mac.<br><span class="accent">Post everywhere.</span></h1>
-  <p class="hero-sub">Pick up to 4 open windows, add your webcam, choose a layout, hit record — get a polished 1080p video with captions in minutes.</p>
+  <p class="hero-sub">Pick up to 4 open windows, preview layouts for YouTube or TikTok, hit record — then trim, caption, and export a polished 1080p video in minutes.</p>
 
   <div class="hero-actions">
     <a href="/download" class="btn btn-white btn-lg">
@@ -190,7 +192,8 @@
     <div class="section-header" style="text-align:center;">
       <div class="eyebrow" style="justify-content:center;"><div class="eyebrow-dot"></div>The workflow</div>
       <h2 class="section-title" style="max-width:500px;margin:0 auto 14px;">Pick. Layout. Record. Done.</h2>
-      <p class="section-sub" style="margin:0 auto;text-align:center;">Four steps from idea to a shareable video — no editing software required.</p>
+      <p class="section-sub" style="margin:0 auto;text-align:center;">From idea to shareable video — minimal editing with trim and captions built in.</p>
+      <div class="workflow-chip">Record → Trim → Caption → Export</div>
     </div>
     <div class="how-steps">
       <div class="how-step">
@@ -229,12 +232,95 @@
       <div class="how-step">
         <div class="how-step-icon">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <rect x="3" y="8" width="16" height="4" rx="2" stroke="#1A56DB" stroke-width="1.8"/>
+            <circle cx="7" cy="10" r="2" fill="#1A56DB"/>
+            <circle cx="15" cy="10" r="2" fill="#1A56DB"/>
+          </svg>
+        </div>
+        <h4>Trim the clip</h4>
+        <p>Cut dead air and false starts with drag handles on a range slider. Preview updates instantly.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
             <path d="M11 3v11M7 10l4 4 4-4" stroke="#1A56DB" stroke-width="1.8" stroke-linecap="round"/>
             <path d="M4 18h14" stroke="#1A56DB" stroke-width="1.8" stroke-linecap="round"/>
           </svg>
         </div>
         <h4>Caption &amp; export</h4>
-        <p>Auto-generate captions on-device, pick a style, then export 1080p MP4. No watermark on Pro.</p>
+        <p>Generate captions on-device, pick a style, then export 1080p MP4. Captions outside the trim are excluded.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LAYOUTS & VERTICAL PREVIEW -->
+<section class="layouts-section section" id="layouts">
+  <div class="section-inner">
+    <div class="section-header" style="text-align:center;">
+      <div class="eyebrow" style="justify-content:center;"><div class="eyebrow-dot"></div>Layouts &amp; formats</div>
+      <h2 class="section-title" style="max-width:600px;margin:0 auto 14px;">Layouts for every platform</h2>
+      <p class="section-sub" style="margin:0 auto;text-align:center;max-width:620px;">16:9 for YouTube. 9:16 for Shorts, Reels, and TikTok — with live preview before you record.</p>
+    </div>
+
+    <div class="format-compare">
+      <div class="format-frame-card">
+        <div class="format-label">16:9 Horizontal</div>
+        <div class="format-canvas format-canvas-landscape">
+          <div class="format-win format-win-tl"><span>VS Code</span></div>
+          <div class="format-win format-win-tr"><span>Browser</span></div>
+          <div class="format-win format-win-bl"><span>Terminal</span></div>
+          <div class="format-win format-win-br"><span>Figma</span></div>
+        </div>
+        <p class="format-caption">Landscape compositor for YouTube tutorials, demos, and long-form content.</p>
+      </div>
+      <div class="format-frame-card format-frame-card-pro">
+        <div class="format-label">9:16 Vertical <span class="feat-pro-tag" style="margin:0 0 0 6px;vertical-align:middle;">⭐ Pro</span></div>
+        <div class="format-canvas format-canvas-portrait">
+          <div class="safe-zone safe-zone-top">TikTok UI</div>
+          <div class="format-win format-win-stack-top"><span>IDE</span></div>
+          <div class="format-win format-win-stack-mid"><span>Terminal</span></div>
+          <div class="safe-zone safe-zone-bottom">Reels buttons</div>
+          <div class="format-pip-face"></div>
+        </div>
+        <p class="format-caption">Portrait export for Shorts, Reels, and TikTok. Safe-zone overlays show where platform chrome hides your content.</p>
+      </div>
+    </div>
+
+    <div class="preset-strip">
+      <div class="preset-mini-card">
+        <div class="preset-diagram preset-stacked">
+          <div class="preset-block"></div>
+          <div class="preset-block"></div>
+        </div>
+        <h4>Stacked</h4>
+        <p>Windows top/bottom — great for code + output</p>
+      </div>
+      <div class="preset-mini-card">
+        <div class="preset-diagram preset-side">
+          <div class="preset-block"></div>
+          <div class="preset-block"></div>
+        </div>
+        <h4>Side-by-side</h4>
+        <p>Two apps left/right — reactions, comparisons</p>
+      </div>
+      <div class="preset-mini-card">
+        <div class="preset-diagram preset-pip">
+          <div class="preset-block preset-block-main"></div>
+          <div class="preset-block preset-block-pip"></div>
+        </div>
+        <h4>PiP</h4>
+        <p>One main window + face in the corner</p>
+      </div>
+      <div class="preset-mini-card">
+        <div class="preset-diagram preset-free">
+          <div class="preset-block preset-q tl"></div>
+          <div class="preset-block preset-q tr"></div>
+          <div class="preset-block preset-q bl"></div>
+          <div class="preset-block preset-q br"></div>
+        </div>
+        <h4>Free</h4>
+        <p>Drag 1–4 windows into a custom TL/TR/BL/BR grid</p>
       </div>
     </div>
   </div>
@@ -317,7 +403,7 @@
     <div class="compositor-text">
       <div class="eyebrow"><div class="eyebrow-dot"></div>Multi-window compositing</div>
       <h2 class="section-title">Four windows.<br>One recording.</h2>
-      <p class="section-sub">Drazlo composites your chosen windows into a single live canvas — no editing after, no switching between captures.</p>
+      <p class="section-sub">Drazlo composites your chosen windows into a single live canvas — record once, trim lightly, export ready for any platform.</p>
       <div class="compositor-steps">
         <div class="comp-step">
           <div class="comp-step-num">1</div>
@@ -359,7 +445,14 @@
           <svg viewBox="0 0 22 22" fill="none"><rect x="2" y="3" width="8" height="7" rx="1.5" stroke="white" stroke-width="1.8"/><rect x="12" y="3" width="8" height="7" rx="1.5" stroke="white" stroke-width="1.8"/><rect x="2" y="12" width="8" height="7" rx="1.5" stroke="white" stroke-width="1.8"/><rect x="12" y="12" width="8" height="7" rx="1.5" stroke="white" stroke-width="1.8"/></svg>
         </div>
         <h3>Up to 4 windows — composed live</h3>
-        <p>Pick Safari, VS Code, Figma, Terminal — anything that's open. Drazlo arranges them into Stacked, Side-by-Side, PiP, or Freeform layouts with a live preview before you record a single frame. No post-editing required.</p>
+        <p>Pick Safari, VS Code, Figma, Terminal — anything that's open. Drazlo arranges them into Stacked, Side-by-Side, PiP, or Free layouts with a live preview before you record a single frame.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 22 22" fill="none"><rect x="3" y="8" width="16" height="4" rx="2" stroke="white" stroke-width="1.8"/><circle cx="7" cy="10" r="2" fill="white" opacity="0.7"/><circle cx="15" cy="10" r="2" fill="white" opacity="0.7"/></svg>
+        </div>
+        <h3>Post-recording trim editor</h3>
+        <p>Drag in/out handles on a range slider after recording. Preview updates instantly. Export only the trimmed range — original file on disk unchanged.</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon">
@@ -373,8 +466,8 @@
         <div class="feat-icon">
           <svg viewBox="0 0 22 22" fill="none"><rect x="4" y="8" width="14" height="10" rx="2" stroke="white" stroke-width="1.8"/><path d="M8 8V6a3 3 0 0 1 6 0v2" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
         </div>
-        <h3>9:16 vertical export</h3>
-        <p>Record in portrait mode for YouTube Shorts, TikTok, and Instagram Reels. Platform safe-zone overlays show where your content will be visible before you record.</p>
+        <h3>9:16 vertical + platform preview</h3>
+        <p>Record in portrait for YouTube Shorts, TikTok, and Instagram Reels. Live layout preview with safe-zone overlays so captions stay visible above platform UI chrome.</p>
         <div class="feat-pro-tag">⭐ Pro</div>
       </div>
       <div class="feat-card">
@@ -413,6 +506,169 @@
   </div>
 </section>
 
+<!-- LAYOUT EXAMPLES -->
+<section class="layout-examples-section section" id="layout-examples">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="eyebrow"><div class="eyebrow-dot"></div>Creator setups</div>
+      <h2 class="section-title">See how creators use Drazlo</h2>
+      <p class="section-sub">Real setups you can copy — pick the same windows, choose Free or a preset, hit record.</p>
+    </div>
+
+    <div class="layout-examples-grid">
+      <!-- Example 1: Mobile dev -->
+      <article class="layout-example-card">
+        <span class="layout-example-tag">Mobile dev</span>
+        <h3>App Store demo — 4 windows</h3>
+        <p>Ship App Store demos without OBS gymnastics. Simulator, code, AI, and docs in one frame.</p>
+        <ul class="layout-example-windows">
+          <li>iOS Simulator (TL)</li>
+          <li>Xcode / VS Code (TR)</li>
+          <li>Cursor / ChatGPT (BL)</li>
+          <li>Safari docs (BR)</li>
+        </ul>
+        <div class="layout-example-meta"><span>16:9</span><span>Free layout</span></div>
+        <div class="example-mockup example-mockup-landscape">
+          <div class="ex-win ex-tl"><span>Simulator</span></div>
+          <div class="ex-win ex-tr"><span>Xcode</span></div>
+          <div class="ex-win ex-bl"><span>AI chat</span></div>
+          <div class="ex-win ex-br"><span>Safari</span></div>
+        </div>
+      </article>
+
+      <!-- Example 2: Short-form coding -->
+      <article class="layout-example-card">
+        <span class="layout-example-tag">Short-form</span>
+        <h3>Vertical coding tip</h3>
+        <p>Vertical coding clips for TikTok and Shorts. Safe-zone preview keeps captions out of the UI chrome.</p>
+        <ul class="layout-example-windows">
+          <li>IDE (top)</li>
+          <li>Terminal output (middle)</li>
+          <li>Face PiP (corner)</li>
+        </ul>
+        <div class="layout-example-meta"><span>9:16</span><span>Stacked + PiP</span><span class="meta-pro">Pro</span></div>
+        <div class="example-mockup example-mockup-portrait">
+          <div class="ex-safe-top">TikTok UI</div>
+          <div class="ex-win ex-stack-top"><span>IDE</span></div>
+          <div class="ex-win ex-stack-mid"><span>Terminal</span></div>
+          <div class="ex-pip"></div>
+          <div class="ex-safe-bottom">Reels</div>
+        </div>
+      </article>
+
+      <!-- Example 3: Design tutorial -->
+      <article class="layout-example-card">
+        <span class="layout-example-tag">Tutorial</span>
+        <h3>Design walkthrough</h3>
+        <p>Walk through designs with references visible the whole time.</p>
+        <ul class="layout-example-windows">
+          <li>Figma (left)</li>
+          <li>Reference browser (right)</li>
+          <li>Face PiP</li>
+        </ul>
+        <div class="layout-example-meta"><span>16:9</span><span>Side-by-side</span></div>
+        <div class="example-mockup example-mockup-side">
+          <div class="ex-win ex-left"><span>Figma</span></div>
+          <div class="ex-win ex-right"><span>Browser</span></div>
+          <div class="ex-pip ex-pip-tr"></div>
+        </div>
+      </article>
+
+      <!-- Example 4: AI / vibe coding -->
+      <article class="layout-example-card">
+        <span class="layout-example-tag">Vibe coding</span>
+        <h3>Build in public</h3>
+        <p>Show the full stack: prompt, code, terminal, and running app.</p>
+        <ul class="layout-example-windows">
+          <li>Editor</li>
+          <li>AI chat</li>
+          <li>Terminal</li>
+          <li>Browser preview</li>
+        </ul>
+        <div class="layout-example-meta"><span>16:9</span><span>Free / Stacked</span></div>
+        <div class="example-mockup example-mockup-landscape">
+          <div class="ex-win ex-tl"><span>Editor</span></div>
+          <div class="ex-win ex-tr"><span>AI chat</span></div>
+          <div class="ex-win ex-bl"><span>Terminal</span></div>
+          <div class="ex-win ex-br"><span>Preview</span></div>
+        </div>
+      </article>
+
+      <!-- Example 5: Reaction -->
+      <article class="layout-example-card">
+        <span class="layout-example-tag">Reaction</span>
+        <h3>Side-by-side reaction</h3>
+        <p>Content on the left, your face on the right — classic reaction layout.</p>
+        <ul class="layout-example-windows">
+          <li>Video / content (left)</li>
+          <li>Face cam (right)</li>
+        </ul>
+        <div class="layout-example-meta"><span>16:9</span><span>Side-by-side</span></div>
+        <div class="example-mockup example-mockup-side">
+          <div class="ex-win ex-left"><span>Content</span></div>
+          <div class="ex-win ex-right ex-face"><span>Face</span></div>
+        </div>
+      </article>
+
+      <!-- Example 6: SaaS demo -->
+      <article class="layout-example-card">
+        <span class="layout-example-tag">SaaS demo</span>
+        <h3>Product walkthrough</h3>
+        <p>Full-screen product demo with a face bubble for trust and personality.</p>
+        <ul class="layout-example-windows">
+          <li>Product app (full screen)</li>
+          <li>Face PiP bubble</li>
+        </ul>
+        <div class="layout-example-meta"><span>16:9</span><span>PiP</span></div>
+        <div class="example-mockup example-mockup-pip">
+          <div class="ex-win ex-full"><span>Product app</span></div>
+          <div class="ex-pip ex-pip-br"></div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- TRIM EDITOR -->
+<section class="editor-section section" id="editor">
+  <div class="section-inner editor-section-inner">
+    <div class="editor-text">
+      <div class="eyebrow"><div class="eyebrow-dot"></div>Post-recording editor</div>
+      <h2 class="section-title">Trim before you export</h2>
+      <p class="section-sub">Cut the “um”, dead air, and false starts — without leaving Drazlo.</p>
+      <ul class="editor-bullets">
+        <li>Drag <strong>in/out handles</strong> on a range slider after recording</li>
+        <li>Preview updates instantly as you trim</li>
+        <li>Export only the trimmed range</li>
+        <li>Captions outside the trim are excluded from export <span class="feat-pro-tag" style="margin-left:4px;">⭐ Pro burn-in</span></li>
+        <li>Original recording file on disk stays unchanged</li>
+      </ul>
+    </div>
+    <div class="trim-mockup-card">
+      <div class="trim-mockup-header">
+        <span class="trim-mockup-label">TRIM CLIP</span>
+        <button type="button" class="trim-reset-btn" disabled>Reset trim</button>
+      </div>
+      <p class="trim-status">Export 0:42 · In 0:05 · Out 0:47</p>
+      <div class="trim-slider" aria-hidden="true">
+        <div class="trim-track">
+          <div class="trim-excluded trim-excluded-left"></div>
+          <div class="trim-selected"></div>
+          <div class="trim-excluded trim-excluded-right"></div>
+          <div class="trim-thumb trim-thumb-in"></div>
+          <div class="trim-thumb trim-thumb-out"></div>
+          <div class="trim-playhead"></div>
+        </div>
+      </div>
+      <div class="trim-duration-callout">
+        <span class="trim-before">Full clip · 1:02</span>
+        <span class="trim-arrow">→</span>
+        <span class="trim-after">Export · 0:42</span>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- USE CASES -->
 <section class="usecases-section section" id="usecases">
   <div class="section-inner">
@@ -430,7 +686,7 @@
       <div class="usecase-card uc2">
         <span class="usecase-icon">💻</span>
         <h4>Coding tutorials</h4>
-        <p>Show your IDE, terminal, browser preview, and face all at once — no switching required.</p>
+        <p>Show your IDE, terminal, browser preview, and face all at once — no switching required. <a href="#layout-examples" class="usecase-link">See layout examples →</a></p>
       </div>
       <div class="usecase-card uc3">
         <span class="usecase-icon">📈</span>
@@ -463,6 +719,16 @@
         <span class="usecase-icon">🎬</span>
         <h4>SaaS product demos</h4>
         <p>Professional demo recordings for startups. Show multiple app windows with narration.</p>
+      </div>
+      <div class="usecase-card uc9">
+        <span class="usecase-icon">📱</span>
+        <h4>Mobile dev demos</h4>
+        <p>Simulator, Xcode, AI assistant, and docs in a 4-window Free grid. <a href="#layout-examples" class="usecase-link">See setup →</a></p>
+      </div>
+      <div class="usecase-card uc10">
+        <span class="usecase-icon">📲</span>
+        <h4>Short-form vertical</h4>
+        <p>9:16 coding tips for TikTok and Shorts with safe-zone preview. <a href="#layouts" class="usecase-link">Vertical layouts →</a></p>
       </div>
     </div>
   </div>
@@ -506,6 +772,7 @@
           <span class="pricing-per">/mo</span>
         </div>
         <div class="pricing-billed">Billed $108/yr · 7-day free trial</div>
+        <p class="pricing-pro-note">Includes trim editor, 9:16 vertical, captions, and 4-window layouts.</p>
         <ul class="pricing-features">
           <li class="pricing-feature"><span class="check">✓</span> Everything in Free</li>
           <li class="pricing-feature"><span class="check">✓</span> Up to <strong>4 windows</strong></li>

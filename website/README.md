@@ -8,7 +8,7 @@ Release DMGs are hosted on the **public** [GitHub Releases](https://github.com/J
 
 | Path | Purpose |
 |------|---------|
-| `/` | Launch homepage — download, features, pricing |
+| `/` | Launch homepage — download, features, layouts, trim editor, pricing |
 | `/download` | Redirect → latest GitHub Release DMG |
 | `/downloads/Drazlo-x.y.z.dmg` | Redirect → matching GitHub Release asset |
 | `/appcast.xml` | Sparkle auto-update feed (copy of `Resources/Release/appcast.xml`) |
@@ -38,10 +38,12 @@ After each app release:
 3. Add `website/release-notes/<version>/index.html` if needed
 4. Push to `main`
 
-## Latest download (v1.0.8)
+Homepage sections (anchors): `#features`, `#layouts`, `#editor`, `#layout-examples`, `#how`, `#usecases`, `#pricing`.
+
+## Latest download (v1.0.13)
 
 - **Homepage CTA:** https://drazlo.vercel.app/download
-- **Direct GitHub asset:** https://github.com/JeeT001/FrameFlow/releases/download/v1.0.8/Drazlo-1.0.8.dmg
+- **Direct GitHub asset:** https://github.com/JeeT001/FrameFlow/releases/download/v1.0.13/Drazlo-1.0.13.dmg
 - **Appcast:** https://drazlo.vercel.app/appcast.xml
 
 ## Do not commit
