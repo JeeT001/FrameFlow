@@ -3962,3 +3962,5 @@ fix: sync in-memory captions on Export screen path (v1.0.10)
 fix: render caption text in export burn-in (v1.0.11)
 ```
 
+**Shipped:** Tag `v1.0.11` — CI green, appcast build 11, `/download` → v1.0.11 DMG (2026-07-07).
+
