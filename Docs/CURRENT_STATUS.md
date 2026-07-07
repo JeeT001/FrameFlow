@@ -1,7 +1,7 @@
 # FrameFlow — Current Status
 
 **Last updated:** 2026-07-07  
-**Version:** v1.0.13 (releasing — editor trim, Free layout grid, range slider UI)  
+**Version:** v1.0.13 (released — editor trim, Free layout grid, range slider UI)  
 **Repository:** [public on GitHub](https://github.com/JeeT001/FrameFlow) — anonymous DMG download works
 
 ## Current Phase
@@ -29,14 +29,14 @@
 | Marketing homepage (`website/index.html`) | Done |
 | **GitHub repo public** | Done — releases downloadable without login |
 | Vercel deploy + auto-deploy on `main` | Done — `https://drazlo.vercel.app` |
-| Download URL (`/download` → GitHub Release DMG) | Done — v1.0.12 |
-| Sparkle appcast | Done — build 12 on Vercel |
-| Release notes `/release-notes/1.0.12/` | Done |
+| Download URL (`/download` → GitHub Release DMG) | Done — v1.0.13 |
+| Sparkle appcast | Done — build 13 on Vercel |
+| Release notes `/release-notes/1.0.13/` | Done |
 | Marketing drafts (Product Hunt, email, social) | Done — `Docs/LAUNCH_DAY55.md` |
 | **Manual:** YouTube demo, Product Hunt, email, social | **Pending** |
 | **Optional:** Register `drazlo.app` → same Vercel project | Deferred |
 
-**Download:** https://drazlo.vercel.app/download · [GitHub v1.0.12](https://github.com/JeeT001/FrameFlow/releases/download/v1.0.12/Drazlo-1.0.12.dmg) (no GitHub account required)
+**Download:** https://drazlo.vercel.app/download · [GitHub v1.0.13](https://github.com/JeeT001/FrameFlow/releases/download/v1.0.13/Drazlo-1.0.13.dmg) (no GitHub account required)
 
 ## Day 54 gate (billing)
 
