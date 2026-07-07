@@ -266,22 +266,43 @@
     <div class="format-compare">
       <div class="format-frame-card">
         <div class="format-label">16:9 Horizontal</div>
-        <div class="format-canvas format-canvas-landscape">
-          <div class="format-win format-win-tl"><span>VS Code</span></div>
-          <div class="format-win format-win-tr"><span>Browser</span></div>
-          <div class="format-win format-win-bl"><span>Terminal</span></div>
-          <div class="format-win format-win-br"><span>Figma</span></div>
+        <div class="format-canvas mockup-canvas mockup-canvas-16x9">
+          <div class="win-tile win-tile-static win-pos-tl win-theme-editor">
+            <div class="win-tile-chrome"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-line blue w80"></div><div class="faux-line dim w60"></div><div class="faux-line green w50"></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-tr win-theme-browser">
+            <div class="win-tile-chrome chrome-light"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="faux-url-bar"></div>
+            <div class="win-tile-body"><div class="faux-line gray w90"></div><div class="faux-line gray w70"></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-bl win-theme-terminal">
+            <div class="win-tile-chrome chrome-dark"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-line green w70"></div><div class="faux-line dim w50"></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-br win-theme-figma">
+            <div class="win-tile-chrome chrome-figma"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="faux-shapes"><div class="faux-shape blue"></div><div class="faux-shape red"></div><div class="faux-shape green"></div></div>
+          </div>
         </div>
         <p class="format-caption">Landscape compositor for YouTube tutorials, demos, and long-form content.</p>
       </div>
       <div class="format-frame-card format-frame-card-pro">
         <div class="format-label">9:16 Vertical <span class="feat-pro-tag" style="margin:0 0 0 6px;vertical-align:middle;">⭐ Pro</span></div>
-        <div class="format-canvas format-canvas-portrait">
+        <div class="format-canvas mockup-canvas mockup-canvas-9x16">
           <div class="safe-zone safe-zone-top">TikTok UI</div>
-          <div class="format-win format-win-stack-top"><span>IDE</span></div>
-          <div class="format-win format-win-stack-mid"><span>Terminal</span></div>
+          <div class="win-tile win-tile-static win-pos-stack-top win-theme-editor">
+            <div class="win-tile-chrome"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-line blue w80"></div><div class="faux-line dim w60"></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-stack-mid win-theme-terminal">
+            <div class="win-tile-chrome chrome-dark"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-line green w70"></div><div class="faux-line dim w50"></div></div>
+          </div>
           <div class="safe-zone safe-zone-bottom">Reels buttons</div>
-          <div class="format-pip-face"></div>
+          <div class="webcam-bubble webcam-bubble-static webcam-bubble-sm">
+            <svg viewBox="0 0 26 26" fill="none"><circle cx="13" cy="10" r="4" fill="rgba(255,255,255,0.5)"/><path d="M5 21c0-4 3.58-7 8-7s8 3 8 7" stroke="rgba(255,255,255,0.5)" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
         </div>
         <p class="format-caption">Portrait export for Shorts, Reels, and TikTok. Safe-zone overlays show where platform chrome hides your content.</p>
       </div>
@@ -330,7 +351,7 @@
 <section class="compositor-section" id="features">
   <div class="compositor-wrap">
     <!-- animated canvas -->
-    <div class="compositor-canvas">
+    <div class="compositor-canvas mockup-canvas">
       <!-- rec indicator -->
       <div class="rec-indicator">
         <div class="rec-dot"></div>
@@ -518,6 +539,26 @@
     <div class="layout-examples-grid">
       <!-- Example 1: Mobile dev -->
       <article class="layout-example-card">
+        <div class="mockup-canvas mockup-canvas-16x9 mockup-canvas-in-card" aria-hidden="true">
+          <div class="rec-indicator"><div class="rec-dot"></div><span class="rec-time">00:42</span></div>
+          <div class="win-tile win-tile-static win-pos-tl win-theme-simulator">
+            <div class="win-tile-chrome"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-phone"><div class="faux-phone-notch"></div><div class="faux-line blue w60"></div><div class="faux-line dim w50"></div></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-tr win-theme-editor">
+            <div class="win-tile-chrome"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-line blue w80"></div><div class="faux-line dim w70"></div><div class="faux-line green w50"></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-bl win-theme-chat">
+            <div class="win-tile-chrome chrome-light"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-chat-bubble"><div class="faux-line gray2 w80"></div></div><div class="faux-chat-bubble ai"><div class="faux-line blue w70"></div></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-br win-theme-browser">
+            <div class="win-tile-chrome chrome-light"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="faux-url-bar"></div>
+            <div class="win-tile-body"><div class="faux-line gray w90"></div><div class="faux-line gray w60"></div></div>
+          </div>
+        </div>
         <span class="layout-example-tag">Mobile dev</span>
         <h3>App Store demo — 4 windows</h3>
         <p>Ship App Store demos without OBS gymnastics. Simulator, code, AI, and docs in one frame.</p>
@@ -527,17 +568,26 @@
           <li>Cursor / ChatGPT (BL)</li>
           <li>Safari docs (BR)</li>
         </ul>
-        <div class="layout-example-meta"><span>16:9</span><span>Free layout</span></div>
-        <div class="example-mockup example-mockup-landscape">
-          <div class="ex-win ex-tl"><span>Simulator</span></div>
-          <div class="ex-win ex-tr"><span>Xcode</span></div>
-          <div class="ex-win ex-bl"><span>AI chat</span></div>
-          <div class="ex-win ex-br"><span>Safari</span></div>
-        </div>
+        <div class="layout-example-meta"><span>16:9</span><span>Free layout</span><span class="meta-pro">Pro</span></div>
       </article>
 
       <!-- Example 2: Short-form coding -->
       <article class="layout-example-card">
+        <div class="mockup-canvas mockup-canvas-9x16 mockup-canvas-in-card" aria-hidden="true">
+          <div class="safe-zone safe-zone-top">TikTok UI</div>
+          <div class="win-tile win-tile-static win-pos-stack-top win-theme-editor">
+            <div class="win-tile-chrome"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-line blue w80"></div><div class="faux-line dim w60"></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-stack-mid win-theme-terminal">
+            <div class="win-tile-chrome chrome-dark"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-line green w70"></div><div class="faux-line dim w50"></div></div>
+          </div>
+          <div class="safe-zone safe-zone-bottom">Reels</div>
+          <div class="webcam-bubble webcam-bubble-static webcam-bubble-sm">
+            <svg viewBox="0 0 26 26" fill="none"><circle cx="13" cy="10" r="4" fill="rgba(255,255,255,0.5)"/><path d="M5 21c0-4 3.58-7 8-7s8 3 8 7" stroke="rgba(255,255,255,0.5)" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+        </div>
         <span class="layout-example-tag">Short-form</span>
         <h3>Vertical coding tip</h3>
         <p>Vertical coding clips for TikTok and Shorts. Safe-zone preview keeps captions out of the UI chrome.</p>
@@ -547,17 +597,24 @@
           <li>Face PiP (corner)</li>
         </ul>
         <div class="layout-example-meta"><span>9:16</span><span>Stacked + PiP</span><span class="meta-pro">Pro</span></div>
-        <div class="example-mockup example-mockup-portrait">
-          <div class="ex-safe-top">TikTok UI</div>
-          <div class="ex-win ex-stack-top"><span>IDE</span></div>
-          <div class="ex-win ex-stack-mid"><span>Terminal</span></div>
-          <div class="ex-pip"></div>
-          <div class="ex-safe-bottom">Reels</div>
-        </div>
       </article>
 
       <!-- Example 3: Design tutorial -->
       <article class="layout-example-card">
+        <div class="mockup-canvas mockup-canvas-16x9 mockup-canvas-in-card" aria-hidden="true">
+          <div class="win-tile win-tile-static win-pos-left win-theme-figma">
+            <div class="win-tile-chrome chrome-figma"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="faux-shapes"><div class="faux-shape blue"></div><div class="faux-shape red"></div><div class="faux-shape green"></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-right win-theme-browser">
+            <div class="win-tile-chrome chrome-light"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="faux-url-bar"></div>
+            <div class="win-tile-body"><div class="faux-line gray w90"></div><div class="faux-line gray w70"></div><div class="faux-line gray w80"></div></div>
+          </div>
+          <div class="webcam-bubble webcam-bubble-static webcam-bubble-sm webcam-bubble-tr">
+            <svg viewBox="0 0 26 26" fill="none"><circle cx="13" cy="10" r="4" fill="rgba(255,255,255,0.5)"/><path d="M5 21c0-4 3.58-7 8-7s8 3 8 7" stroke="rgba(255,255,255,0.5)" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+        </div>
         <span class="layout-example-tag">Tutorial</span>
         <h3>Design walkthrough</h3>
         <p>Walk through designs with references visible the whole time.</p>
@@ -567,15 +624,29 @@
           <li>Face PiP</li>
         </ul>
         <div class="layout-example-meta"><span>16:9</span><span>Side-by-side</span></div>
-        <div class="example-mockup example-mockup-side">
-          <div class="ex-win ex-left"><span>Figma</span></div>
-          <div class="ex-win ex-right"><span>Browser</span></div>
-          <div class="ex-pip ex-pip-tr"></div>
-        </div>
       </article>
 
       <!-- Example 4: AI / vibe coding -->
       <article class="layout-example-card">
+        <div class="mockup-canvas mockup-canvas-16x9 mockup-canvas-in-card" aria-hidden="true">
+          <div class="win-tile win-tile-static win-pos-tl win-theme-editor">
+            <div class="win-tile-chrome"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-line blue w80"></div><div class="faux-line dim w60"></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-tr win-theme-chat">
+            <div class="win-tile-chrome chrome-light"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-chat-bubble"><div class="faux-line gray2 w70"></div></div><div class="faux-chat-bubble ai"><div class="faux-line blue w80"></div></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-bl win-theme-terminal">
+            <div class="win-tile-chrome chrome-dark"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-line green w70"></div><div class="faux-line dim w50"></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-br win-theme-browser">
+            <div class="win-tile-chrome chrome-light"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="faux-url-bar"></div>
+            <div class="win-tile-body"><div class="faux-line gray w90"></div><div class="faux-line green w60"></div></div>
+          </div>
+        </div>
         <span class="layout-example-tag">Vibe coding</span>
         <h3>Build in public</h3>
         <p>Show the full stack: prompt, code, terminal, and running app.</p>
@@ -586,16 +657,22 @@
           <li>Browser preview</li>
         </ul>
         <div class="layout-example-meta"><span>16:9</span><span>Free / Stacked</span></div>
-        <div class="example-mockup example-mockup-landscape">
-          <div class="ex-win ex-tl"><span>Editor</span></div>
-          <div class="ex-win ex-tr"><span>AI chat</span></div>
-          <div class="ex-win ex-bl"><span>Terminal</span></div>
-          <div class="ex-win ex-br"><span>Preview</span></div>
-        </div>
       </article>
 
       <!-- Example 5: Reaction -->
       <article class="layout-example-card">
+        <div class="mockup-canvas mockup-canvas-16x9 mockup-canvas-in-card" aria-hidden="true">
+          <div class="win-tile win-tile-static win-pos-left win-theme-video">
+            <div class="win-tile-chrome"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-video-play"></div><div class="faux-line dim w80"></div></div>
+          </div>
+          <div class="win-tile win-tile-static win-pos-right win-theme-browser">
+            <div class="win-tile-chrome chrome-light"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body" style="display:flex;align-items:center;justify-content:center;height:calc(100% - 22px);">
+              <svg viewBox="0 0 26 26" fill="none" width="40%" style="opacity:0.5"><circle cx="13" cy="10" r="4" fill="rgba(26,86,219,0.6)"/><path d="M5 21c0-4 3.58-7 8-7s8 3 8 7" stroke="rgba(26,86,219,0.6)" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+        </div>
         <span class="layout-example-tag">Reaction</span>
         <h3>Side-by-side reaction</h3>
         <p>Content on the left, your face on the right — classic reaction layout.</p>
@@ -604,14 +681,20 @@
           <li>Face cam (right)</li>
         </ul>
         <div class="layout-example-meta"><span>16:9</span><span>Side-by-side</span></div>
-        <div class="example-mockup example-mockup-side">
-          <div class="ex-win ex-left"><span>Content</span></div>
-          <div class="ex-win ex-right ex-face"><span>Face</span></div>
-        </div>
       </article>
 
       <!-- Example 6: SaaS demo -->
       <article class="layout-example-card">
+        <div class="mockup-canvas mockup-canvas-16x9 mockup-canvas-in-card" aria-hidden="true">
+          <div class="rec-indicator"><div class="rec-dot"></div><span class="rec-time">01:24</span></div>
+          <div class="win-tile win-tile-static win-pos-full win-theme-product">
+            <div class="win-tile-chrome chrome-light"><div class="d" style="background:#FF5F57"></div><div class="d" style="background:#FFBD2E"></div><div class="d" style="background:#28C840"></div></div>
+            <div class="win-tile-body"><div class="faux-product-nav"></div><div class="faux-product-card"></div><div class="faux-product-card"></div><div class="faux-line blue w60"></div></div>
+          </div>
+          <div class="webcam-bubble webcam-bubble-static webcam-bubble-sm webcam-bubble-br">
+            <svg viewBox="0 0 26 26" fill="none"><circle cx="13" cy="10" r="4" fill="rgba(255,255,255,0.5)"/><path d="M5 21c0-4 3.58-7 8-7s8 3 8 7" stroke="rgba(255,255,255,0.5)" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+        </div>
         <span class="layout-example-tag">SaaS demo</span>
         <h3>Product walkthrough</h3>
         <p>Full-screen product demo with a face bubble for trust and personality.</p>
@@ -620,10 +703,6 @@
           <li>Face PiP bubble</li>
         </ul>
         <div class="layout-example-meta"><span>16:9</span><span>PiP</span></div>
-        <div class="example-mockup example-mockup-pip">
-          <div class="ex-win ex-full"><span>Product app</span></div>
-          <div class="ex-pip ex-pip-br"></div>
-        </div>
       </article>
     </div>
   </div>

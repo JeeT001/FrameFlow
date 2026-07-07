@@ -4076,3 +4076,19 @@ docs(website): showcase trim editor, vertical layouts, and layout examples
 Add layouts section with 9:16 Shorts/Reels/TikTok preview, post-recording trim editor block, and creator layout example cards including mobile dev 4-window Free grid.
 ```
 
+---
+
+## Marketing website — unified compositor mockups (2026-07-07)
+
+**Goal:** Match `#layouts` and `#layout-examples` visuals to `#features` compositor (macOS chrome, faux window content).
+
+**Changes:**
+- Shared `.mockup-canvas`, `.win-tile-static`, position modifiers, faux content utilities
+- Replaced flat `format-win` / `ex-win` blocks with compositor-style tiles
+- Layout example cards visual-first; Pro badge on 4-window mobile dev example
+
+**Suggested commit:**
+```
+ui(website): match layout mockups to compositor window-tile style
+```
+

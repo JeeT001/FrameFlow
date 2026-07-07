@@ -38,7 +38,7 @@ After each app release:
 3. Add `website/release-notes/<version>/index.html` if needed
 4. Push to `main`
 
-Homepage sections (anchors): `#features`, `#layouts`, `#editor`, `#layout-examples`, `#how`, `#usecases`, `#pricing`.
+Homepage sections (anchors): `#features`, `#layouts`, `#editor`, `#layout-examples`, `#how`, `#usecases`, `#pricing`. Layout mockups share `.mockup-canvas` + `.win-tile` compositor styling.
 
 ## Latest download (v1.0.13)
 
