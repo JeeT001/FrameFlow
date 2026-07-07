@@ -1,7 +1,7 @@
 # FrameFlow — Current Status
 
 **Last updated:** 2026-07-07  
-**Version:** v1.0.11 (released — caption text burn-in fix)  
+**Version:** v1.0.12 (local — Sparkle sandbox installer fix, not shipped)  
 **Repository:** [public on GitHub](https://github.com/JeeT001/FrameFlow) — anonymous DMG download works
 
 ## Current Phase
@@ -12,6 +12,7 @@
 
 - **Day 54 billing** — RevenueCat Production, Stripe Live, webhook + Supabase secrets, test purchase → Pro unlock, CI `REVENUECAT_API_KEY`
 - **v1.0.9 (released)** — Editor caption burn-in when sidecar unavailable; dev route picker + debug Settings hidden in Release
+- **v1.0.12 (local)** — Sparkle sandbox fix: `SUEnableInstallerLauncherService` + mach-lookup entitlements for in-app update install
 - **v1.0.11 (released)** — CaptionRenderer offline-export-safe CATextLayer; Classic captions show readable text in QuickTime
 - **Public repo** — GitHub public; anonymous DMG download via `/download`
 - **v1.0.8** — Sparkle + legal URLs point to `https://drazlo.vercel.app`; Check for Updates verified

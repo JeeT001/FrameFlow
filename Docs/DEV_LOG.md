@@ -3964,3 +3964,32 @@ fix: render caption text in export burn-in (v1.0.11)
 
 **Shipped:** Tag `v1.0.11` — CI green, appcast build 11, `/download` → v1.0.11 DMG (2026-07-07).
 
+---
+
+## v1.0.12 — Sparkle sandbox in-app update install (2026-07-07)
+
+**Symptom:** Sparkle 1.0.10 → 1.0.11 update finds release, downloads, shows release notes — fails at install with “An error occurred while launching the installer.” Manual DMG install works.
+
+**Root cause:** App Sandbox enabled but Sparkle sandbox integration incomplete — missing `SUEnableInstallerLauncherService` in Info.plist and `com.apple.security.temporary-exception.mach-lookup.global-name` (`-spks`, `-spki`) in entitlements.
+
+**Fix:**
+- `Info.plist` → `SUEnableInstallerLauncherService` = true
+- `FrameFlow.entitlements` → Sparkle mach-lookup temporary exception
+- Version bump 1.0.12 / build 12
+
+**Verify (required before ship):**
+1. Install v1.0.10 DMG to `/Applications`
+2. `./Scripts/archive_release.sh` → build 1.0.12 with fix
+3. Publish appcast build 12 (or local test appcast)
+4. v1.0.10 → Check for Updates → Install — must complete without installer launch error
+5. `codesign -d --entitlements :- Drazlo.app` shows `-spks` / `-spki`
+
+**Workaround for users on 1.0.10/1.0.11:** https://drazlo.vercel.app/download
+
+**Suggested commit:**
+```
+fix: Sparkle in-app updates for sandboxed Drazlo builds
+
+Enable Installer Launcher Service and add Sparkle XPC mach-lookup entitlements so Check for Updates can install without "launching the installer" errors.
+```
+

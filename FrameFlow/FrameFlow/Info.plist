@@ -21,6 +21,8 @@
 	<string>https://drazlo.vercel.app/appcast.xml</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
 	<key>SUScheduledCheckInterval</key>
 	<integer>604800</integer>
 	<key>SUPublicEDKey</key>

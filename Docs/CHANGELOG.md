@@ -4,6 +4,11 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.12] — 2026-07-07
+
+### Fixed
+- In-app Sparkle updates now install correctly on sandboxed builds — enabled Installer Launcher Service and Sparkle XPC mach-lookup entitlements (fixes “An error occurred while launching the installer”)
+
 ## [1.0.11] — 2026-07-07
 
 ### Fixed
