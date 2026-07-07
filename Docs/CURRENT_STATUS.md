@@ -1,7 +1,7 @@
 # FrameFlow — Current Status
 
 **Last updated:** 2026-07-06  
-**Version:** v1.0.10 (local — export path fix for Export screen)  
+**Version:** v1.0.10 (released — caption export on all paths)  
 **Repository:** [public on GitHub](https://github.com/JeeT001/FrameFlow) — anonymous DMG download works
 
 ## Current Phase
@@ -12,7 +12,7 @@
 
 - **Day 54 billing** — RevenueCat Production, Stripe Live, webhook + Supabase secrets, test purchase → Pro unlock, CI `REVENUECAT_API_KEY`
 - **v1.0.9 (released)** — Editor caption burn-in when sidecar unavailable; dev route picker + debug Settings hidden in Release
-- **v1.0.10 (local)** — Export screen syncs in-memory captions (Dashboard/Detail → Export path); staged handoff via AppState
+- **v1.0.10 (released)** — Export screen syncs in-memory captions (Dashboard/Detail → Export path); staged handoff via AppState
 - **Public repo** — GitHub public; anonymous DMG download via `/download`
 - **v1.0.8** — Sparkle + legal URLs point to `https://drazlo.vercel.app`; Check for Updates verified
 - **Day 55 (technical)** — Marketing site on Vercel, GitHub Actions auto-deploy, appcast build 8, `/download` → v1.0.8 DMG
@@ -26,14 +26,14 @@
 | Marketing homepage (`website/index.html`) | Done |
 | **GitHub repo public** | Done — releases downloadable without login |
 | Vercel deploy + auto-deploy on `main` | Done — `https://drazlo.vercel.app` |
-| Download URL (`/download` → GitHub Release DMG) | Done — v1.0.9 |
-| Sparkle appcast | Done — build 9 on Vercel |
-| Release notes `/release-notes/1.0.9/` | Done |
+| Download URL (`/download` → GitHub Release DMG) | Done — v1.0.10 |
+| Sparkle appcast | Done — build 10 on Vercel |
+| Release notes `/release-notes/1.0.10/` | Done |
 | Marketing drafts (Product Hunt, email, social) | Done — `Docs/LAUNCH_DAY55.md` |
 | **Manual:** YouTube demo, Product Hunt, email, social | **Pending** |
 | **Optional:** Register `drazlo.app` → same Vercel project | Deferred |
 
-**Download:** https://drazlo.vercel.app/download · [GitHub v1.0.9](https://github.com/JeeT001/FrameFlow/releases/download/v1.0.9/Drazlo-1.0.9.dmg) (no GitHub account required)
+**Download:** https://drazlo.vercel.app/download · [GitHub v1.0.10](https://github.com/JeeT001/FrameFlow/releases/download/v1.0.10/Drazlo-1.0.10.dmg) (no GitHub account required)
 
 ## Day 54 gate (billing)
 

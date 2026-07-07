@@ -3939,3 +3939,5 @@ fix: export captions from editor memory and hide dev UI in Release (v1.0.9)
 fix: sync in-memory captions on Export screen path (v1.0.10)
 ```
 
+**Shipped:** Tag `v1.0.10` — CI green, appcast build 10, `/download` → v1.0.10 DMG (2026-07-07).
+
