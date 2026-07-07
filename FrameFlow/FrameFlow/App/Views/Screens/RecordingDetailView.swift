@@ -263,9 +263,34 @@ struct RecordingDetailView: View {
     }
 
     private func performReexportOriginal() {
-        guard let id = viewModel.recording?.id else { return }
-        appState.exportRecordingID = id
+        guard let recording = viewModel.recording else { return }
+        stageCaptionsForExportIfAvailable(recording)
+        appState.exportRecordingID = recording.id
         router.navigate(to: .export)
+    }
+
+    private func stageCaptionsForExportIfAvailable(_ recording: RecordingMetadata) {
+        let state = CaptionGenerationState.shared
+        if state.recordingID == recording.id, !state.segments.isEmpty {
+            appState.stageExportCaptions(
+                recordingID: recording.id,
+                segments: state.segments,
+                leadingGap: recording.captionAudioLeadSeconds
+            )
+            return
+        }
+
+        let url = URL(fileURLWithPath: recording.filePath)
+        let segments = (try? SecurityScopedFileAccess.withAccess(to: url) {
+            try CaptionEngine.shared.loadCaptions(for: url, recordingID: recording.id)
+        }) ?? []
+        guard !segments.isEmpty else { return }
+        appState.stageExportCaptions(
+            recordingID: recording.id,
+            segments: segments,
+            leadingGap: recording.captionAudioLeadSeconds,
+            style: CaptionEngine.shared.loadStyle(for: url, recordingID: recording.id)
+        )
     }
 
     private func goToDashboard() {

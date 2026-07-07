@@ -6,6 +6,15 @@
 import AVFoundation
 import AppKit
 import Foundation
+import os.log
+
+enum ExportCaptionSource: String {
+    case memory
+    case staged
+    case generationState
+    case sidecar
+    case none
+}
 
 @MainActor
 @Observable
@@ -38,7 +47,9 @@ final class ExportViewModel {
 
     let player = AVPlayer()
 
+    private static let log = Logger(subsystem: "com.Simranjit.FrameFlow", category: "ExportViewModel")
     private var timeObserver: Any?
+    private(set) var lastCaptionSource: ExportCaptionSource = .none
 
     var hasCaptionsAvailable: Bool {
         guard recording != nil else { return false }
@@ -72,7 +83,12 @@ final class ExportViewModel {
         SettingsStore.shared.exportWithoutCaptionsWarningShown = true
     }
 
-    func load(exportRecordingID: UUID?, pendingRecording: RecordingMetadata?, isPro: Bool) {
+    func load(
+        exportRecordingID: UUID?,
+        pendingRecording: RecordingMetadata?,
+        isPro: Bool,
+        appState: AppState? = nil
+    ) {
         guard let exportRecordingID else {
             recording = nil
             isPendingExport = false
@@ -87,17 +103,19 @@ final class ExportViewModel {
             isPendingExport = false
         }
 
-        applyCaptions = hasCaptionsAvailable
         trimStartSeconds = nil
         trimEndSeconds = nil
         alsoSaveSRT = false
         editTimeline = nil
         editorProject = nil
         exportDurationOverride = nil
-        captionSegmentsForExport = []
-        captionStyleForExport = nil
-        editorLeadingGapForExport = 0
         isExportSheetPresented = false
+
+        syncCaptionSources(
+            recordingID: exportRecordingID,
+            appState: appState
+        )
+        applyCaptions = hasCaptionsAvailable
 
         if let recording {
             let url = URL(fileURLWithPath: recording.filePath)
@@ -171,11 +189,18 @@ final class ExportViewModel {
         }
     }
 
-    func export(isPro: Bool, appState: AppState) async {
+    func export(isPro: Bool, appState: AppState, exportPath: String = "exportView") async {
         guard let recording else {
             exportError = "No recording selected."
             return
         }
+
+        if captionSegmentsForExport.isEmpty {
+            syncCaptionSources(recordingID: recording.id, appState: appState)
+        } else {
+            lastCaptionSource = .memory
+        }
+        await resolveLeadingGapIfNeeded(for: recording)
 
         guard canSelectResolution(selectedResolution, isPro: isPro) else {
             exportError = lockReason(for: selectedResolution, isPro: isPro) ?? "Resolution not available."
@@ -215,6 +240,9 @@ final class ExportViewModel {
         let preparedProject = editorProject?.preparedForExport()
             ?? editTimeline.map { EditorProjectModel(timeline: $0.preparedForExport()) }?.preparedForExport()
         let exportSegments = applyCaptions ? resolvedCaptionSegments() : []
+        Self.log.info(
+            "export path=\(exportPath, privacy: .public) applyCaptions=\(self.applyCaptions) segments=\(exportSegments.count) source=\(self.lastCaptionSource.rawValue, privacy: .public) leadingGap=\(self.editorLeadingGapForExport, format: .fixed(precision: 3))"
+        )
         let options = ExportOptions(
             sourceVideoURL: sourceURL,
             recordingID: recording.id,
@@ -396,12 +424,97 @@ final class ExportViewModel {
 
     func resolvedCaptionSegments() -> [CaptionSegment] {
         if !captionSegmentsForExport.isEmpty {
+            lastCaptionSource = .memory
             return captionSegmentsForExport
         }
-        guard let recording else { return [] }
+        guard let recording else {
+            lastCaptionSource = .none
+            return []
+        }
+
+        let state = CaptionGenerationState.shared
+        if state.recordingID == recording.id, !state.segments.isEmpty {
+            lastCaptionSource = .generationState
+            return state.segments
+        }
+
         let url = URL(fileURLWithPath: recording.filePath)
-        return (try? SecurityScopedFileAccess.withAccess(to: url) {
+        let diskSegments = (try? SecurityScopedFileAccess.withAccess(to: url) {
             try CaptionEngine.shared.loadCaptions(for: url, recordingID: recording.id)
         }) ?? []
+        if !diskSegments.isEmpty {
+            lastCaptionSource = .sidecar
+            return diskSegments
+        }
+
+        lastCaptionSource = .none
+        return []
+    }
+
+    private func syncCaptionSources(recordingID: UUID, appState: AppState?) {
+        captionSegmentsForExport = []
+        captionStyleForExport = nil
+        editorLeadingGapForExport = 0
+        lastCaptionSource = .none
+
+        guard let recording else { return }
+
+        if let staged = appState?.consumeStagedExportCaptions(for: recordingID) {
+            captionSegmentsForExport = staged.segments
+            if let gap = staged.leadingGap {
+                editorLeadingGapForExport = gap
+            }
+            captionStyleForExport = staged.style
+            lastCaptionSource = .staged
+        }
+
+        if captionSegmentsForExport.isEmpty {
+            let state = CaptionGenerationState.shared
+            if state.recordingID == recordingID, !state.segments.isEmpty {
+                captionSegmentsForExport = state.segments
+                lastCaptionSource = .generationState
+            }
+        }
+
+        if captionSegmentsForExport.isEmpty {
+            let url = URL(fileURLWithPath: recording.filePath)
+            let diskSegments = (try? SecurityScopedFileAccess.withAccess(to: url) {
+                try CaptionEngine.shared.loadCaptions(for: url, recordingID: recordingID)
+            }) ?? []
+            if !diskSegments.isEmpty {
+                captionSegmentsForExport = diskSegments
+                lastCaptionSource = .sidecar
+            }
+        }
+
+        if editorLeadingGapForExport < 0.001,
+           recording.captionAudioLeadSeconds > 0.001 {
+            editorLeadingGapForExport = recording.captionAudioLeadSeconds
+        }
+
+        if captionStyleForExport == nil {
+            let url = URL(fileURLWithPath: recording.filePath)
+            captionStyleForExport = CaptionEngine.shared.loadStyle(for: url, recordingID: recordingID)
+        }
+
+        if !captionSegmentsForExport.isEmpty {
+            applyCaptions = true
+        }
+    }
+
+    private func resolveLeadingGapIfNeeded(for recording: RecordingMetadata) async {
+        guard editorLeadingGapForExport < 0.001 else { return }
+        let url = URL(fileURLWithPath: recording.filePath)
+        guard SecurityScopedFileAccess.canAccess(url) else { return }
+        let asset = AVURLAsset(url: url)
+        let probed = await RecordingMediaTiming.leadingVideoGapSeconds(
+            asset: asset,
+            metadataLead: recording.captionAudioLeadSeconds
+        )
+        if probed > 0.001 {
+            editorLeadingGapForExport = probed
+        } else if recording.captionAudioLeadSeconds > 0.001 {
+            editorLeadingGapForExport = recording.captionAudioLeadSeconds
+        }
     }
 }

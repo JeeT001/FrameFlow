@@ -193,7 +193,8 @@ final class EditorViewModel {
         exportViewModel.load(
             exportRecordingID: appState.exportRecordingID,
             pendingRecording: appState.pendingRecording,
-            isPro: isPro
+            isPro: isPro,
+            appState: appState
         )
         exportViewModel.editTimeline = nil
         exportViewModel.editorProject = nil
@@ -854,7 +855,7 @@ final class EditorViewModel {
         exportViewModel.editTimeline = nil
         exportViewModel.exportDurationOverride = nil
 
-        await exportViewModel.export(isPro: isPro, appState: appState)
+        await exportViewModel.export(isPro: isPro, appState: appState, exportPath: "editor")
 
         guard exportViewModel.exportedURL != nil, exportViewModel.exportError == nil else { return }
 

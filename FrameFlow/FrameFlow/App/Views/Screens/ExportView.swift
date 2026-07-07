@@ -47,7 +47,8 @@ struct ExportView: View {
             viewModel.load(
                 exportRecordingID: appState.exportRecordingID,
                 pendingRecording: appState.pendingRecording,
-                isPro: appState.isPro
+                isPro: appState.isPro,
+                appState: appState
             )
         }
         .onDisappear {
@@ -79,7 +80,7 @@ struct ExportView: View {
         .alert("Export without captions?", isPresented: $showExportWithoutCaptionsWarning) {
             Button("Export without captions", role: .destructive) {
                 viewModel.markExportWithoutCaptionsWarningShown()
-                Task { await viewModel.export(isPro: appState.isPro, appState: appState) }
+                Task { await viewModel.export(isPro: appState.isPro, appState: appState, exportPath: "exportView") }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -154,7 +155,7 @@ struct ExportView: View {
                     if viewModel.shouldShowExportWithoutCaptionsWarning {
                         showExportWithoutCaptionsWarning = true
                     } else {
-                        Task { await viewModel.export(isPro: appState.isPro, appState: appState) }
+                        Task { await viewModel.export(isPro: appState.isPro, appState: appState, exportPath: "exportView") }
                     }
                 } label: {
                     Label("Export", systemImage: "square.and.arrow.up")

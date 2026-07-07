@@ -36,6 +36,11 @@ final class AppState {
     var pendingRecording: RecordingMetadata?
     /// Recording queued for the Export screen (pending or Dashboard re-export).
     var exportRecordingID: UUID?
+    /// In-memory caption handoff when navigating to Export (sidecar may be unavailable on installed builds).
+    var stagedExportCaptionRecordingID: UUID?
+    var stagedExportCaptionSegments: [CaptionSegment]?
+    var stagedExportCaptionLeadingGap: Double?
+    var stagedExportCaptionStyle: CaptionStyleConfig?
     /// Recording shown on the Recording Detail screen.
     var detailRecordingID: UUID?
     /// Synced profile from `public.users` (subscription row logged in DEBUG only).
@@ -51,6 +56,47 @@ final class AppState {
 
     var isPro: Bool {
         subscriptionStatus == .active
+    }
+
+    /// Stage caption data before navigating to `.export` (ExportView does not share Editor's view model).
+    func stageExportCaptions(
+        recordingID: UUID,
+        segments: [CaptionSegment],
+        leadingGap: Double = 0,
+        style: CaptionStyleConfig? = nil
+    ) {
+        guard !segments.isEmpty else {
+            clearStagedExportCaptions()
+            return
+        }
+        stagedExportCaptionRecordingID = recordingID
+        stagedExportCaptionSegments = segments
+        stagedExportCaptionLeadingGap = leadingGap > 0.001 ? leadingGap : nil
+        stagedExportCaptionStyle = style
+    }
+
+    /// One-shot read of staged captions for the Export screen.
+    func consumeStagedExportCaptions(for recordingID: UUID) -> (
+        segments: [CaptionSegment],
+        leadingGap: Double?,
+        style: CaptionStyleConfig?
+    )? {
+        guard stagedExportCaptionRecordingID == recordingID,
+              let segments = stagedExportCaptionSegments,
+              !segments.isEmpty else {
+            return nil
+        }
+        let leadingGap = stagedExportCaptionLeadingGap
+        let style = stagedExportCaptionStyle
+        clearStagedExportCaptions()
+        return (segments, leadingGap, style)
+    }
+
+    func clearStagedExportCaptions() {
+        stagedExportCaptionRecordingID = nil
+        stagedExportCaptionSegments = nil
+        stagedExportCaptionLeadingGap = nil
+        stagedExportCaptionStyle = nil
     }
 
     func syncSubscriptionAfterAuth(userId: UUID) async {

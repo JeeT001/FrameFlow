@@ -3918,3 +3918,24 @@ fix: export captions from editor memory and hide dev UI in Release (v1.0.9)
 
 **Shipped:** Tag `v1.0.9` — CI green, appcast build 9, `/download` → v1.0.9 DMG (2026-07-06).
 
+---
+
+## v1.0.10 — Export screen caption sync (2026-07-06)
+
+**Symptom:** v1.0.9 DMG still missing captions on export for some users. Local `archive_release.sh` / Editor → Export Video OK; Dashboard → Export or Export screen path failed on installed build.
+
+**Root cause:** v1.0.9 fix only called `prepareEditorExport()` from Editor toolbar. `ExportView.load()` cleared `captionSegmentsForExport` and relied on disk sidecar only. Installed Developer ID apps often cannot read sidecar; `CaptionGenerationState` still held segments.
+
+**Fix:**
+- `ExportViewModel.syncCaptionSources()` — staged AppState handoff, `CaptionGenerationState`, then sidecar; no blind clear before sync
+- `AppState.stageExportCaptions()` — Dashboard / Recording Detail / CaptionEditor stage before `.export` navigation
+- `export()` preserves editor-prepared memory segments; probes leading gap when missing
+- Release `os_log` in `ExportViewModel` (path, segment count, source) + `ExportService` segment count
+
+**Test matrix before ship:** `archive_release.sh` + GitHub DMG — Editor export, Dashboard → Export, 60s+ multi-window recording.
+
+**Suggested commit:**
+```
+fix: sync in-memory captions on Export screen path (v1.0.10)
+```
+

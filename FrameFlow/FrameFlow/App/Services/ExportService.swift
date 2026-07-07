@@ -108,7 +108,7 @@ final class ExportService: @unchecked Sendable {
             let trackDurations = await RecordingMediaTiming.probeTrackDurations(asset: originalAsset)
 
             Self.log.info(
-                "export start burn=\(options.applyCaptionsIfAvailable) gap=\(resolvedLeadingGap, format: .fixed(precision: 3)) audio=\(trackDurations.audioSeconds, format: .fixed(precision: 2)) video=\(trackDurations.videoSeconds, format: .fixed(precision: 2))"
+                "export start burn=\(options.applyCaptionsIfAvailable) segments=\(options.captionSegments?.count ?? 0) gap=\(resolvedLeadingGap, format: .fixed(precision: 3)) audio=\(trackDurations.audioSeconds, format: .fixed(precision: 2)) video=\(trackDurations.videoSeconds, format: .fixed(precision: 2))"
             )
 
             #if DEBUG

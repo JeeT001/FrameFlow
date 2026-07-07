@@ -4,7 +4,13 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
-## [1.0.9] — 2026-07-06
+## [1.0.10] — 2026-07-06
+
+### Fixed
+- Export screen (Dashboard / Recording Detail → Export) now syncs in-memory captions from `CaptionGenerationState` and staged handoff — not only disk sidecar — so caption burn-in works on installed Developer ID builds when the v1.0.9 editor-only fix did not apply
+- Export no longer clears editor-prepared caption segments at export time
+- Leading video gap probed on Export screen path when metadata gap is missing (reduces A/V drift on export without editor)
+
 
 ### Fixed
 - Export now burns in captions when segments exist in the post-record editor but the caption sidecar is not yet on disk (common with Developer ID installs and security-scoped save folders)

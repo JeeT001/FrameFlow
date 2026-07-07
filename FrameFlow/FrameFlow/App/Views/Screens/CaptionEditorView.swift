@@ -308,6 +308,15 @@ struct CaptionEditorView: View {
     }
 
     private func openExportScreen() {
+        let segments = captionState.segments.isEmpty ? viewModel.segments : captionState.segments
+        if let recordingID = captionState.recordingID, !segments.isEmpty {
+            appState.stageExportCaptions(
+                recordingID: recordingID,
+                segments: segments,
+                leadingGap: viewModel.videoContentStartSeconds,
+                style: viewModel.selectedStyle
+            )
+        }
         appState.exportRecordingID = captionState.recordingID
         router.navigate(to: .export)
     }
