@@ -60,6 +60,34 @@ final class EditorViewModel {
     var trimStartSeconds: Double { project.timeline.trimStartSeconds }
     var trimEndSeconds: Double { project.timeline.trimEndSeconds }
 
+    /// Playhead on the file-absolute source timeline (matches `EditTimelineModel` + caption sidecar times).
+    var currentSourcePlayheadSeconds: Double {
+        captionViewModel.currentPlaybackTime + captionViewModel.videoContentStartSeconds
+    }
+
+    var trimStatusLabel: String {
+        if hasTrimApplied {
+            let export = TrimHelpers.formatTrimMarkerTime(exportLengthSeconds)
+            let inPoint = TrimHelpers.formatTrimMarkerTime(trimStartSeconds)
+            let outPoint = TrimHelpers.formatTrimMarkerTime(trimEndSeconds)
+            return "Export \(export) · In \(inPoint) · Out \(outPoint)"
+        }
+        return "Full clip · \(TrimHelpers.formatTrimMarkerTime(sourceDurationSeconds))"
+    }
+
+    private var exportLengthSeconds: Double {
+        hasTrimApplied ? project.exportDurationSeconds : sourceDurationSeconds
+    }
+
+    func resetTrim() {
+        let duration = project.timeline.sourceDurationSeconds
+        project.timeline.updateTrimStart(0)
+        project.timeline.updateTrimEnd(duration)
+        clampImageOverlayToTrim()
+        syncPlayback()
+        seekPreviewOnSourceTimeline(project.timeline.trimStartSeconds)
+    }
+
     var hasTrimApplied: Bool { project.timeline.hasTrimApplied }
     var hasRemovedRegions: Bool { project.timeline.hasRemovedRegions }
     var hasMiddleDelete: Bool { hasRemovedRegions }
@@ -84,7 +112,10 @@ final class EditorViewModel {
     ) -> [String] {
         var lines: [String] = []
 
-        lines.append("Length: \(TrimHelpers.formatTimelineTime(sourceDurationSeconds))")
+        lines.append("Length: \(TrimHelpers.formatTimelineTime(exportLengthSeconds))")
+        if hasTrimApplied {
+            lines.append("Trim: \(TrimHelpers.formatTimelineTime(trimStartSeconds)) – \(TrimHelpers.formatTimelineTime(trimEndSeconds))")
+        }
 
         let editorSegments = resolvedEditorCaptionSegments()
         let willBurnCaptions = applyCaptions && !editorSegments.isEmpty
@@ -205,10 +236,9 @@ final class EditorViewModel {
         let url = URL(fileURLWithPath: recording.filePath)
         let deferPlayer = isPro && CaptionGenerationState.shared.isTranscribing
         captionViewModel.loadPreview(url: url, recording: recording, deferPlayerLoad: deferPlayer)
-        configureTrim(from: captionViewModel.videoDuration)
-
-        captionViewModel.editTimeline = nil
-        captionViewModel.playbackRange = nil
+        if captionViewModel.sourceTimelineDurationSeconds > 1 {
+            configureTrim(from: captionViewModel.sourceTimelineDurationSeconds)
+        }
 
         if isPro {
             captionViewModel.sync(from: CaptionGenerationState.shared)
@@ -220,7 +250,8 @@ final class EditorViewModel {
     }
 
     func onVideoDurationLoaded(_ duration: Double) {
-        configureTrim(from: duration)
+        _ = duration
+        configureTrim(from: captionViewModel.sourceTimelineDurationSeconds)
     }
 
     func onCaptionGenerationFinished(isPro: Bool) {
@@ -230,10 +261,9 @@ final class EditorViewModel {
         }
     }
 
+    /// Configures trim bounds using **file-absolute** seconds (aligned with caption sidecar + export stitch).
     func configureTrim(from duration: Double) {
         project.configureSourceDuration(duration)
-        captionViewModel.editTimeline = nil
-        captionViewModel.playbackRange = nil
         masterPlayheadSeconds = 0
         syncPlayback()
     }
@@ -487,7 +517,7 @@ final class EditorViewModel {
                 fromExportTime: clamped,
                 editTimeline: project.timeline
             )
-            captionViewModel.seek(to: source)
+            captionViewModel.seek(to: max(0, source - captionViewModel.videoContentStartSeconds))
         } else {
             parkVideoAtExportEnd()
         }
@@ -851,9 +881,8 @@ final class EditorViewModel {
             }
         }
 
-        exportViewModel.editorProject = nil
-        exportViewModel.editTimeline = nil
-        exportViewModel.exportDurationOverride = nil
+        exportViewModel.editorProject = project.preparedForExport()
+        exportViewModel.exportDurationOverride = project.exportDurationSeconds
 
         await exportViewModel.export(isPro: isPro, appState: appState, exportPath: "editor")
 
@@ -879,13 +908,13 @@ final class EditorViewModel {
         exportViewModel.teardown()
     }
 
-    func seekPreview(to time: Double) {
-        seekPreviewOnSourceTimeline(time)
+    func seekPreview(to contentTime: Double) {
+        seekPreviewOnSourceTimeline(contentTime + captionViewModel.videoContentStartSeconds)
     }
 
     private func syncPlayback() {
-        captionViewModel.editTimeline = nil
-        captionViewModel.playbackRange = nil
+        captionViewModel.applyEditTimeline(project.timeline)
+        clampPlaybackToEdit()
     }
 
     private func clampImageOverlayToTrim() {
@@ -916,12 +945,14 @@ final class EditorViewModel {
     }
 
     private func clampPlaybackToEdit() {
+        let fileTime = captionViewModel.currentPlaybackTime + captionViewModel.videoContentStartSeconds
         let snapped = CaptionTimelineMapper.snapToKeptSourceTime(
-            captionViewModel.currentPlaybackTime,
+            fileTime,
             editTimeline: project.timeline
         )
-        if abs(snapped - captionViewModel.currentPlaybackTime) > 0.01 {
-            captionViewModel.seek(to: snapped)
+        let contentTime = max(0, snapped - captionViewModel.videoContentStartSeconds)
+        if abs(contentTime - captionViewModel.currentPlaybackTime) > 0.01 {
+            captionViewModel.seek(to: contentTime)
         }
     }
 

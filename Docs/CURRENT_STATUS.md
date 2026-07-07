@@ -1,7 +1,7 @@
 # FrameFlow — Current Status
 
 **Last updated:** 2026-07-07  
-**Version:** v1.0.12 (released — Sparkle in-app update install fix)  
+**Version:** v1.0.13 (releasing — editor trim, Free layout grid, range slider UI)  
 **Repository:** [public on GitHub](https://github.com/JeeT001/FrameFlow) — anonymous DMG download works
 
 ## Current Phase
@@ -12,6 +12,8 @@
 
 - **Day 54 billing** — RevenueCat Production, Stripe Live, webhook + Supabase secrets, test purchase → Pro unlock, CI `REVENUECAT_API_KEY`
 - **v1.0.9 (released)** — Editor caption burn-in when sidecar unavailable; dev route picker + debug Settings hidden in Release
+- **Phase 1 trim (shipped in 1.0.13)** — Global in/out handles re-wired to preview + export; range slider UI; file-absolute timeline; sidecar unchanged
+- **Free layout grid (shipped in 1.0.13)** — 1–4 windows seed TL/TR/BL/BR instead of center overlap
 - **v1.0.12 (released)** — Sparkle sandbox fix: in-app Check for Updates install works on sandboxed builds
 - **v1.0.11 (released)** — CaptionRenderer offline-export-safe CATextLayer; Classic captions show readable text in QuickTime
 - **Public repo** — GitHub public; anonymous DMG download via `/download`

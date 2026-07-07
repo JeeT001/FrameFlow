@@ -49,6 +49,14 @@ enum TrimHelpers {
         return String(format: "%.1fs", secs)
     }
 
+    /// Compact `m:ss.s` marker for trim status (e.g. `0:10.7`, `1:04.2`).
+    static func formatTrimMarkerTime(_ seconds: Double) -> String {
+        let clamped = max(0, seconds)
+        let minutes = Int(clamped) / 60
+        let secs = clamped.truncatingRemainder(dividingBy: 60)
+        return String(format: "%d:%.1f", minutes, secs)
+    }
+
     static func formatDurationClock(_ seconds: Double) -> String {
         formatExportDurationDisplay(seconds, sourceDuration: nil)
     }

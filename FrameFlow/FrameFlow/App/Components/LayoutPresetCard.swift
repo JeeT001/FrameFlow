@@ -100,11 +100,16 @@ struct LayoutPresetDiagram: View {
     }
 
     private func freeFormDiagram(in size: CGSize) -> some View {
-        ZStack {
-            rect(width: size.width * 0.55, height: size.height * 0.38)
-                .offset(x: -size.width * 0.12, y: size.height * 0.1)
-            rect(width: size.width * 0.42, height: size.height * 0.3)
-                .offset(x: size.width * 0.14, y: -size.height * 0.12)
+        let previewRects = WindowPlacementMath.freeFormDefaultPreviewRects(count: 4, canvasSize: size)
+
+        return ZStack {
+            ForEach(Array(previewRects.enumerated()), id: \.offset) { _, frame in
+                rect(width: frame.width, height: frame.height)
+                    .offset(
+                        x: frame.midX - size.width / 2,
+                        y: frame.midY - size.height / 2
+                    )
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

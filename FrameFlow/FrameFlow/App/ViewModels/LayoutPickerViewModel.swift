@@ -188,7 +188,7 @@ final class LayoutPickerViewModel {
         let windowIDs = appState.selectedWindowIDs.sorted()
 
         if newPreset == .freeForm {
-            if oldPreset == .freeForm, !windowPlacementController.needsReseed(for: windowIDs) {
+            if oldPreset == .freeForm, !windowPlacementController.needsFreeFormReseed(for: windowIDs) {
                 // Keep existing free-form placements while user is mid-edit.
             } else {
                 windowPlacementController.seedFreeFormDefault(
@@ -291,14 +291,12 @@ final class LayoutPickerViewModel {
         let windowIDs = appState.selectedWindowIDs.sorted()
         guard !windowIDs.isEmpty else { return }
 
-        let missingWindow = windowIDs.contains { windowPlacementController.placements[$0] == nil }
-        if windowPlacementController.placements.isEmpty
-            || missingWindow
-            || windowPlacementController.needsReseed(for: windowIDs) {
+        if windowPlacementController.needsFreeFormReseed(for: windowIDs) {
             windowPlacementController.seedFreeFormDefault(
                 windowIDs: windowIDs,
                 canvasSize: CompositeEngine.shared.outputSize(for: format)
             )
+            appState.windowPlacements = windowPlacementController.placements
         }
     }
 

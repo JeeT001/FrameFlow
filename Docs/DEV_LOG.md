@@ -3995,3 +3995,66 @@ Enable Installer Launcher Service and add Sparkle XPC mach-lookup entitlements s
 
 **Shipped:** Tag `v1.0.12` — CI green, appcast build 12, `/download` → v1.0.12 DMG (2026-07-07).
 
+---
+
+## Phase 1 — Post-recording global in/out trim (2026-07-07)
+
+**Goal:** Re-wire existing `EditTimelineModel` trim to Editor preview + export (Phase 1 only — no razor/middle cuts).
+
+**Changes:**
+- `EditorViewModel.syncPlayback()` → `applyEditTimeline` + `clampPlaybackToEdit` (was clearing edit state)
+- `exportRecording()` → passes `project.preparedForExport()` to `ExportViewModel` (was niling project)
+- Time base: `EditTimelineModel` uses **file-absolute** seconds via `sourceTimelineDurationSeconds` (caption sidecar + export stitch)
+- Fixed seek coordinate conversion (content vs file) in `seekPreview`, `clampPlaybackToEdit`, `seekPreviewOnMasterTimeline`
+- `EditorView`: embedded `EditorTimelineView` below preview with Reset trim + status label
+- `EditorInspectorPanel`: export copy reflects active trim
+- `GlobalTrimTests` in `FrameFlowTests.swift` (5 tests — trim ranges + caption remap)
+
+**Manual smoke:** Record → Editor → drag in/out handles → preview/export trimmed range; Dashboard export unchanged.
+
+**Suggested commit:**
+```
+feat(editor): re-enable global in/out trim after recording
+
+Wire EditTimelineModel trim handles to preview and export via existing CaptionTimelineMapper and ExportService stitch path. Captions clip at export without mutating sidecar.
+```
+
+---
+
+## Editor trim UI — range slider polish (2026-07-07)
+
+**Goal:** Replace loud yellow NLE `EditorTimelineView` in Editor with a CapCut/Photos-style range slider (UI only; trim logic unchanged).
+
+**Changes:**
+- New `EditorTrimRangeSlider` — ~28px track, primary-accent selected range, dimmed exclusions, draggable in/out thumbs, scrub/tap seek, playhead line
+- `EditorView.trimTimelineSection` — surface card wrapper, “Trim clip” header, bordered Reset, status line + hint
+- `trimStatusLabel` — `Export 0:10.7 · In 0:03.4 · Out 0:14.1` / `Full clip · 0:17.2` via `TrimHelpers.formatTrimMarkerTime`
+- `EditorTimelineView` kept for future Phase 2 NLE; no longer used in Editor
+
+**Suggested commit:**
+```
+ui(editor): replace yellow NLE trim bar with range slider
+
+Add EditorTrimRangeSlider with primary-accent styling, dimmed exclusions, and surface card container. Trim behavior unchanged.
+```
+
+---
+
+## Free layout default window positions (2026-07-07)
+
+**Problem:** Free-form seed used center-cluster coords and `maxFraction` 0.88 → 2–4 windows overlapped in preview.
+
+**Fix:**
+- `WindowPlacementMath.freeFormDefaultCenters` / `freeFormMaxFraction` — TL/TR/BL/BR quadrant centers with count-aware sizing
+- `WindowPlacementController.seedFreeFormDefault` uses new helpers; tracks `lastFreeFormSeedCount`
+- `LayoutPickerViewModel.needsFreeFormReseed` — reseed when window count changes, preserve user drags when unchanged
+- `LayoutPreviewCanvas` + `LayoutPresetCard` diagrams share `freeFormDefaultPreviewRects`
+- `FreeFormPlacementTests` (4 tests)
+
+**Suggested commit:**
+```
+fix(layout): seed Free-form windows in TL/TR/BL/BR grid by count
+
+Replace center-cluster defaults with count-aware quadrant centers and smaller max fractions so 1–4 selected windows no longer overlap in layout preview.
+```
+

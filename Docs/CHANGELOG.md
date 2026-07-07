@@ -4,6 +4,17 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.13] — 2026-07-07
+
+### Added
+- Editor trim: drag in/out handles after recording; export trimmed range; captions outside trim excluded from export
+
+### Fixed
+- Free layout: 1–4 windows seed to top-left grid (TL / TR / BL / BR) instead of overlapping center cluster
+
+### Changed
+- Trim UI: range slider with primary accent (replaces yellow NLE bar)
+
 ## [1.0.12] — 2026-07-07
 
 ### Fixed

@@ -237,11 +237,70 @@ struct EditorView: View {
                 previewHint(platformGuide: platformGuide)
                     .frame(width: fittedVideo.width, alignment: .leading)
 
+                trimTimelineSection(trackWidth: fittedVideo.width)
+
                 Spacer(minLength: 0)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .frame(minWidth: 280)
+    }
+
+    @ViewBuilder
+    private func trimTimelineSection(trackWidth: CGFloat) -> some View {
+        let timelineWidth = max(200, trackWidth)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Trim clip")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(AppColors.textSecondary)
+                    .textCase(.uppercase)
+                    .tracking(1)
+
+                Spacer(minLength: 8)
+
+                if viewModel.hasTrimApplied {
+                    Button("Reset trim") {
+                        viewModel.resetTrim()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+
+            Text(viewModel.trimStatusLabel)
+                .font(.caption)
+                .foregroundStyle(AppColors.textSecondary)
+                .lineLimit(2)
+
+            if !viewModel.hasTrimApplied {
+                Text("Drag the handles to set where the clip starts and ends.")
+                    .font(.caption2)
+                    .foregroundStyle(AppColors.textSecondary.opacity(0.85))
+            }
+
+            EditorTrimRangeSlider(
+                duration: viewModel.sourceDurationSeconds,
+                trimStart: viewModel.trimStartSeconds,
+                trimEnd: viewModel.trimEndSeconds,
+                currentTime: viewModel.currentSourcePlayheadSeconds,
+                trackWidth: timelineWidth,
+                onTrimStartChange: { viewModel.updateTrimStart($0) },
+                onTrimEndChange: { viewModel.updateTrimEnd($0) },
+                onSeek: { viewModel.seekPreviewOnSourceTimeline($0) }
+            )
+            .frame(width: timelineWidth)
+        }
+        .frame(width: timelineWidth, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(AppColors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .strokeBorder(AppColors.border, lineWidth: 1)
+        }
+        .padding(.top, 4)
     }
 
     @ViewBuilder

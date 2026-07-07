@@ -15,6 +15,7 @@ final class WindowPlacementController {
     var allowsOverflow: Bool = true
 
     private var windowAspects: [CGWindowID: CGFloat] = [:]
+    private var lastFreeFormSeedCount: Int = 0
 
     func needsReseed(for windowIDs: [CGWindowID]) -> Bool {
         guard !windowIDs.isEmpty else { return false }
@@ -24,6 +25,14 @@ final class WindowPlacementController {
             }
         }
         return false
+    }
+
+    func needsFreeFormReseed(for windowIDs: [CGWindowID]) -> Bool {
+        guard !windowIDs.isEmpty else { return false }
+        if placements.isEmpty { return true }
+        if windowIDs.count != lastFreeFormSeedCount { return true }
+        if windowIDs.contains(where: { placements[$0] == nil }) { return true }
+        return needsReseed(for: windowIDs)
     }
 
     func seedFromPreset(
@@ -52,24 +61,23 @@ final class WindowPlacementController {
     ) {
         updateAspects(for: windowIDs)
 
-        let defaultCenters: [CGPoint] = [
-            CGPoint(x: 0.5, y: 0.5),
-            CGPoint(x: 0.35, y: 0.65),
-            CGPoint(x: 0.65, y: 0.35),
-            CGPoint(x: 0.28, y: 0.55),
-        ]
+        let count = windowIDs.count
+        let centers = WindowPlacementMath.freeFormDefaultCenters(count: count)
+        let maxFraction = WindowPlacementMath.freeFormMaxFraction(windowCount: count)
 
         var result: [CGWindowID: WindowPlacement] = [:]
         for (index, windowID) in windowIDs.enumerated() {
             let aspect = aspectRatio(for: windowID)
-            let center = defaultCenters[min(index, defaultCenters.count - 1)]
+            let center = centers[min(index, centers.count - 1)]
             result[windowID] = WindowPlacementMath.initialPlacementForWindow(
                 windowAspect: aspect,
                 canvasSize: canvasSize,
-                center: center
+                center: center,
+                maxFraction: maxFraction
             )
         }
         placements = result
+        lastFreeFormSeedCount = count
     }
 
     func updatePosition(

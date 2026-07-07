@@ -98,9 +98,15 @@ struct EditorInspectorPanel: View {
     private var exportHintSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             inspectorSectionHeader("Export")
-            Text("Use Export Video in the toolbar to save your recording. The full clip is exported as captured.")
-                .font(.caption)
-                .foregroundStyle(AppColors.textSecondary)
+            if viewModel.hasTrimApplied {
+                Text("Export Video saves the trimmed range (\(viewModel.formattedExportDuration)). Captions outside the trim are excluded. The original file on disk is unchanged.")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            } else {
+                Text("Use Export Video in the toolbar to save your recording. The full clip is exported as captured.")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 16)

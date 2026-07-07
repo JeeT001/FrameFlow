@@ -27,6 +27,15 @@ final class CaptionEditorViewModel {
     private(set) var videoContentStartSeconds: Double = 0
     private var audioTrackDuration: Double = 0
     private var fileVideoDuration: Double = 0
+
+    /// File-absolute video track duration — canonical time base for `EditTimelineModel` trim handles.
+    var sourceTimelineDurationSeconds: Double {
+        if fileVideoDuration > 0.01 {
+            return fileVideoDuration
+        }
+        return max(videoDuration + videoContentStartSeconds, videoDuration)
+    }
+
     var selectedSegmentID: UUID?
     var isExporting = false
     var exportProgress: Double = 0

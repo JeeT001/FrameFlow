@@ -112,6 +112,88 @@ enum WindowPlacementMath {
         )
     }
 
+    // MARK: - Free-form default seeding
+
+    /// Normalized center coords for Free layout quadrants (y=0 bottom, y=1 top).
+    private static let freeFormQuadrantTopLeft = CGPoint(x: 0.27, y: 0.73)
+    private static let freeFormQuadrantTopRight = CGPoint(x: 0.73, y: 0.73)
+    private static let freeFormQuadrantBottomLeft = CGPoint(x: 0.27, y: 0.27)
+    private static let freeFormQuadrantBottomRight = CGPoint(x: 0.73, y: 0.27)
+
+    private static let freeFormQuadrantOrder: [CGPoint] = [
+        freeFormQuadrantTopLeft,
+        freeFormQuadrantTopRight,
+        freeFormQuadrantBottomLeft,
+        freeFormQuadrantBottomRight,
+    ]
+
+    /// Default centers for Free layout by window count (1–4).
+    /// Order matches stable window ordering used in `seedFreeFormDefault`.
+    static func freeFormDefaultCenters(count: Int) -> [CGPoint] {
+        let slotCount = max(1, min(count, freeFormQuadrantOrder.count))
+        return Array(freeFormQuadrantOrder.prefix(slotCount))
+    }
+
+    /// Max size fraction so N windows fit in quadrants without overlapping.
+    static func freeFormMaxFraction(windowCount: Int) -> CGFloat {
+        switch max(1, min(windowCount, 4)) {
+        case 1: return 0.48
+        case 2: return 0.44
+        case 3: return 0.41
+        default: return 0.39
+        }
+    }
+
+    /// Preview rects for static Free layout diagrams (SwiftUI coordinate space).
+    static func freeFormDefaultPreviewRects(
+        count: Int,
+        canvasSize: CGSize,
+        windowAspect: CGFloat = 9.0 / 16.0,
+        coordinateSpace: WindowPlacementCoordinateSpace = .swiftUI
+    ) -> [CGRect] {
+        let centers = freeFormDefaultCenters(count: count)
+        let maxFraction = freeFormMaxFraction(windowCount: count)
+        return centers.map { center in
+            let placement = initialPlacementForWindow(
+                windowAspect: windowAspect,
+                canvasSize: canvasSize,
+                center: center,
+                maxFraction: maxFraction
+            )
+            return canvasRect(
+                for: placement,
+                canvasSize: canvasSize,
+                coordinateSpace: coordinateSpace
+            )
+        }
+    }
+
+    /// Bottom-left normalized rects for overlap checks (y=0 bottom).
+    static func freeFormDefaultNormalizedRects(
+        count: Int,
+        windowAspect: CGFloat = 9.0 / 16.0,
+        canvasSize: CGSize = CGSize(width: 1920, height: 1080)
+    ) -> [CGRect] {
+        let centers = freeFormDefaultCenters(count: count)
+        let maxFraction = freeFormMaxFraction(windowCount: count)
+        return centers.map { center in
+            let placement = initialPlacementForWindow(
+                windowAspect: windowAspect,
+                canvasSize: canvasSize,
+                center: center,
+                maxFraction: maxFraction
+            )
+            let width = placement.widthFraction
+            let height = placement.heightFraction
+            return CGRect(
+                x: placement.center.x - width / 2,
+                y: placement.center.y - height / 2,
+                width: width,
+                height: height
+            )
+        }
+    }
+
     static func freeFormPosition(_ position: CGPoint) -> CGPoint {
         position
     }
