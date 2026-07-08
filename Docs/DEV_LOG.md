@@ -4092,3 +4092,22 @@ Add layouts section with 9:16 Shorts/Reels/TikTok preview, post-recording trim e
 ui(website): match layout mockups to compositor window-tile style
 ```
 
+---
+
+## Caption export regression follow-up (2026-07-07)
+
+**Problem:** v1.0.13 editor export always passed `project.preparedForExport()` into `ExportViewModel`, even for full-source exports with no trim applied.
+
+**Fix:**
+- `EditorViewModel.exportRecording()` now only passes `editorProject` / `exportDurationOverride` when the editor session is not a full-source export
+- Restores v1.0.12-style caption export path for no-trim editor exports while preserving trim-enabled export behavior
+
+**Shipped:** Tag `v1.0.14` — caption export fix for full-source editor exports (2026-07-08).
+
+**Suggested commit:**
+```
+fix(editor): restore caption export for full-source editor exports
+
+Only pass editorProject to export when trim or timeline edits are active. Fixes caption burn-in regression in v1.0.13 when exporting without trim. Bump to v1.0.14.
+```
+

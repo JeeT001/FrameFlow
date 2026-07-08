@@ -881,8 +881,13 @@ final class EditorViewModel {
             }
         }
 
-        exportViewModel.editorProject = project.preparedForExport()
-        exportViewModel.exportDurationOverride = project.exportDurationSeconds
+        // Restore the pre-trim export path when the editor session is still a full-source export.
+        // This avoids remap/stitch-specific handling unless trim or other timeline edits are active.
+        let preparedProjectForExport = project.isFullSourceExport ? nil : project.preparedForExport()
+        exportViewModel.editorProject = preparedProjectForExport
+        exportViewModel.exportDurationOverride = preparedProjectForExport == nil
+            ? nil
+            : project.exportDurationSeconds
 
         await exportViewModel.export(isPro: isPro, appState: appState, exportPath: "editor")
 

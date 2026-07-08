@@ -1,7 +1,7 @@
 # FrameFlow — Current Status
 
-**Last updated:** 2026-07-07  
-**Version:** v1.0.13 (released — editor trim, Free layout grid, range slider UI)  
+**Last updated:** 2026-07-08  
+**Version:** v1.0.14 (releasing — caption export fix for full-source editor exports)  
 **Repository:** [public on GitHub](https://github.com/JeeT001/FrameFlow) — anonymous DMG download works
 
 ## Current Phase
@@ -12,7 +12,7 @@
 
 - **Day 54 billing** — RevenueCat Production, Stripe Live, webhook + Supabase secrets, test purchase → Pro unlock, CI `REVENUECAT_API_KEY`
 - **v1.0.9 (released)** — Editor caption burn-in when sidecar unavailable; dev route picker + debug Settings hidden in Release
-- **Phase 1 trim (shipped in 1.0.13)** — Global in/out handles re-wired to preview + export; range slider UI; file-absolute timeline; sidecar unchanged
+- **v1.0.14 (releasing)** — Fix caption export regression when exporting full-source editor recordings without trim
 - **Free layout grid (shipped in 1.0.13)** — 1–4 windows seed TL/TR/BL/BR instead of center overlap
 - **v1.0.12 (released)** — Sparkle sandbox fix: in-app Check for Updates install works on sandboxed builds
 - **v1.0.11 (released)** — CaptionRenderer offline-export-safe CATextLayer; Classic captions show readable text in QuickTime
@@ -29,14 +29,14 @@
 | Marketing homepage (`website/index.html`) | Done |
 | **GitHub repo public** | Done — releases downloadable without login |
 | Vercel deploy + auto-deploy on `main` | Done — `https://drazlo.vercel.app` |
-| Download URL (`/download` → GitHub Release DMG) | Done — v1.0.13 |
-| Sparkle appcast | Done — build 13 on Vercel |
-| Release notes `/release-notes/1.0.13/` | Done |
+| Download URL (`/download` → GitHub Release DMG) | Done — v1.0.14 |
+| Sparkle appcast | Done — build 14 on Vercel |
+| Release notes `/release-notes/1.0.14/` | Done |
 | Marketing drafts (Product Hunt, email, social) | Done — `Docs/LAUNCH_DAY55.md` |
 | **Manual:** YouTube demo, Product Hunt, email, social | **Pending** |
 | **Optional:** Register `drazlo.app` → same Vercel project | Deferred |
 
-**Download:** https://drazlo.vercel.app/download · [GitHub v1.0.13](https://github.com/JeeT001/FrameFlow/releases/download/v1.0.13/Drazlo-1.0.13.dmg) (no GitHub account required)
+**Download:** https://drazlo.vercel.app/download · [GitHub v1.0.14](https://github.com/JeeT001/FrameFlow/releases/download/v1.0.14/Drazlo-1.0.14.dmg) (no GitHub account required)
 
 ## Day 54 gate (billing)
 

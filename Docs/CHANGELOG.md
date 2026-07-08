@@ -4,6 +4,11 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.14] — 2026-07-08
+
+### Fixed
+- Editor caption export on full-source recordings (no trim) — restores pre-trim export path; trim exports still work when handles are used
+
 ## [1.0.13] — 2026-07-07
 
 ### Added
