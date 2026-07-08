@@ -240,8 +240,10 @@ final class ExportViewModel {
         let preparedProject = editorProject?.preparedForExport()
             ?? editTimeline.map { EditorProjectModel(timeline: $0.preparedForExport()) }?.preparedForExport()
         let exportSegments = applyCaptions ? resolvedCaptionSegments() : []
+        let willBurn = applyCaptions && !exportSegments.isEmpty
+        let routing = preparedProject == nil ? "fullSource" : "stitch"
         Self.log.info(
-            "export path=\(exportPath, privacy: .public) applyCaptions=\(self.applyCaptions) segments=\(exportSegments.count) source=\(self.lastCaptionSource.rawValue, privacy: .public) leadingGap=\(self.editorLeadingGapForExport, format: .fixed(precision: 3))"
+            "export path=\(exportPath, privacy: .public) applyCaptions=\(self.applyCaptions) burn=\(willBurn) segments=\(exportSegments.count) source=\(self.lastCaptionSource.rawValue, privacy: .public) routing=\(routing, privacy: .public) leadingGap=\(self.editorLeadingGapForExport, format: .fixed(precision: 3)) segFirst=\(exportSegments.first?.startTime ?? -1, format: .fixed(precision: 2)) segLastEnd=\(exportSegments.last?.endTime ?? -1, format: .fixed(precision: 2))"
         )
         let options = ExportOptions(
             sourceVideoURL: sourceURL,

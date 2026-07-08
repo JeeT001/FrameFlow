@@ -396,6 +396,29 @@ final class CaptionEditorViewModel {
         fileVideoDuration = 0
     }
 
+    /// Ensures file-absolute timing used by export matches preview (`configurePlayer` probe).
+    /// Safe to call before export when the player probe may still be in flight (Release builds finish faster).
+    func ensureMediaTimingProbed() async {
+        guard let url = recordingURL else { return }
+        if fileVideoDuration > 0.01, videoDuration > 0.01 {
+            return
+        }
+
+        let asset = AVURLAsset(url: url)
+        let duration = try? await asset.load(.duration)
+        let totalSeconds = duration.map { CMTimeGetSeconds($0) } ?? 1
+
+        videoContentStartSeconds = await RecordingMediaTiming.leadingVideoGapSeconds(
+            asset: asset,
+            metadataLead: recordingMetadata?.captionAudioLeadSeconds
+        )
+
+        let trackDurations = await RecordingMediaTiming.probeTrackDurations(asset: asset)
+        audioTrackDuration = trackDurations.audioSeconds
+        fileVideoDuration = trackDurations.videoSeconds > 0.01 ? trackDurations.videoSeconds : totalSeconds
+        videoDuration = max(totalSeconds - videoContentStartSeconds, 0.1)
+    }
+
     private func configurePlayer(url: URL) {
         let item = AVPlayerItem(url: url)
         player.replaceCurrentItem(with: item)

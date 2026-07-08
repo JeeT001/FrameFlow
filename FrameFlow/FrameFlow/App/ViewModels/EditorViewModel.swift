@@ -855,10 +855,18 @@ final class EditorViewModel {
     }
 
     func exportRecording(isPro: Bool, appState: AppState) async {
+        await captionViewModel.ensureMediaTimingProbed()
+
+        let fileDuration = captionViewModel.sourceTimelineDurationSeconds
+        if fileDuration > project.timeline.sourceDurationSeconds + 0.5 {
+            configureTrim(from: fileDuration)
+        }
+
         let segments = resolvedEditorCaptionSegments()
+        let leadingGap = captionViewModel.videoContentStartSeconds
         exportViewModel.prepareEditorExport(
             segments: segments,
-            leadingGap: captionViewModel.videoContentStartSeconds
+            leadingGap: leadingGap
         )
         exportViewModel.captionStyleForExport = captionViewModel.selectedStyle
 
@@ -881,13 +889,16 @@ final class EditorViewModel {
             }
         }
 
-        // Restore the pre-trim export path when the editor session is still a full-source export.
-        // This avoids remap/stitch-specific handling unless trim or other timeline edits are active.
-        let preparedProjectForExport = project.isFullSourceExport ? nil : project.preparedForExport()
-        exportViewModel.editorProject = preparedProjectForExport
-        exportViewModel.exportDurationOverride = preparedProjectForExport == nil
-            ? nil
-            : project.exportDurationSeconds
+        // Full-source editor export: match v1.0.12 — no stitch/remap path unless trim or media layers are active.
+        if project.timeline.isFullSourceExport && !project.hasMediaLayers && !project.hasAudioTimelineExtension {
+            exportViewModel.editorProject = nil
+            exportViewModel.editTimeline = nil
+            exportViewModel.exportDurationOverride = nil
+        } else {
+            let preparedProjectForExport = project.preparedForExport()
+            exportViewModel.editorProject = preparedProjectForExport
+            exportViewModel.exportDurationOverride = project.exportDurationSeconds
+        }
 
         await exportViewModel.export(isPro: isPro, appState: appState, exportPath: "editor")
 

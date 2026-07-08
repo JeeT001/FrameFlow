@@ -4102,12 +4102,36 @@ ui(website): match layout mockups to compositor window-tile style
 - `EditorViewModel.exportRecording()` now only passes `editorProject` / `exportDurationOverride` when the editor session is not a full-source export
 - Restores v1.0.12-style caption export path for no-trim editor exports while preserving trim-enabled export behavior
 
-**Shipped:** Tag `v1.0.14` — caption export fix for full-source editor exports (2026-07-08).
+**Shipped:** Tag `v1.0.14` — caption export fix for full-source editor exports (2026-07-08). **Note:** v1.0.14 insufficient on CI/notarized DMG; see v1.0.15 follow-up below.
 
 **Suggested commit:**
 ```
 fix(editor): restore caption export for full-source editor exports
 
 Only pass editorProject to export when trim or timeline edits are active. Fixes caption burn-in regression in v1.0.13 when exporting without trim. Bump to v1.0.14.
+```
+
+---
+
+## Caption export v1.0.15 follow-up (2026-07-09)
+
+**Problem:** v1.0.14 DMG (CI/notarized) still exported MP4s without visible captions; local `archive_release.sh` install with additional fixes worked.
+
+**Root cause:** Release builds finish player timing probes faster than Debug; export could run before `videoContentStartSeconds` / file duration were ready, misaligning burn-in vs preview. v1.0.14 `isFullSourceExport` nil routing alone was not enough.
+
+**Fix:**
+- `CaptionEditorViewModel.ensureMediaTimingProbed()` — await file-absolute timing before export
+- `EditorViewModel.exportRecording()` — sync trim duration if stale; explicit v1.0.12 nil `editorProject` / `editTimeline` for full-source exports
+- Richer `export path=` log (`burn`, `routing`, `segFirst`, `segLastEnd`)
+
+**Verified:** `./Scripts/archive_release.sh` → install → no-trim + trim caption export, all styles (2026-07-09).
+
+**Shipped:** Tag `v1.0.15` (2026-07-09).
+
+**Suggested commit:**
+```
+fix(editor): caption export on notarized Release builds
+
+Probe media timing before export and restore v1.0.12 full-source routing. Fixes missing burn-in on CI DMG while local Debug appeared fine. Bump to v1.0.15.
 ```
 

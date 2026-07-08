@@ -4,6 +4,11 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.15] — 2026-07-09
+
+### Fixed
+- Editor caption export on installed Release/CI builds — probe media timing before export and restore v1.0.12 full-source export routing so burn-in matches preview (v1.0.14 partial fix was insufficient on notarized DMG)
+
 ## [1.0.14] — 2026-07-08
 
 ### Fixed
