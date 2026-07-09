@@ -6,6 +6,21 @@
     <description>Drazlo for macOS — screen recording updates</description>
     <language>en</language>
     <item>
+      <title>Drazlo 1.0.18</title>
+      <pubDate>Wed, 09 Jul 2026 09:48:00 +0000</pubDate>
+      <sparkle:version>18</sparkle:version>
+      <sparkle:shortVersionString>1.0.18</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/JeeT001/FrameFlow/releases/download/v1.0.18/Drazlo-1.0.18.dmg"
+        sparkle:version="18"
+        sparkle:shortVersionString="1.0.18"
+        length="9105701"
+        type="application/octet-stream"
+        sparkle:edSignature="uRbtxM0JEj3xJINTfAq8BxUmfZCBNZHlakfZ5st1ymWcOmckGe+8nvD6pdM4tnbYlMaB1nEU82/3bLWJwhCPDg==" />
+      <sparkle:releaseNotesLink>https://drazlo.vercel.app/release-notes/1.0.18/</sparkle:releaseNotesLink>
+    </item>
+    <item>
       <title>Drazlo 1.0.17</title>
       <pubDate>Wed, 09 Jul 2026 02:20:00 +0000</pubDate>
       <sparkle:version>17</sparkle:version>
