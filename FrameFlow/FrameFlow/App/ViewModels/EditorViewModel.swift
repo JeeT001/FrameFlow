@@ -855,7 +855,7 @@ final class EditorViewModel {
     }
 
     func exportRecording(isPro: Bool, appState: AppState) async {
-        await captionViewModel.ensureMediaTimingProbed()
+        await captionViewModel.refreshExportMediaTiming()
 
         let fileDuration = captionViewModel.sourceTimelineDurationSeconds
         if fileDuration > project.timeline.sourceDurationSeconds + 0.5 {
@@ -863,16 +863,50 @@ final class EditorViewModel {
         }
 
         let segments = resolvedEditorCaptionSegments()
-        let leadingGap = captionViewModel.videoContentStartSeconds
+        guard let recording = exportViewModel.recording else { return }
+
+        let sourceURL = URL(fileURLWithPath: recording.filePath)
+        let leadingGap: Double
+        let trackDurations: RecordingMediaTiming.TrackDurations
+        if SecurityScopedFileAccess.canAccess(sourceURL) {
+            let asset = AVURLAsset(url: sourceURL)
+            leadingGap = await RecordingMediaTiming.leadingVideoGapSeconds(
+                asset: asset,
+                metadataLead: recording.captionAudioLeadSeconds
+            )
+            trackDurations = await RecordingMediaTiming.probeTrackDurations(asset: asset)
+        } else {
+            leadingGap = captionViewModel.videoContentStartSeconds
+            trackDurations = RecordingMediaTiming.TrackDurations(
+                audioSeconds: captionViewModel.sourceTimelineDurationSeconds,
+                videoSeconds: captionViewModel.sourceTimelineDurationSeconds
+            )
+        }
+
         exportViewModel.prepareEditorExport(
             segments: segments,
             leadingGap: leadingGap
         )
         exportViewModel.captionStyleForExport = captionViewModel.selectedStyle
 
+        if !segments.isEmpty {
+            exportViewModel.applyCaptions = true
+        }
+
         if exportViewModel.applyCaptions {
             if exportViewModel.resolvedCaptionSegments().isEmpty {
                 exportViewModel.exportError = ExportServiceError.captionsRequiredButUnavailable.errorDescription
+                return
+            }
+
+            let burnSegments = CaptionExportTimeline.segmentsForBurnIn(
+                from: segments,
+                leadingGap: leadingGap,
+                audioDuration: trackDurations.audioSeconds,
+                videoDuration: trackDurations.videoSeconds
+            )
+            if burnSegments.isEmpty {
+                exportViewModel.exportError = ExportServiceError.captionsTrimmedEmpty.errorDescription
                 return
             }
 

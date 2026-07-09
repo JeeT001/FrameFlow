@@ -4,6 +4,11 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.16] — 2026-07-09
+
+### Fixed
+- Editor caption export on notarized DMG — always re-probe leading A/V gap from file before burn-in, force caption burn when segments exist, and fail loudly if mapped burn-in segments are empty (fixes v1.0.15 stale-gap regression on 9:16/PiP recordings)
+
 ## [1.0.15] — 2026-07-09
 
 ### Fixed

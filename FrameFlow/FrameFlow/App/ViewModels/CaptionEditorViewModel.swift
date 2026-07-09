@@ -396,13 +396,10 @@ final class CaptionEditorViewModel {
         fileVideoDuration = 0
     }
 
-    /// Ensures file-absolute timing used by export matches preview (`configurePlayer` probe).
-    /// Safe to call before export when the player probe may still be in flight (Release builds finish faster).
-    func ensureMediaTimingProbed() async {
+    /// Refreshes file-absolute timing from the asset before export so burn-in matches preview.
+    /// Always re-probes (Release builds can cache stale gap=0 from an early export-sheet open).
+    func refreshExportMediaTiming() async {
         guard let url = recordingURL else { return }
-        if fileVideoDuration > 0.01, videoDuration > 0.01 {
-            return
-        }
 
         let asset = AVURLAsset(url: url)
         let duration = try? await asset.load(.duration)
@@ -417,6 +414,11 @@ final class CaptionEditorViewModel {
         audioTrackDuration = trackDurations.audioSeconds
         fileVideoDuration = trackDurations.videoSeconds > 0.01 ? trackDurations.videoSeconds : totalSeconds
         videoDuration = max(totalSeconds - videoContentStartSeconds, 0.1)
+    }
+
+    /// Backward-compatible alias for editor export call sites.
+    func ensureMediaTimingProbed() async {
+        await refreshExportMediaTiming()
     }
 
     private func configurePlayer(url: URL) {

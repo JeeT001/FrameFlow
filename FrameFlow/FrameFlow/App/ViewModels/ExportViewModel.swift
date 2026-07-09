@@ -505,7 +505,6 @@ final class ExportViewModel {
     }
 
     private func resolveLeadingGapIfNeeded(for recording: RecordingMetadata) async {
-        guard editorLeadingGapForExport < 0.001 else { return }
         let url = URL(fileURLWithPath: recording.filePath)
         guard SecurityScopedFileAccess.canAccess(url) else { return }
         let asset = AVURLAsset(url: url)
@@ -517,6 +516,8 @@ final class ExportViewModel {
             editorLeadingGapForExport = probed
         } else if recording.captionAudioLeadSeconds > 0.001 {
             editorLeadingGapForExport = recording.captionAudioLeadSeconds
+        } else {
+            editorLeadingGapForExport = 0
         }
     }
 }

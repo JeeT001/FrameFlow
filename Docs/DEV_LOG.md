@@ -4135,3 +4135,20 @@ fix(editor): caption export on notarized Release builds
 Probe media timing before export and restore v1.0.12 full-source routing. Fixes missing burn-in on CI DMG while local Debug appeared fine. Bump to v1.0.15.
 ```
 
+---
+
+## 2026-07-09 — v1.0.16 caption export leading-gap fix (shipped)
+
+**Problem:** v1.0.15 still failed on internet DMG — preview showed captions, exported MP4 did not (9:16 PiP + A/V stretch).
+
+**Root cause:** `ensureMediaTimingProbed()` early-returned when player already loaded; `resolveLeadingGapIfNeeded()` skipped re-probe when cached gap > 0. Export used stale `leadingGap` while preview had correct probed timing.
+
+**Fix:**
+- `CaptionEditorViewModel.refreshExportMediaTiming()` — always re-probes gap + track durations
+- `EditorViewModel.exportRecording()` — refresh timing, probe gap from asset, force `applyCaptions` when segments exist, pre-flight `segmentsForBurnIn()` with error if empty
+- `ExportViewModel.resolveLeadingGapIfNeeded()` — always re-probe from asset
+
+**Verified:** `./Scripts/archive_release.sh` → `cp build/export/Drazlo.app /Applications/` — no-trim + trim, all styles, same 9:16/PiP scenario that failed on v1.0.15 internet DMG (2026-07-09).
+
+**Shipped:** Tag `v1.0.16` (2026-07-09).
+
