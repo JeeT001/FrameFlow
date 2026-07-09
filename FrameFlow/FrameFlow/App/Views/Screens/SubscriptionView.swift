@@ -153,16 +153,16 @@ struct SubscriptionView: View {
             HStack(alignment: .top, spacing: 16) {
                 planCard(
                     title: "Pro Annual",
-                    priceLine: "$9/mo",
-                    detailLine: "Billed $108/yr · 7-day free trial",
+                    priceLine: "$155.88/yr",
+                    detailLine: "$12.99/mo billed annually · 7-day free trial",
                     buttonTitle: "Start Free Trial",
                     plan: .annual
                 )
 
                 planCard(
                     title: "Pro Monthly",
-                    priceLine: "$19/mo",
-                    detailLine: "7-day free trial",
+                    priceLine: "$12.99/mo",
+                    detailLine: "Billed monthly · 7-day free trial",
                     buttonTitle: "Start Free Trial",
                     plan: .monthly
                 )
