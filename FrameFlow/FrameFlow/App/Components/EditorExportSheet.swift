@@ -26,7 +26,10 @@ struct EditorExportSheet: View {
             exportSheetContent
         }
         .frame(minWidth: 420, minHeight: 480)
-        .alert("Export without captions?", isPresented: $showExportWithoutCaptionsWarning) {
+        .alert("Export without captions?", isPresented: Binding(
+            get: { AppFeatureFlags.captionsEnabled && showExportWithoutCaptionsWarning },
+            set: { showExportWithoutCaptionsWarning = $0 }
+        )) {
             Button("Export without captions", role: .destructive) {
                 exportVM.markExportWithoutCaptionsWarningShown()
                 onExport()
@@ -55,7 +58,7 @@ struct EditorExportSheet: View {
 
             exportResolutionSection
 
-            if exportVM.hasCaptionsAvailable {
+            if AppFeatureFlags.captionsEnabled, exportVM.hasCaptionsAvailable {
                 Toggle("Include captions in export", isOn: Binding(
                     get: { exportVM.applyCaptions },
                     set: { exportVM.applyCaptions = $0 }
@@ -106,7 +109,7 @@ struct EditorExportSheet: View {
                 Spacer()
 
                 Button {
-                    if exportVM.shouldShowExportWithoutCaptionsWarning {
+                    if AppFeatureFlags.captionsEnabled, exportVM.shouldShowExportWithoutCaptionsWarning {
                         showExportWithoutCaptionsWarning = true
                     } else {
                         onExport()

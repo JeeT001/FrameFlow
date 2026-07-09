@@ -52,8 +52,12 @@ struct EditorView: View {
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     exportVM.prepareEditorExport(
-                        segments: viewModel.resolvedEditorCaptionSegmentsForExport(),
-                        leadingGap: captionVM.videoContentStartSeconds
+                        segments: AppFeatureFlags.captionsEnabled
+                            ? viewModel.resolvedEditorCaptionSegmentsForExport()
+                            : [],
+                        leadingGap: AppFeatureFlags.captionsEnabled
+                            ? captionVM.videoContentStartSeconds
+                            : 0
                     )
                     exportVM.isExportSheetPresented = true
                 } label: {
@@ -102,11 +106,13 @@ struct EditorView: View {
             description: proGateDescription
         )
         .onChange(of: captionState.segments) { _, newSegments in
+            guard AppFeatureFlags.captionsEnabled else { return }
             guard captionVM.segments.isEmpty, !newSegments.isEmpty else { return }
             captionVM.segments = newSegments
             captionVM.sync(from: captionState)
         }
         .onChange(of: captionState.isTranscribing) { _, isTranscribing in
+            guard AppFeatureFlags.captionsEnabled else { return }
             if !isTranscribing {
                 viewModel.onCaptionGenerationFinished(isPro: appState.isPro)
             }
@@ -176,7 +182,7 @@ struct EditorView: View {
     }
 
     private var isCaptionPlacementEditable: Bool {
-        appState.isPro && !captionVM.segments.isEmpty && showCaptionOverlay
+        AppFeatureFlags.captionsEnabled && appState.isPro && !captionVM.segments.isEmpty && showCaptionOverlay
     }
 
     private var showCaptionPlacementChrome: Bool {
@@ -184,7 +190,8 @@ struct EditorView: View {
     }
 
     private var activePlatformGuide: PlatformPreviewOverlay {
-        guard exportVM.recording?.format == "9:16", !captionState.isTranscribing else { return .none }
+        guard exportVM.recording?.format == "9:16" else { return .none }
+        if AppFeatureFlags.captionsEnabled, captionState.isTranscribing { return .none }
         return viewModel.platformPreviewOverlay
     }
 
@@ -306,7 +313,7 @@ struct EditorView: View {
     @ViewBuilder
     private func previewHint(platformGuide: PlatformPreviewOverlay) -> some View {
         if platformGuide != .none {
-            Text("Platform guide is preview-only. Caption placement matches your export; avoid platform chrome when positioning.")
+            Text("Platform guide is preview-only. Keep important content inside the safe zones.")
                 .font(.caption)
                 .foregroundStyle(AppColors.textSecondary)
         } else if isCaptionPlacementEditable {
@@ -317,7 +324,7 @@ struct EditorView: View {
     }
 
     private var showCaptionOverlay: Bool {
-        appState.isPro && !captionVM.segments.isEmpty
+        AppFeatureFlags.captionsEnabled && appState.isPro && !captionVM.segments.isEmpty
     }
 
     private var missingRecordingView: some View {

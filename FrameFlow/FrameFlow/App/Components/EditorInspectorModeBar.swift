@@ -23,20 +23,22 @@ struct EditorInspectorModeBar: View {
                 onModeChange(.edit)
             }
 
-            modePill(
-                title: "Captions",
-                icon: isPro ? nil : "lock.fill",
-                isSelected: mode == .captions,
-                isLocked: !isPro
-            ) {
-                if isPro {
-                    mode = .captions
-                    onModeChange(.captions)
-                } else {
-                    onCaptionsLockedTap()
+            if AppFeatureFlags.captionsEnabled {
+                modePill(
+                    title: "Captions",
+                    icon: isPro ? nil : "lock.fill",
+                    isSelected: mode == .captions,
+                    isLocked: !isPro
+                ) {
+                    if isPro {
+                        mode = .captions
+                        onModeChange(.captions)
+                    } else {
+                        onCaptionsLockedTap()
+                    }
                 }
+                .help(isPro ? "Caption styles and segments" : "Auto captions require \(AppBranding.proName) — click to learn more")
             }
-            .help(isPro ? "Caption styles and segments" : "Auto captions require \(AppBranding.proName) — click to learn more")
         }
         .padding(4)
         .background(AppColors.border.opacity(0.25), in: Capsule())

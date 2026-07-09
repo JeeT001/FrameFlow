@@ -270,6 +270,7 @@ struct RecordingDetailView: View {
     }
 
     private func stageCaptionsForExportIfAvailable(_ recording: RecordingMetadata) {
+        guard AppFeatureFlags.captionsEnabled else { return }
         let state = CaptionGenerationState.shared
         if state.recordingID == recording.id, !state.segments.isEmpty {
             appState.stageExportCaptions(

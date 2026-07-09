@@ -118,7 +118,7 @@ final class EditorViewModel {
         }
 
         let editorSegments = resolvedEditorCaptionSegments()
-        let willBurnCaptions = applyCaptions && !editorSegments.isEmpty
+        let willBurnCaptions = AppFeatureFlags.captionsEnabled && applyCaptions && !editorSegments.isEmpty
         if isPro, willBurnCaptions {
             let style = captionViewModel.selectedStyle
             let position = style.verticalPosition.rawValue.capitalized
@@ -234,13 +234,15 @@ final class EditorViewModel {
         guard let recording = exportViewModel.recording else { return }
 
         let url = URL(fileURLWithPath: recording.filePath)
-        let deferPlayer = isPro && CaptionGenerationState.shared.isTranscribing
+        let deferPlayer = AppFeatureFlags.captionsEnabled
+            && isPro
+            && CaptionGenerationState.shared.isTranscribing
         captionViewModel.loadPreview(url: url, recording: recording, deferPlayerLoad: deferPlayer)
         if captionViewModel.sourceTimelineDurationSeconds > 1 {
             configureTrim(from: captionViewModel.sourceTimelineDurationSeconds)
         }
 
-        if isPro {
+        if AppFeatureFlags.captionsEnabled, isPro {
             captionViewModel.sync(from: CaptionGenerationState.shared)
         }
 
@@ -862,65 +864,73 @@ final class EditorViewModel {
             configureTrim(from: fileDuration)
         }
 
-        let segments = resolvedEditorCaptionSegments()
-        guard let recording = exportViewModel.recording else { return }
+        guard exportViewModel.recording != nil else { return }
 
-        let sourceURL = URL(fileURLWithPath: recording.filePath)
-        let leadingGap: Double
-        let trackDurations: RecordingMediaTiming.TrackDurations
-        if SecurityScopedFileAccess.canAccess(sourceURL) {
-            let asset = AVURLAsset(url: sourceURL)
-            leadingGap = await RecordingMediaTiming.leadingVideoGapSeconds(
-                asset: asset,
-                metadataLead: recording.captionAudioLeadSeconds
-            )
-            trackDurations = await RecordingMediaTiming.probeTrackDurations(asset: asset)
-        } else {
-            leadingGap = captionViewModel.videoContentStartSeconds
-            trackDurations = RecordingMediaTiming.TrackDurations(
-                audioSeconds: captionViewModel.sourceTimelineDurationSeconds,
-                videoSeconds: captionViewModel.sourceTimelineDurationSeconds
-            )
-        }
+        if AppFeatureFlags.captionsEnabled {
+            let segments = resolvedEditorCaptionSegments()
+            guard let recording = exportViewModel.recording else { return }
 
-        exportViewModel.prepareEditorExport(
-            segments: segments,
-            leadingGap: leadingGap
-        )
-        exportViewModel.captionStyleForExport = captionViewModel.selectedStyle
-
-        if !segments.isEmpty {
-            exportViewModel.applyCaptions = true
-        }
-
-        if exportViewModel.applyCaptions {
-            if exportViewModel.resolvedCaptionSegments().isEmpty {
-                exportViewModel.exportError = ExportServiceError.captionsRequiredButUnavailable.errorDescription
-                return
+            let sourceURL = URL(fileURLWithPath: recording.filePath)
+            let leadingGap: Double
+            let trackDurations: RecordingMediaTiming.TrackDurations
+            if SecurityScopedFileAccess.canAccess(sourceURL) {
+                let asset = AVURLAsset(url: sourceURL)
+                leadingGap = await RecordingMediaTiming.leadingVideoGapSeconds(
+                    asset: asset,
+                    metadataLead: recording.captionAudioLeadSeconds
+                )
+                trackDurations = await RecordingMediaTiming.probeTrackDurations(asset: asset)
+            } else {
+                leadingGap = captionViewModel.videoContentStartSeconds
+                trackDurations = RecordingMediaTiming.TrackDurations(
+                    audioSeconds: captionViewModel.sourceTimelineDurationSeconds,
+                    videoSeconds: captionViewModel.sourceTimelineDurationSeconds
+                )
             }
 
-            let burnSegments = CaptionExportTimeline.segmentsForBurnIn(
-                from: segments,
-                leadingGap: leadingGap,
-                audioDuration: trackDurations.audioSeconds,
-                videoDuration: trackDurations.videoSeconds
+            exportViewModel.prepareEditorExport(
+                segments: segments,
+                leadingGap: leadingGap
             )
-            if burnSegments.isEmpty {
-                exportViewModel.exportError = ExportServiceError.captionsTrimmedEmpty.errorDescription
-                return
+            exportViewModel.captionStyleForExport = captionViewModel.selectedStyle
+
+            if !segments.isEmpty {
+                exportViewModel.applyCaptions = true
             }
 
-            if isPro {
-                do {
-                    try await saveCaptionsBeforeExport()
-                } catch SecurityScopedFileAccess.AccessError.denied {
-                    exportViewModel.exportError = SecurityScopedFileAccess.accessDeniedMessage
-                    return
-                } catch {
-                    exportViewModel.exportError = ExportDiskSpaceChecker.userFacingExportError(error)
+            if exportViewModel.applyCaptions {
+                if exportViewModel.resolvedCaptionSegments().isEmpty {
+                    exportViewModel.exportError = ExportServiceError.captionsRequiredButUnavailable.errorDescription
                     return
                 }
+
+                let burnSegments = CaptionExportTimeline.segmentsForBurnIn(
+                    from: segments,
+                    leadingGap: leadingGap,
+                    audioDuration: trackDurations.audioSeconds,
+                    videoDuration: trackDurations.videoSeconds
+                )
+                if burnSegments.isEmpty {
+                    exportViewModel.exportError = ExportServiceError.captionsTrimmedEmpty.errorDescription
+                    return
+                }
+
+                if isPro {
+                    do {
+                        try await saveCaptionsBeforeExport()
+                    } catch SecurityScopedFileAccess.AccessError.denied {
+                        exportViewModel.exportError = SecurityScopedFileAccess.accessDeniedMessage
+                        return
+                    } catch {
+                        exportViewModel.exportError = ExportDiskSpaceChecker.userFacingExportError(error)
+                        return
+                    }
+                }
             }
+        } else {
+            exportViewModel.applyCaptions = false
+            exportViewModel.alsoSaveSRT = false
+            exportViewModel.prepareEditorExport(segments: [], leadingGap: 0)
         }
 
         // Full-source editor export: match v1.0.12 — no stitch/remap path unless trim or media layers are active.
@@ -938,7 +948,7 @@ final class EditorViewModel {
 
         guard exportViewModel.exportedURL != nil, exportViewModel.exportError == nil else { return }
 
-        if isPro, exportViewModel.alsoSaveSRT, exportViewModel.hasCaptionsAvailable {
+        if AppFeatureFlags.captionsEnabled, isPro, exportViewModel.alsoSaveSRT, exportViewModel.hasCaptionsAvailable {
             await writeExportSRT(isPro: isPro)
         }
     }

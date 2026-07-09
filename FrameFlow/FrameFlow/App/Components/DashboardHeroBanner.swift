@@ -15,7 +15,7 @@ struct DashboardHeroBanner: View {
                 .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Record multiple windows, add your camera, generate captions, and export in one click.")
+            Text("Record multiple windows, add your camera, trim your clip, and export in one flow.")
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.88))
                 .fixedSize(horizontal: false, vertical: true)

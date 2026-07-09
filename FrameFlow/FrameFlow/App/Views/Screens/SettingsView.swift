@@ -23,7 +23,11 @@ struct SettingsView: View {
                 recordingExportCard
                 audioCard
                 cursorZoomCard
-                captionsNotificationsCard
+                if AppFeatureFlags.captionsEnabled {
+                    captionsNotificationsCard
+                } else {
+                    notificationsCard
+                }
                 appearanceCard
                 supportCreatorCard
                 aboutCard
@@ -254,6 +258,15 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var notificationsCard: some View {
+        SettingsSectionCard(title: "Notifications", icon: "bell") {
+            SettingsToggleRow(
+                title: "Export complete notifications",
+                isOn: Bindable(viewModel.settings).notificationsEnabled
+            )
         }
     }
 

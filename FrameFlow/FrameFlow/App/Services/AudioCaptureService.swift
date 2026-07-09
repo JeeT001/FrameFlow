@@ -45,10 +45,17 @@ final class AudioCaptureService {
         qos: .userInteractive
     )
 
+    nonisolated(unsafe) private static var cachedDefaultInputSampleRate: Double?
+
     nonisolated static func defaultInputSampleRate() -> Double {
+        if let cachedDefaultInputSampleRate {
+            return cachedDefaultInputSampleRate
+        }
         let engine = AVAudioEngine()
         defer { engine.stop() }
-        return engine.inputNode.outputFormat(forBus: 0).sampleRate
+        let rate = engine.inputNode.outputFormat(forBus: 0).sampleRate
+        cachedDefaultInputSampleRate = rate
+        return rate
     }
 
     func start(

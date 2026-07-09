@@ -1,7 +1,7 @@
 # FrameFlow — Current Status
 
 **Last updated:** 2026-07-09  
-**Version:** v1.0.16 (released — caption export leading-gap fix for notarized DMG)  
+**Version:** v1.0.17 (released — captions deferred, faster recording startup)  
 **Repository:** [public on GitHub](https://github.com/JeeT001/FrameFlow) — anonymous DMG download works
 
 ## Current Phase
@@ -12,7 +12,8 @@
 
 - **Day 54 billing** — RevenueCat Production, Stripe Live, webhook + Supabase secrets, test purchase → Pro unlock, CI `REVENUECAT_API_KEY`
 - **v1.0.9 (released)** — Editor caption burn-in when sidecar unavailable; dev route picker + debug Settings hidden in Release
-- **v1.0.16 (released)** — Caption export on notarized DMG: always re-probe leading gap before burn-in; verified via `archive_release.sh` on 9:16/PiP
+- **v1.0.17 (released)** — Captions disabled for launch + recording startup handoff (SCStream reuse, permission cache, shared camera)
+- **Captions (deferred for launch)** — UI, transcription, and burn-in hidden behind `AppFeatureFlags.captionsEnabled`; record → trim → export unchanged
 - **v1.0.15 (released)** — Partial caption export fix; stale-gap early return still broke notarized DMG
 - **Free layout grid (shipped in 1.0.13)** — 1–4 windows seed TL/TR/BL/BR instead of center overlap
 - **v1.0.12 (released)** — Sparkle sandbox fix: in-app Check for Updates install works on sandboxed builds
@@ -30,14 +31,14 @@
 | Marketing homepage (`website/index.html`) | Done |
 | **GitHub repo public** | Done — releases downloadable without login |
 | Vercel deploy + auto-deploy on `main` | Done — `https://drazlo.vercel.app` |
-| Download URL (`/download` → GitHub Release DMG) | Done — v1.0.16 |
-| Sparkle appcast | Done — build 16 on Vercel |
-| Release notes `/release-notes/1.0.16/` | Done |
+| Download URL (`/download` → GitHub Release DMG) | Done — v1.0.17 |
+| Sparkle appcast | Done — build 17 on Vercel |
+| Release notes `/release-notes/1.0.17/` | Done |
 | Marketing drafts (Product Hunt, email, social) | Done — `Docs/LAUNCH_DAY55.md` |
 | **Manual:** YouTube demo, Product Hunt, email, social | **Pending** |
 | **Optional:** Register `drazlo.app` → same Vercel project | Deferred |
 
-**Download:** https://drazlo.vercel.app/download · [GitHub v1.0.16](https://github.com/JeeT001/FrameFlow/releases/download/v1.0.16/Drazlo-1.0.16.dmg) (no GitHub account required)
+**Download:** https://drazlo.vercel.app/download · [GitHub v1.0.17](https://github.com/JeeT001/FrameFlow/releases/download/v1.0.17/Drazlo-1.0.17.dmg) (no GitHub account required)
 
 ## Day 54 gate (billing)
 

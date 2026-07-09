@@ -38,6 +38,8 @@ final class RecordingViewModel {
     }
 
     func runRecordingFlow(appState: AppState) async {
+        defer { appState.isEnteringRecording = false }
+
         guard !appState.selectedWindowIDs.isEmpty else {
             coordinator.errorMessage = "No windows selected. Return to the Window Picker."
             phase = .idle

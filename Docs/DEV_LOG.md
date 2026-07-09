@@ -4152,3 +4152,21 @@ Probe media timing before export and restore v1.0.12 full-source routing. Fixes 
 
 **Shipped:** Tag `v1.0.16` (2026-07-09).
 
+---
+
+## 2026-07-09 — Captions disabled for launch (feature-flagged)
+
+**Decision:** Caption export unreliable on notarized builds; hide captions for launch, re-enable later.
+
+**Implementation:** `AppFeatureFlags.captionsEnabled = false` gates transcription start, editor caption UI/overlay, export burn-in toggles, subscription row, settings caption picker, dashboard staging, help FAQ, and marketing copy. `CaptionEngine` / `TranscriptionService` / burn-in code retained.
+
+**User flow:** Record → Editor (trim) → Export video-only MP4.
+
+---
+
+## 2026-07-09 — v1.0.17 recording startup + ship captions-off build
+
+**Recording startup fix:** Cached `SCShareableContent` permission checks; layout → recording SCStream handoff (`isEnteringRecording`); `CameraCapture.shared` with warm PiP; parallel system-audio + camera warmup; `warmForRecording()` on layout picker. Verified ~1–3s to HUD (was 15–20s).
+
+**Shipped:** Tag `v1.0.17` (2026-07-09).
+

@@ -4,6 +4,15 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.17] — 2026-07-09
+
+### Changed
+- Captions hidden for launch (`AppFeatureFlags.captionsEnabled = false`) — record, trim, and video-only export unchanged; caption engine code retained for re-enable
+- Marketing site and subscription copy updated to match (no caption feature promises)
+
+### Fixed
+- Recording startup — reuse layout preview SCStreams and warm camera, cache screen-recording permission, parallel audio/camera warmup (fixes 15–20s “Starting capture…” delay)
+
 ## [1.0.16] — 2026-07-09
 
 ### Fixed

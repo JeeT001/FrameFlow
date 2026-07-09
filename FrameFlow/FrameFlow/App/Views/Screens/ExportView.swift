@@ -77,7 +77,10 @@ struct ExportView: View {
                 Text(url.path)
             }
         }
-        .alert("Export without captions?", isPresented: $showExportWithoutCaptionsWarning) {
+        .alert("Export without captions?", isPresented: Binding(
+            get: { AppFeatureFlags.captionsEnabled && showExportWithoutCaptionsWarning },
+            set: { showExportWithoutCaptionsWarning = $0 }
+        )) {
             Button("Export without captions", role: .destructive) {
                 viewModel.markExportWithoutCaptionsWarningShown()
                 Task { await viewModel.export(isPro: appState.isPro, appState: appState, exportPath: "exportView") }
@@ -116,11 +119,11 @@ struct ExportView: View {
 
                 resolutionSection
 
-                if viewModel.hasCaptionsAvailable {
+                if AppFeatureFlags.captionsEnabled, viewModel.hasCaptionsAvailable {
                     Toggle("Include captions in export", isOn: $viewModel.applyCaptions)
                 }
 
-                if viewModel.showsCaptionsBadge {
+                if AppFeatureFlags.captionsEnabled, viewModel.showsCaptionsBadge {
                     Label("Captions included", systemImage: "captions.bubble.fill")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppColors.successGreen)
@@ -152,7 +155,7 @@ struct ExportView: View {
                 }
 
                 Button {
-                    if viewModel.shouldShowExportWithoutCaptionsWarning {
+                    if AppFeatureFlags.captionsEnabled, viewModel.shouldShowExportWithoutCaptionsWarning {
                         showExportWithoutCaptionsWarning = true
                     } else {
                         Task { await viewModel.export(isPro: appState.isPro, appState: appState, exportPath: "exportView") }

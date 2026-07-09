@@ -11,6 +11,8 @@ import Foundation
 @MainActor
 @Observable
 final class CameraCapture {
+    static let shared = CameraCapture()
+
     private(set) var latestFrame: CIImage?
     private(set) var isRunning = false
     private(set) var isUnavailable = false
@@ -28,6 +30,8 @@ final class CameraCapture {
     /// Serializes start/stop so rapid PiP toggles cannot overlap session mutations.
     private var sessionOperation: Task<Void, Never>?
     private var disconnectObserver: NSObjectProtocol?
+
+    private init() {}
 
     var frameForComposite: CIImage? {
         guard isRunning, !isUnavailable, hasReceivedFrameSinceStart else { return nil }

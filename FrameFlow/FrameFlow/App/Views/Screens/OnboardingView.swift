@@ -24,7 +24,7 @@ struct OnboardingView: View {
         OnboardingPage(
             systemImage: "video",
             title: "Record and Export",
-            subtitle: "Record with optional captions and camera PiP, then export in 9:16 or 16:9 for social platforms."
+            subtitle: "Record with optional camera PiP, then trim and export in 9:16 or 16:9 for social platforms."
         ),
     ]
 

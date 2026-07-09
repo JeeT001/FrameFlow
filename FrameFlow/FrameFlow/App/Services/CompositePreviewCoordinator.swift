@@ -147,6 +147,17 @@ final class CompositePreviewCoordinator {
         previewImage = nil
     }
 
+    /// Stops compositor timers when handing off to RecordingView without tearing down SCStreams.
+    func stopPreservingStreams() async {
+        displayTimer?.invalidate()
+        displayTimer = nil
+        cursorTracker.stopTracking()
+        activeWindowMonitor.stopMonitoring()
+        isLiveActive = false
+        isStarting = false
+        previewImage = nil
+    }
+
     private func startDisplayTimer() {
         displayTimer?.invalidate()
         displayTimer = Timer.scheduledTimer(

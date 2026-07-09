@@ -43,6 +43,8 @@ final class AppState {
     var stagedExportCaptionStyle: CaptionStyleConfig?
     /// Recording shown on the Recording Detail screen.
     var detailRecordingID: UUID?
+    /// Layout → Recording: keep SCStreams alive instead of stop/restart.
+    var isEnteringRecording = false
     /// Synced profile from `public.users` (subscription row logged in DEBUG only).
     var syncedProfile: FrameFlowUser?
     /// Deep-link password recovery — session exists in Supabase client but UI stays on auth stack.

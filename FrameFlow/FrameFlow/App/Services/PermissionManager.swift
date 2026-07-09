@@ -36,13 +36,25 @@ enum PermissionKind: CaseIterable {
 final class PermissionManager {
     static let shared = PermissionManager()
 
+    private var cachedScreenRecordingGranted: Bool?
+
     private init() {}
 
+    func markScreenRecordingGranted() {
+        cachedScreenRecordingGranted = true
+    }
+
     func checkScreenRecordingPermission() async -> Bool {
+        if cachedScreenRecordingGranted == true {
+            return true
+        }
+
         do {
             _ = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            cachedScreenRecordingGranted = true
             return true
         } catch {
+            cachedScreenRecordingGranted = false
             return false
         }
     }

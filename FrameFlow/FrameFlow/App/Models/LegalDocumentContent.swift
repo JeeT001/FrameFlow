@@ -62,8 +62,10 @@ enum LegalDocumentContent {
                 title: "Information We Do Not Collect by Default",
                 body: """
                 **Your recordings stay on your Mac.** Screen captures, audio, camera picture-in-picture feeds, and exported MP4 files are processed and stored locally on your device unless you choose to save or share them elsewhere.
+                \(AppFeatureFlags.captionsEnabled ? """
 
                 **Captions are processed on-device.** When you generate captions, transcription runs locally using WhisperKit. Your audio is not sent to our servers for caption generation.
+                """ : "")
 
                 **We do not upload your screen or microphone content** as part of normal app operation. We do not sell your personal information.
                 """
@@ -166,7 +168,7 @@ enum LegalDocumentContent {
             LegalSection(
                 title: "Description of Service",
                 body: """
-                \(AppBranding.name) is a screen-recording application for macOS. Features may include window selection, layout presets, live preview, camera picture-in-picture, audio capture, on-device captions (\(AppBranding.proName)), and export to common video formats.
+                \(AppBranding.name) is a screen-recording application for macOS. Features may include window selection, layout presets, live preview, camera picture-in-picture, audio capture\(AppFeatureFlags.captionsEnabled ? ", on-device captions (\(AppBranding.proName))" : ""), and export to common video formats.
 
                 We may add, change, or remove features over time. Some capabilities require macOS permissions or a supported Mac model.
                 """
@@ -176,7 +178,7 @@ enum LegalDocumentContent {
                 body: """
                 **Free tier** includes core recording and export with certain limits (such as window count, resolution, or watermark on exports).
 
-                **\(AppBranding.proName)** unlocks additional features such as higher resolutions, vertical layouts, system audio modes, captions, and watermark-free exports. Plan details are shown in the app at purchase time.
+                **\(AppBranding.proName)** unlocks additional features such as higher resolutions, vertical layouts, system audio modes\(AppFeatureFlags.captionsEnabled ? ", captions," : ""), and watermark-free exports. Plan details are shown in the app at purchase time.
 
                 Subscriptions are billed through RevenueCat and processed by Apple, Stripe, or other payment providers we support. **Trials and auto-renewal:** If you start a trial or subscription, it may renew automatically unless you cancel before the renewal date. Manage or cancel through your App Store account, Stripe customer portal, or the in-app subscription management options.
 

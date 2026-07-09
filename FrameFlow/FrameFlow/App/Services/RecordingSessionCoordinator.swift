@@ -29,7 +29,7 @@ final class RecordingSessionCoordinator {
     private let clickEffectRenderer = ClickEffectRenderer()
     private let activeWindowMonitor = ActiveWindowMonitor()
     private let pipController = PiPController.shared
-    private let cameraCapture = CameraCapture()
+    private var cameraCapture: CameraCapture { CameraCapture.shared }
     /// Recording composite + writer cadence (24 Hz — reduces CPU vs 30 Hz during PiP).
     static let recordFrameRate: Double = 24
     /// Live preview refresh (decoupled from writer — reuses last composite CIImage).
@@ -58,8 +58,6 @@ final class RecordingSessionCoordinator {
         outputURL: URL,
         isPro: Bool
     ) async {
-        await stopAll()
-
         guard !windowIDs.isEmpty else {
             errorMessage = "No windows selected."
             return
@@ -74,6 +72,8 @@ final class RecordingSessionCoordinator {
         self.customPlacements = customPlacements
         self.windowAspects = windowAspects
         self.outputURL = outputURL
+
+        await stopRecordingSession(preserveWindowStreams: true)
 
         outputSize = recordingOutputSize(format: format)
         pipController.normalizePositionForCanvas(format: format)
@@ -107,18 +107,26 @@ final class RecordingSessionCoordinator {
                 windowIDs: windowIDs,
                 captureFrameRate: DeviceCapabilityManager.shared.recordingCaptureFrameRate
             )
-            if shouldCaptureSystemAudio, writerAudioMode == .system {
-                try await streamManager.startSystemAudioCapture()
-            }
-            if pipController.isCameraEnabled {
-                await cameraCapture.start(preferredCameraID: pipController.selectedCameraID)
-                if let cameraStatus = cameraCapture.statusMessage {
-                    errorMessage = cameraStatus
+
+            let pipEnabledForStart = pipController.isCameraEnabled
+            let pipCameraIDForStart = pipController.selectedCameraID
+            let needsSystemAudioBeforeEngine = shouldCaptureSystemAudio && writerAudioMode == .system
+
+            async let systemAudioWarmup: Void = { @MainActor in
+                if needsSystemAudioBeforeEngine {
+                    try await streamManager.startSystemAudioCapture()
                 }
-                await waitForPiPFrameIfNeeded()
-            } else {
-                await cameraCapture.stop()
-            }
+            }()
+
+            async let cameraWarmup: Void = { @MainActor in
+                if pipEnabledForStart {
+                    await cameraCapture.start(preferredCameraID: pipCameraIDForStart)
+                    await waitForPiPFrameIfNeeded()
+                } else {
+                    await cameraCapture.stop()
+                }
+            }()
+
             AudioCaptureDiagnostics.resetForRecording()
             let micSampleRate: Double
             if writerAudioMode == .mic || writerAudioMode == .combined {
@@ -137,6 +145,12 @@ final class RecordingSessionCoordinator {
                 outputSize: outputSize,
                 audioSampleRate: micSampleRate
             )
+
+            _ = try await (systemAudioWarmup, cameraWarmup)
+
+            if pipController.isCameraEnabled, let cameraStatus = cameraCapture.statusMessage {
+                errorMessage = cameraStatus
+            }
             let recordingEngine = engine
             let onAudioAppend: @Sendable (CMSampleBuffer, CMTime) -> Void = { sampleBuffer, captureHostTime in
                 do {
@@ -285,6 +299,10 @@ final class RecordingSessionCoordinator {
     }
 
     func stopAll() async {
+        await stopRecordingSession(preserveWindowStreams: false)
+    }
+
+    private func stopRecordingSession(preserveWindowStreams: Bool) async {
         displayTimer?.invalidate()
         displayTimer = nil
         previewTimer?.invalidate()
@@ -294,7 +312,10 @@ final class RecordingSessionCoordinator {
         previewImage = nil
         cursorTracker.stopTracking()
         activeWindowMonitor.stopMonitoring()
-        await cameraCapture.stop()
+        let preserveCameraForPiP = preserveWindowStreams && pipController.isCameraEnabled
+        if !preserveCameraForPiP {
+            await cameraCapture.stop()
+        }
         audioCaptureService.stop()
         await streamManager.stopSystemAudioCapture()
         streamManager.onSystemAudioSampleBuffer = nil
@@ -304,7 +325,15 @@ final class RecordingSessionCoordinator {
         }
 
         isRecording = false
-        await streamManager.stopAllVideoStreams()
+
+        let targetWindowIDs = Set(windowOrder)
+        if preserveWindowStreams,
+           !targetWindowIDs.isEmpty,
+           streamManager.matchesRunningStreams(windowIDs: targetWindowIDs) {
+            // Keep SCStreams alive for layout → recording handoff.
+        } else {
+            await streamManager.stopAllVideoStreams()
+        }
     }
 
     /// Finalizes the writer and moves the temp file to `destinationURL` (staging — no save-folder bookmark).

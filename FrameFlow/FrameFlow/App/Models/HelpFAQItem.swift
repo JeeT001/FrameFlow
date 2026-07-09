@@ -15,6 +15,12 @@ enum HelpFAQCategory: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    static var visibleCases: [HelpFAQCategory] {
+        allCases.filter { category in
+            category != .captions || AppFeatureFlags.captionsEnabled
+        }
+    }
+
     var icon: String {
         switch self {
         case .gettingStarted: "play.circle"
@@ -87,7 +93,7 @@ struct HelpFAQItem: Identifiable, Hashable {
                         """
                         Free includes core recording with limits — up to 2 windows and standard export options. \
                         Pro unlocks up to 4 windows on supported Macs, 4K export on Apple Silicon, 9:16 vertical \
-                        layouts, camera PiP, on-device captions, and more. Manage your plan on the Subscription \
+                        layouts, camera PiP\(AppFeatureFlags.captionsEnabled ? ", on-device captions," : "") and more. Manage your plan on the Subscription \
                         screen (Settings or Account).
                         """
                     )
@@ -182,6 +188,8 @@ struct HelpFAQItem: Identifiable, Hashable {
                     )
                 ]
             ),
-        ]
+        ].filter { item in
+            item.category != .captions || AppFeatureFlags.captionsEnabled
+        }
     }
 }

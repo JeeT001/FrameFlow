@@ -61,10 +61,12 @@ final class ExportViewModel {
 
     /// Editor path: captions often exist only in memory until export. Sync before showing the sheet.
     func prepareEditorExport(segments: [CaptionSegment], leadingGap: Double) {
-        captionSegmentsForExport = segments
+        captionSegmentsForExport = AppFeatureFlags.captionsEnabled ? segments : []
         editorLeadingGapForExport = leadingGap
-        if !segments.isEmpty {
+        if AppFeatureFlags.captionsEnabled, !segments.isEmpty {
             applyCaptions = true
+        } else {
+            applyCaptions = false
         }
     }
 
@@ -73,7 +75,8 @@ final class ExportViewModel {
     }
 
     var shouldShowExportWithoutCaptionsWarning: Bool {
-        hasCaptionsAvailable
+        guard AppFeatureFlags.captionsEnabled else { return false }
+        return hasCaptionsAvailable
             && !applyCaptions
             && !isExporting
             && !SettingsStore.shared.exportWithoutCaptionsWarningShown
@@ -115,7 +118,7 @@ final class ExportViewModel {
             recordingID: exportRecordingID,
             appState: appState
         )
-        applyCaptions = hasCaptionsAvailable
+        applyCaptions = AppFeatureFlags.captionsEnabled && hasCaptionsAvailable
 
         if let recording {
             let url = URL(fileURLWithPath: recording.filePath)
@@ -193,6 +196,11 @@ final class ExportViewModel {
         guard let recording else {
             exportError = "No recording selected."
             return
+        }
+
+        if !AppFeatureFlags.captionsEnabled {
+            applyCaptions = false
+            alsoSaveSRT = false
         }
 
         if captionSegmentsForExport.isEmpty {

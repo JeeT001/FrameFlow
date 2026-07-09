@@ -104,7 +104,7 @@ struct SubscriptionView: View {
             Text("Upgrade to Pro")
                 .font(.largeTitle.weight(.bold))
 
-            Text("Unlock vertical exports, multi-window recording, system audio, captions, and HD export without a watermark.")
+            Text("Unlock vertical exports, multi-window recording, system audio, and HD export without a watermark.")
                 .font(.body)
                 .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)

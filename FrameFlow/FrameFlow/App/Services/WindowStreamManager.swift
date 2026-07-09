@@ -76,61 +76,105 @@ final class WindowStreamManager {
 
     private var sessions: [CGWindowID: WindowStreamSession] = [:]
     private var systemAudioSession: SystemAudioStreamSession?
+    private var cachedPrimaryDisplay: SCDisplay?
     private let capabilities = DeviceCapabilityManager.shared
 
     private init() {}
+
+    var runningWindowIDs: Set<CGWindowID> {
+        Set(sessions.keys)
+    }
+
+    func matchesRunningStreams(windowIDs: Set<CGWindowID>) -> Bool {
+        isRunning && runningWindowIDs == windowIDs
+    }
 
     func startAll(
         windowIDs: Set<CGWindowID>,
         captureFrameRate: Int? = nil
     ) async throws {
-        await stopAll()
+        let frameRate = captureFrameRate ?? capabilities.compositeFrameRate
+        let sortedIDs = windowIDs.sorted()
+        let targetIDs = Set(sortedIDs)
 
-        guard !windowIDs.isEmpty else { return }
+        guard !targetIDs.isEmpty else { return }
+
+        if isRunning, runningWindowIDs == targetIDs {
+            Task { await updateCaptureFrameRate(frameRate) }
+            lastErrorMessage = nil
+            return
+        }
 
         guard await WindowCaptureService.shared.checkPermission() else {
             throw WindowStreamError.permissionDenied
         }
 
-        let frameRate = captureFrameRate ?? capabilities.compositeFrameRate
+        await stopAll()
+
         let buffer = frameBuffer
 
         do {
-            for windowID in windowIDs.sorted() {
-                guard let scWindow = WindowCaptureService.shared.scWindow(for: windowID) else {
-                    throw WindowStreamError.missingWindow(windowID)
+            try await withThrowingTaskGroup(of: (CGWindowID, WindowStreamSession).self) { group in
+                for windowID in sortedIDs {
+                    group.addTask { @MainActor in
+                        guard let scWindow = WindowCaptureService.shared.scWindow(for: windowID) else {
+                            throw WindowStreamError.missingWindow(windowID)
+                        }
+
+                        let session = try await WindowStreamSession.make(
+                            window: scWindow,
+                            frameRate: frameRate,
+                            onFrame: { id, image in
+                                buffer.record(windowID: id, image: image)
+                            }
+                        )
+                        return (windowID, session)
+                    }
                 }
 
-                let session = try await WindowStreamSession.make(
-                    window: scWindow,
-                    frameRate: frameRate,
-                    onFrame: { id, image in
-                        buffer.record(windowID: id, image: image)
-                    }
-                )
-                sessions[windowID] = session
+                for try await (windowID, session) in group {
+                    sessions[windowID] = session
+                }
             }
 
             isRunning = true
             lastErrorMessage = nil
+            PermissionManager.shared.markScreenRecordingGranted()
         } catch {
             await stopAllVideoStreams()
             throw error
         }
     }
 
+    private func updateCaptureFrameRate(_ frameRate: Int) async {
+        await withTaskGroup(of: Void.self) { group in
+            for session in sessions.values {
+                group.addTask {
+                    await session.updateFrameRate(frameRate)
+                }
+            }
+        }
+    }
+
+    /// Prefetch display metadata while the user is on the layout picker (avoids slow SCShareableContent on Record).
+    func warmForRecording() async {
+        if isRunning {
+            PermissionManager.shared.markScreenRecordingGranted()
+        }
+        _ = try? await primaryDisplay()
+    }
+
     func startSystemAudioCapture() async throws {
         await stopSystemAudioCapture()
 
-        guard await WindowCaptureService.shared.checkPermission() else {
-            throw WindowStreamError.permissionDenied
+        if !isRunning {
+            guard await WindowCaptureService.shared.checkPermission() else {
+                throw WindowStreamError.permissionDenied
+            }
         }
 
         do {
-            let shareableContent = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-            guard let display = shareableContent.displays.first else {
-                throw WindowStreamError.startFailed("No display available for system audio capture.")
-            }
+            let display = try await primaryDisplay()
 
             systemAudioSession = try await SystemAudioStreamSession.make(
                 display: display,
@@ -144,6 +188,23 @@ final class WindowStreamManager {
             isSystemAudioRunning = false
             throw WindowStreamError.startFailed(error.localizedDescription)
         }
+    }
+
+    private func primaryDisplay() async throws -> SCDisplay {
+        if let cachedPrimaryDisplay {
+            return cachedPrimaryDisplay
+        }
+
+        let shareableContent = try await SCShareableContent.excludingDesktopWindows(
+            false,
+            onScreenWindowsOnly: true
+        )
+        guard let display = shareableContent.displays.first else {
+            throw WindowStreamError.startFailed("No display available for system audio capture.")
+        }
+        cachedPrimaryDisplay = display
+        PermissionManager.shared.markScreenRecordingGranted()
+        return display
     }
 
     func stopSystemAudioCapture() async {
@@ -256,6 +317,15 @@ private final class WindowStreamSession {
             try await stream.stopCapture()
         } catch {
             // Best-effort stop during teardown.
+        }
+    }
+
+    func updateFrameRate(_ frameRate: Int) async {
+        configuration.minimumFrameInterval = CMTime(value: 1, timescale: Int32(max(frameRate, 1)))
+        do {
+            try await stream.updateConfiguration(configuration)
+        } catch {
+            // Keep existing capture rate if reconfiguration fails.
         }
     }
 }

@@ -54,14 +54,21 @@ struct LayoutPickerView: View {
             viewModel.loadCameras()
             viewModel.loadSessionState(from: appState)
             viewModel.syncPiPState()
-            if appState.isPro {
+            if appState.isPro, AppFeatureFlags.captionsEnabled {
                 TranscriptionService.shared.prepareModelInBackground()
             }
             await viewModel.startLivePreview(appState: appState)
             await viewModel.startCameraPreviewIfNeeded()
+            await WindowStreamManager.shared.warmForRecording()
         }
         .onDisappear {
-            Task { await viewModel.stopLivePreview() }
+            Task {
+                if appState.isEnteringRecording {
+                    await viewModel.stopLivePreviewPreservingStreams()
+                } else {
+                    await viewModel.stopLivePreview()
+                }
+            }
         }
         .onChange(of: viewModel.format) { old, new in
             viewModel.handleFormatChange(from: old, to: new, appState: appState)
@@ -403,6 +410,7 @@ struct LayoutPickerView: View {
     private func startRecording() {
         guard viewModel.validateWindowsSelected(from: appState) else { return }
         viewModel.syncSessionState(to: appState)
+        appState.isEnteringRecording = true
         router.navigate(to: .recording)
     }
 }

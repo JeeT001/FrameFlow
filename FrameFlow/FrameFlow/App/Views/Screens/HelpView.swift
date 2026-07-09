@@ -23,7 +23,7 @@ struct HelpView: View {
     private var filteredSections: [(category: HelpFAQCategory, items: [HelpFAQItem])] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
-        return HelpFAQCategory.allCases.compactMap { category in
+        return HelpFAQCategory.visibleCases.compactMap { category in
             let items = allFAQItems.filter { item in
                 item.category == category
                     && (query.isEmpty || item.searchableText.lowercased().contains(query))

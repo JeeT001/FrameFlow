@@ -14,7 +14,7 @@ import ScreenCaptureKit
 final class LayoutPickerViewModel {
     let settings = SettingsStore.shared
     let pipController = PiPController.shared
-    let cameraCapture = CameraCapture()
+    var cameraCapture: CameraCapture { CameraCapture.shared }
     let windowPlacementController = WindowPlacementController()
 
     var format: RecordingFormat = .sixteenByNine
@@ -153,6 +153,11 @@ final class LayoutPickerViewModel {
     func stopLivePreview() async {
         await previewCoordinator.stop()
         await cameraCapture.stop()
+    }
+
+    func stopLivePreviewPreservingStreams() async {
+        await previewCoordinator.stopPreservingStreams()
+        // Keep CameraCapture.shared warm for recording PiP handoff.
     }
 
     func refreshLivePreview(appState: AppState) async {

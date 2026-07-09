@@ -181,6 +181,7 @@ struct RecordingView: View {
     }
 
     private func shouldStartCaptionFlow(for metadata: RecordingMetadata) async -> Bool {
+        guard AppFeatureFlags.captionsEnabled else { return false }
         guard appState.isPro else { return false }
         guard metadata.audioMode.lowercased() != "none" else { return false }
 

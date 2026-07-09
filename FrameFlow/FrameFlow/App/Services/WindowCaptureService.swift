@@ -68,6 +68,8 @@ final class WindowCaptureService {
             uniqueKeysWithValues: capturableWindows.map { ($0.windowID, $0) }
         )
 
+        PermissionManager.shared.markScreenRecordingGranted()
+
         let items = capturableWindows.map { window in
             windowItem(from: window, thumbnail: nil)
         }

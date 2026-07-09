@@ -28,8 +28,10 @@ struct EditorInspectorPanel: View {
                     sectionDivider
                 }
 
-                captionsSection
-                sectionDivider
+                if AppFeatureFlags.captionsEnabled {
+                    captionsSection
+                    sectionDivider
+                }
 
                 exportHintSection
             }
@@ -99,9 +101,15 @@ struct EditorInspectorPanel: View {
         VStack(alignment: .leading, spacing: 8) {
             inspectorSectionHeader("Export")
             if viewModel.hasTrimApplied {
-                Text("Export Video saves the trimmed range (\(viewModel.formattedExportDuration)). Captions outside the trim are excluded. The original file on disk is unchanged.")
-                    .font(.caption)
-                    .foregroundStyle(AppColors.textSecondary)
+                if AppFeatureFlags.captionsEnabled {
+                    Text("Export Video saves the trimmed range (\(viewModel.formattedExportDuration)). Captions outside the trim are excluded. The original file on disk is unchanged.")
+                        .font(.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                } else {
+                    Text("Export Video saves the trimmed range (\(viewModel.formattedExportDuration)). The original file on disk is unchanged.")
+                        .font(.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
             } else {
                 Text("Use Export Video in the toolbar to save your recording. The full clip is exported as captured.")
                     .font(.caption)

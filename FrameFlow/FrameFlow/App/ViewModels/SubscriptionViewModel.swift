@@ -17,16 +17,23 @@ struct SubscriptionFeatureRow: Identifiable {
 @Observable
 @MainActor
 final class SubscriptionViewModel {
-    static let featureRows: [SubscriptionFeatureRow] = [
-        SubscriptionFeatureRow(title: "Up to 2 windows", freeIncluded: true, proIncluded: true),
-        SubscriptionFeatureRow(title: "Up to 4 windows", freeIncluded: false, proIncluded: true),
-        SubscriptionFeatureRow(title: "9:16 vertical format", freeIncluded: false, proIncluded: true),
-        SubscriptionFeatureRow(title: "System & combined audio", freeIncluded: false, proIncluded: true),
-        SubscriptionFeatureRow(title: "Camera PiP overlay", freeIncluded: false, proIncluded: true),
-        SubscriptionFeatureRow(title: "Auto captions editor", freeIncluded: false, proIncluded: true),
-        SubscriptionFeatureRow(title: "1080p & 4K export", freeIncluded: false, proIncluded: true),
-        SubscriptionFeatureRow(title: "No watermark", freeIncluded: false, proIncluded: true),
-    ]
+    static var featureRows: [SubscriptionFeatureRow] {
+        var rows: [SubscriptionFeatureRow] = [
+            SubscriptionFeatureRow(title: "Up to 2 windows", freeIncluded: true, proIncluded: true),
+            SubscriptionFeatureRow(title: "Up to 4 windows", freeIncluded: false, proIncluded: true),
+            SubscriptionFeatureRow(title: "9:16 vertical format", freeIncluded: false, proIncluded: true),
+            SubscriptionFeatureRow(title: "System & combined audio", freeIncluded: false, proIncluded: true),
+            SubscriptionFeatureRow(title: "Camera PiP overlay", freeIncluded: false, proIncluded: true),
+        ]
+        if AppFeatureFlags.captionsEnabled {
+            rows.append(SubscriptionFeatureRow(title: "Auto captions editor", freeIncluded: false, proIncluded: true))
+        }
+        rows.append(contentsOf: [
+            SubscriptionFeatureRow(title: "1080p & 4K export", freeIncluded: false, proIncluded: true),
+            SubscriptionFeatureRow(title: "No watermark", freeIncluded: false, proIncluded: true),
+        ])
+        return rows
+    }
 
     private let subscriptionManager = SubscriptionManager.shared
 
