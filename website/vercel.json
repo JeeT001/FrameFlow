@@ -13,7 +13,8 @@
     { "source": "/release-notes/1.0.14", "destination": "/release-notes/1.0.14/" },
     { "source": "/release-notes/1.0.15", "destination": "/release-notes/1.0.15/" },
     { "source": "/release-notes/1.0.16", "destination": "/release-notes/1.0.16/" },
-    { "source": "/release-notes/1.0.17", "destination": "/release-notes/1.0.17/" }
+    { "source": "/release-notes/1.0.17", "destination": "/release-notes/1.0.17/" },
+    { "source": "/release-notes/1.0.18", "destination": "/release-notes/1.0.18/" }
   ],
   "redirects": [
     {

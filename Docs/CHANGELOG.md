@@ -4,6 +4,12 @@ All notable changes to FrameFlow are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.18] — 2026-07-09
+
+### Changed
+- Subscription pricing copy now matches the current plans across app and website: annual is $155.88/year, yearly billing shows $12.99/month billed annually, and the standalone monthly plan is $18/month
+- Website pricing badge is now neutral (`Annual billing`) with no implied annual discount messaging
+
 ## [1.0.17] — 2026-07-09
 
 ### Changed

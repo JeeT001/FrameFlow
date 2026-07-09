@@ -4170,3 +4170,13 @@ Probe media timing before export and restore v1.0.12 full-source routing. Fixes 
 
 **Shipped:** Tag `v1.0.17` (2026-07-09).
 
+---
+
+## 2026-07-09 — v1.0.18 pricing copy correction
+
+**Pricing copy:** Updated subscription pricing across app + website to match the live plans: annual is **$155.88/year**, annual billing is explained as **$12.99/month billed annually**, and the standalone monthly plan is **$18/month**.
+
+**Copy cleanup:** Removed implied annual-value wording from the website pricing badge and replaced it with neutral **Annual billing** language.
+
+**Shipped:** Tag `v1.0.18` (2026-07-09).
+
