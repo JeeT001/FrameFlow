@@ -715,6 +715,72 @@ nav {
   letter-spacing: 0.02em;
 }
 
+/* ─── WORKFLOW COMPARISON ─── */
+.workflow-compare-section { background: var(--white); }
+.workflow-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.workflow-card {
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  border: 1.5px solid var(--gray-300);
+  background: var(--gray-100);
+  box-shadow: var(--shadow);
+}
+.workflow-card-old {
+  background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+}
+.workflow-card-new {
+  background: linear-gradient(180deg, var(--blue-pale) 0%, #f7f9ff 100%);
+  border-color: rgba(26,86,219,0.24);
+}
+.workflow-card-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--blue);
+  background: rgba(26,86,219,0.08);
+}
+.workflow-card h3 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--gray-900);
+  margin-bottom: 18px;
+  letter-spacing: -0.02em;
+}
+.workflow-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.workflow-list li {
+  position: relative;
+  padding-left: 24px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--gray-700);
+}
+.workflow-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--blue);
+}
+
 /* ─── LAYOUTS SECTION ─── */
 .layouts-section { background: var(--white); }
 .format-compare {
@@ -1245,6 +1311,7 @@ footer {
   .feat-card.span2 { grid-column: span 1; }
   .how-steps { grid-template-columns: 1fr 1fr; gap: 40px; }
   .how-steps::before { display: none; }
+  .workflow-compare-grid { grid-template-columns: 1fr; }
   .format-compare { grid-template-columns: 1fr; }
   .mockup-canvas-9x16 { max-height: 220px; }
   .preset-strip { grid-template-columns: 1fr 1fr; }
@@ -1262,6 +1329,7 @@ footer {
   .usecases-grid, .usecases-grid-2 { grid-template-columns: 1fr 1fr; }
   .how-steps { grid-template-columns: 1fr; }
   .recordings-grid { grid-template-columns: repeat(2,1fr); }
+  .workflow-card { padding: 22px; }
 }
 
 .nav-logo-img {
