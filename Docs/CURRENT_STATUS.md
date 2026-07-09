@@ -1,7 +1,7 @@
 # FrameFlow — Current Status
 
 **Last updated:** 2026-07-09  
-**Version:** v1.0.15 (releasing — caption export fix for CI/notarized builds)  
+**Version:** v1.0.15 (released — caption export fix for CI/notarized builds)  
 **Repository:** [public on GitHub](https://github.com/JeeT001/FrameFlow) — anonymous DMG download works
 
 ## Current Phase
@@ -12,7 +12,7 @@
 
 - **Day 54 billing** — RevenueCat Production, Stripe Live, webhook + Supabase secrets, test purchase → Pro unlock, CI `REVENUECAT_API_KEY`
 - **v1.0.9 (released)** — Editor caption burn-in when sidecar unavailable; dev route picker + debug Settings hidden in Release
-- **v1.0.15 (releasing)** — Caption export on notarized DMG: probe media timing before export + v1.0.12 full-source routing (verified via `archive_release.sh`)
+- **v1.0.15 (released)** — Caption export on notarized DMG: probe media timing before export + v1.0.12 full-source routing (verified via `archive_release.sh`)
 - **v1.0.14 (released)** — Partial caption export fix; insufficient on CI/notarized builds
 - **Free layout grid (shipped in 1.0.13)** — 1–4 windows seed TL/TR/BL/BR instead of center overlap
 - **v1.0.12 (released)** — Sparkle sandbox fix: in-app Check for Updates install works on sandboxed builds
