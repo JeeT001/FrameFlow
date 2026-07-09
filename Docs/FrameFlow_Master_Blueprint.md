@@ -724,7 +724,7 @@ resolution badge, Play button (opens in system player), Re-export button, Delete
 **UI Elements:**
 - Free vs Pro feature comparison table
 - Annual plan card: $155.88/yr with $12.99/mo billed annually (7-day free trial)
-- Monthly plan card: $12.99/mo (7-day free trial)
+- Monthly plan card: $18/mo (7-day free trial)
 - Lifetime card: $79 one-time (launch period only — hidden after 60 days)
 - "Start Free Trial" button (becomes "Upgrade" after trial)
 - "Restore Purchase" link
@@ -851,7 +851,7 @@ resolution badge, Play button (opens in system player), Re-export button, Delete
 |---|---|---|---|
 | Free | $0 | Forever | No trial needed |
 | Pro Annual | $155.88/year | $12.99/month billed annually | 7-day free trial |
-| Pro Monthly | $12.99/month | Monthly billing | 7-day free trial |
+| Pro Monthly | $18/month | Monthly billing | 7-day free trial |
 | Lifetime (launch only) | $79 | One-time | None |
 
 Remove lifetime offer after 60 days from launch. Switch everyone to subscription only.
@@ -1864,7 +1864,7 @@ Files: SubscriptionView.swift, ProGateModifier.swift
 Cursor Prompt (Subscription Screen):
 "Build a SwiftUI macOS Subscription screen. Show a feature comparison table (rows for key
 features, columns: Free, Pro with checkmarks and X marks). Show 3 plan cards: Annual ($155.88/yr,
-with $12.99/mo billed annually, 7-day trial), Monthly ($12.99/mo, 7-day trial), Lifetime ($79 one-time — visible
+with $12.99/mo billed annually, 7-day trial), Monthly ($18/mo, 7-day trial), Lifetime ($79 one-time — visible
 only when SettingsStore.showLifetimeDeal is true). Each card has a plan name, price, billing
 description, and a 'Start Free Trial' button that calls Purchases.shared.purchase(package:).
 Show ProgressView during purchase. On success call SubscriptionManager.fetchStatus() then

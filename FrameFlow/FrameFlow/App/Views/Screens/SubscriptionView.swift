@@ -161,7 +161,7 @@ struct SubscriptionView: View {
 
                 planCard(
                     title: "Pro Monthly",
-                    priceLine: "$12.99/mo",
+                    priceLine: "$18/mo",
                     detailLine: "Billed monthly · 7-day free trial",
                     buttonTitle: "Start Free Trial",
                     plan: .monthly
